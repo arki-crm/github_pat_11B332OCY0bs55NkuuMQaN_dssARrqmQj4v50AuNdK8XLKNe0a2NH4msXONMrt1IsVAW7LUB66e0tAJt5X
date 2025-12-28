@@ -1108,6 +1108,43 @@ const ProjectDetails = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Fetch meetings for this project
+  const fetchMeetings = async () => {
+    try {
+      setLoadingMeetings(true);
+      const response = await axios.get(`${API}/projects/${id}/meetings`, {
+        withCredentials: true
+      });
+      setMeetings(response.data || []);
+    } catch (err) {
+      console.error('Failed to fetch meetings:', err);
+    } finally {
+      setLoadingMeetings(false);
+    }
+  };
+
+  // Fetch meetings when tab changes to meetings
+  useEffect(() => {
+    if (activeTab === 'meetings' && id) {
+      fetchMeetings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, id]);
+
+  // Handle meeting status update
+  const handleMeetingStatusUpdate = async (meetingId, status) => {
+    try {
+      await axios.put(`${API}/meetings/${meetingId}`, { status }, {
+        withCredentials: true
+      });
+      toast.success(`Meeting ${status.toLowerCase()}`);
+      fetchMeetings();
+    } catch (err) {
+      console.error('Failed to update meeting:', err);
+      toast.error('Failed to update meeting');
+    }
+  };
+
   // Add comment
   const handleAddComment = async (message) => {
     try {
