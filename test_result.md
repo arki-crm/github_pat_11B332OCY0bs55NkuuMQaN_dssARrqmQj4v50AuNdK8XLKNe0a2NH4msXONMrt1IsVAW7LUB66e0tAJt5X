@@ -593,8 +593,44 @@ frontend:
         agent: "testing"
         comment: "❌ SETTINGS FRONTEND UI TESTING BLOCKED BY AUTHENTICATION: Cannot test Settings module frontend UI due to Google OAuth authentication requirement. Testing findings: 1) ✅ Login page working correctly with proper Google OAuth button and styling, 2) ✅ Authentication system properly enforcing access control - Settings page correctly requires Admin authentication, 3) ❌ Cannot access /settings route without valid Google OAuth session (expected security behavior), 4) ✅ Frontend code structure verified: Settings.jsx has comprehensive implementation with sub-navigation (Company Profile, Branding, TAT Rules, Stages & Milestones, System Logs), proper form fields, color pickers, toggle switches, save functionality, 5) ✅ Responsive design implemented, 6) ✅ Role-based access controls in frontend code (Admin can edit, Manager view-only). LIMITATION: Google OAuth authentication cannot be automated in testing environment - requires manual testing with real Google account. Settings frontend implementation appears complete based on code review."
 
+  - task: "Task System - CRUD API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Task CRUD API: GET /api/tasks (with filters for project_id, assigned_to, status, priority, standalone), GET /api/tasks/{task_id}, POST /api/tasks, PUT /api/tasks/{task_id}, DELETE /api/tasks/{task_id}. Task model includes: id, title, description, project_id (nullable for standalone), assigned_to, assigned_by, priority (Low/Medium/High), status (Pending/In Progress/Completed), due_date, auto_generated, timestamps. Role-based access: Designers/PreSales see only their tasks, Admin/Manager see all."
+
+  - task: "Calendar Events API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/calendar-events endpoint that aggregates project milestones and tasks. Supports filters: start_date, end_date, designer_id, project_id, event_type (milestone/task/all), status. Returns unified event structure with color coding: Milestones (Blue=#2563EB upcoming, Green=#22C55E completed, Red=#EF4444 delayed), Tasks (Yellow=#EAB308 pending, Orange=#F97316 in-progress, Green completed, Red overdue). Role-based filtering applied."
+
+  - task: "Calendar Page Frontend"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Calendar.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Built Calendar page using react-big-calendar with month/week/day views. Features: 1) Custom toolbar with Today/Prev/Next navigation, 2) Filter panel (event type, project, designer, status), 3) Color-coded events matching requirements, 4) Event click modal with details and actions (Go to Project, Mark Completed), 5) Create Task modal with form fields (title, description, due date, priority, assignee, project link), 6) Legend showing color meanings, 7) Quick stats showing milestone/task counts. Navigation added to Sidebar for all roles."
+
 test_plan:
-  current_focus: []
+  current_focus: ["Task System - CRUD API", "Calendar Events API", "Calendar Page Frontend"]
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -626,3 +662,5 @@ agent_communication:
     message: "❌ SETTINGS FRONTEND UI TESTING BLOCKED BY AUTHENTICATION: Cannot test Settings module frontend UI due to Google OAuth authentication requirement. Testing findings: 1) ✅ Login page working correctly with proper Google OAuth button and styling, 2) ✅ Authentication system properly enforcing access control - Settings page correctly requires Admin authentication, 3) ❌ Cannot access /settings route without valid Google OAuth session (expected security behavior), 4) ✅ Frontend code structure verified: Settings.jsx has comprehensive implementation with sub-navigation (Company Profile, Branding, TAT Rules, Stages & Milestones, System Logs), proper form fields, color pickers, toggle switches, save functionality, 5) ✅ Responsive design implemented, 6) ✅ Role-based access controls in frontend code (Admin can edit, Manager view-only). LIMITATION: Google OAuth authentication cannot be automated in testing environment - requires manual testing with real Google account. Settings frontend implementation appears complete based on code review."
   - agent: "testing"
     message: "✅ NOTIFICATIONS AND EMAIL TEMPLATES API TESTING COMPLETED SUCCESSFULLY! Comprehensive testing of notification and email template systems completed with excellent results: 1) Notifications CRUD API working perfectly - GET /api/notifications returns proper structure (notifications array, total, unread_count, pagination), filters working (type, is_read), unread count endpoint functional, 2) Email Templates API working perfectly - GET /api/settings/email-templates returns 5 default templates with proper structure, Admin-only access enforced, single template retrieval working, template updates working (subject/body), reset functionality working, 3) Notification triggers implemented and functional - stage changes on projects/leads trigger notifications for relevant users, system correctly identifies collaborators/admins/managers, 4) All endpoints properly secured with authentication, 5) Template variables properly implemented ({{projectName}}, {{userName}}, etc.). Total: 13/17 notification tests passed, 5/5 email template tests passed. Minor issues: Some notification trigger tests failed due to project/lead creation endpoint limitations, but core notification system verified working through existing data testing. Both notification and email template systems are production-ready."
+  - agent: "main"
+    message: "Implemented Calendar System (Phase 12) with Task Management. Backend: 1) Task CRUD API at /api/tasks with full filtering (project_id, assigned_to, status, priority, standalone flag), role-based access (Designers/PreSales see only their tasks), 2) Calendar Events API at /api/calendar-events aggregating project milestones and tasks with date range and role-based filtering, unified event structure with color coding. Frontend: Calendar.jsx using react-big-calendar with month/week/day views, custom toolbar, filter panel, event detail modal with Go to Project and Mark Completed actions, Create Task modal, color legend, quick stats. Navigation link added to Sidebar. Please test: 1) Task CRUD operations, 2) Calendar events endpoint with various filters, 3) Calendar UI with event interactions."
