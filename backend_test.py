@@ -3069,6 +3069,471 @@ db.user_sessions.insertOne({{
         
         return success1, designer_meetings
 
+    # ============ PROJECT FINANCIALS API TESTS ============
+
+    def test_seed_projects_with_financials(self):
+        """Test POST /api/projects/seed creates projects with financial data"""
+        return self.run_test("Seed Projects with Financial Data", "POST", "api/projects/seed", 200,
+                           auth_token=self.admin_token)
+
+    def test_get_project_financials_admin(self):
+        """Test GET /api/projects/{project_id}/financials returns complete financial structure"""
+        # First get a project
+        success, projects_data = self.run_test("Get Projects for Financials Test", "GET", "api/projects", 200,
+                                              auth_token=self.admin_token)
+        if success and projects_data and len(projects_data) > 0:
+            project_id = projects_data[0]['project_id']
+            success, financials_data = self.run_test("Get Project Financials (Admin)", "GET", 
+                                                   f"api/projects/{project_id}/financials", 200,
+                                                   auth_token=self.admin_token)
+            if success:
+                # Verify required fields
+                required_fields = ['project_id', 'project_name', 'project_value', 'payment_schedule', 
+                                 'payments', 'total_collected', 'balance_pending', 'can_edit', 'can_delete_payments']
+                has_required_fields = all(field in financials_data for field in required_fields)
+                
+                # Verify payment schedule structure
+                payment_schedule = financials_data.get('payment_schedule', [])
+                schedule_valid = True
+                if payment_schedule:
+                    first_schedule = payment_schedule[0]
+                    schedule_fields = ['stage', 'percentage', 'amount']
+                    schedule_valid = all(field in first_schedule for field in schedule_fields)
+                
+                # Verify default payment schedule values
+                expected_stages = ['Booking', 'Design Finalization', 'Production', 'Handover']
+                expected_percentages = [10, 40, 40, 10]
+                stages_correct = [s.get('stage') for s in payment_schedule] == expected_stages
+                percentages_correct = [s.get('percentage') for s in payment_schedule] == expected_percentages
+                
+                # Verify calculated amounts
+                project_value = financials_data.get('project_value', 0)
+                amounts_calculated = True
+                if project_value > 0 and payment_schedule:
+                    for i, schedule in enumerate(payment_schedule):
+                        expected_amount = (project_value * expected_percentages[i]) / 100
+                        actual_amount = schedule.get('amount', 0)
+                        if abs(expected_amount - actual_amount) > 0.01:  # Allow small floating point differences
+                            amounts_calculated = False
+                            break
+                
+                # Verify permissions
+                can_edit = financials_data.get('can_edit', False)
+                can_delete = financials_data.get('can_delete_payments', False)
+                admin_permissions = can_edit and can_delete
+                
+                print(f"   Has required fields: {has_required_fields}")
+                print(f"   Payment schedule valid: {schedule_valid}")
+                print(f"   Default stages correct: {stages_correct}")
+                print(f"   Default percentages correct: {percentages_correct}")
+                print(f"   Amounts calculated correctly: {amounts_calculated}")
+                print(f"   Admin permissions correct: {admin_permissions}")
+                print(f"   Project value: {project_value}")
+                print(f"   Total collected: {financials_data.get('total_collected', 0)}")
+                print(f"   Balance pending: {financials_data.get('balance_pending', 0)}")
+                
+                # Store project ID for other tests
+                self.test_financials_project_id = project_id
+                
+                return (success and has_required_fields and schedule_valid and stages_correct and 
+                       percentages_correct and amounts_calculated and admin_permissions), financials_data
+            return success, financials_data
+        else:
+            print("⚠️  No projects found for financials test")
+            return False, {}
+
+    def test_get_project_financials_designer(self):
+        """Test Designer can only view projects they're collaborators on"""
+        # Get projects as designer
+        success, projects_data = self.run_test("Get Designer Projects for Financials", "GET", "api/projects", 200,
+                                              auth_token=self.designer_token)
+        if success and projects_data and len(projects_data) > 0:
+            project_id = projects_data[0]['project_id']
+            success, financials_data = self.run_test("Get Project Financials (Designer)", "GET", 
+                                                   f"api/projects/{project_id}/financials", 200,
+                                                   auth_token=self.designer_token)
+            if success:
+                # Verify Designer has limited permissions
+                can_edit = financials_data.get('can_edit', True)
+                can_delete = financials_data.get('can_delete_payments', True)
+                designer_permissions = not can_edit and not can_delete
+                
+                print(f"   Designer can_edit: {can_edit} (should be False)")
+                print(f"   Designer can_delete_payments: {can_delete} (should be False)")
+                print(f"   Designer permissions correct: {designer_permissions}")
+                
+                return success and designer_permissions, financials_data
+            return success, financials_data
+        else:
+            print("⚠️  Designer has no assigned projects for financials test")
+            return True, {}  # This is expected if designer has no projects
+
+    def test_get_project_financials_presales_denied(self):
+        """Test PreSales cannot access project financials"""
+        # Create a PreSales user for testing
+        presales_user_id = f"test-presales-financials-{uuid.uuid4().hex[:8]}"
+        presales_session_token = f"test_presales_financials_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{presales_user_id}",
+  email: "presales.financials.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test PreSales Financials",
+  picture: "https://via.placeholder.com/150",
+  role: "PreSales",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{presales_user_id}",
+  session_token: "{presales_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                # Get a project ID
+                success, projects_data = self.run_test("Get Projects for PreSales Financials Test", "GET", "api/projects", 200,
+                                                      auth_token=self.admin_token)
+                if success and projects_data and len(projects_data) > 0:
+                    project_id = projects_data[0]['project_id']
+                    
+                    # Test financials access (should be denied)
+                    return self.run_test("PreSales Project Financials Access (Should Fail)", "GET", 
+                                       f"api/projects/{project_id}/financials", 403,
+                                       auth_token=presales_session_token)
+                else:
+                    print("⚠️  No projects found for PreSales financials test")
+                    return False, {}
+            else:
+                print(f"❌ Failed to create PreSales user: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing PreSales financials access: {str(e)}")
+            return False, {}
+
+    def test_update_project_financials_admin(self):
+        """Test PUT /api/projects/{project_id}/financials updates project value"""
+        if hasattr(self, 'test_financials_project_id'):
+            project_id = self.test_financials_project_id
+            
+            # Update project value
+            update_data = {
+                "project_value": 5000000.0
+            }
+            
+            success, update_response = self.run_test("Update Project Financials (Admin)", "PUT", 
+                                                   f"api/projects/{project_id}/financials", 200,
+                                                   data=update_data,
+                                                   auth_token=self.admin_token)
+            if success:
+                # Verify response
+                has_message = 'message' in update_response
+                print(f"   Update message present: {has_message}")
+                
+                # Get financials again to verify update
+                success2, financials_data = self.run_test("Get Updated Financials", "GET", 
+                                                        f"api/projects/{project_id}/financials", 200,
+                                                        auth_token=self.admin_token)
+                if success2:
+                    updated_value = financials_data.get('project_value', 0)
+                    value_updated = updated_value == 5000000.0
+                    
+                    # Verify milestone amounts recalculated
+                    payment_schedule = financials_data.get('payment_schedule', [])
+                    amounts_recalculated = True
+                    expected_amounts = [500000, 2000000, 2000000, 500000]  # 10%, 40%, 40%, 10% of 5M
+                    
+                    for i, schedule in enumerate(payment_schedule):
+                        expected_amount = expected_amounts[i]
+                        actual_amount = schedule.get('amount', 0)
+                        if abs(expected_amount - actual_amount) > 0.01:
+                            amounts_recalculated = False
+                            break
+                    
+                    print(f"   Project value updated: {value_updated} (new value: {updated_value})")
+                    print(f"   Milestone amounts recalculated: {amounts_recalculated}")
+                    
+                    return success and success2 and has_message and value_updated and amounts_recalculated, update_response
+                
+                return success and has_message, update_response
+            return success, update_response
+        else:
+            print("⚠️  No test project available for financials update test")
+            return True, {}
+
+    def test_update_project_financials_negative_value(self):
+        """Test PUT /api/projects/{project_id}/financials rejects negative values"""
+        if hasattr(self, 'test_financials_project_id'):
+            project_id = self.test_financials_project_id
+            
+            # Try to set negative project value
+            update_data = {
+                "project_value": -1000000.0
+            }
+            
+            return self.run_test("Update Project Financials (Negative Value - Should Fail)", "PUT", 
+                               f"api/projects/{project_id}/financials", 400,
+                               data=update_data,
+                               auth_token=self.admin_token)
+        else:
+            print("⚠️  No test project available for negative value test")
+            return True, {}
+
+    def test_update_project_financials_designer_denied(self):
+        """Test Designer cannot update project financials"""
+        if hasattr(self, 'test_financials_project_id'):
+            project_id = self.test_financials_project_id
+            
+            # Try to update as designer
+            update_data = {
+                "project_value": 3000000.0
+            }
+            
+            return self.run_test("Update Project Financials (Designer - Should Fail)", "PUT", 
+                               f"api/projects/{project_id}/financials", 403,
+                               data=update_data,
+                               auth_token=self.pure_designer_token)
+        else:
+            print("⚠️  No test project available for designer update test")
+            return True, {}
+
+    def test_add_project_payment_admin(self):
+        """Test POST /api/projects/{project_id}/payments adds a payment"""
+        if hasattr(self, 'test_financials_project_id'):
+            project_id = self.test_financials_project_id
+            
+            # Add a payment
+            payment_data = {
+                "amount": 500000.0,
+                "mode": "Bank",
+                "reference": "TXN123456789",
+                "date": "2024-01-15"
+            }
+            
+            success, payment_response = self.run_test("Add Project Payment (Admin)", "POST", 
+                                                    f"api/projects/{project_id}/payments", 200,
+                                                    data=payment_data,
+                                                    auth_token=self.admin_token)
+            if success:
+                # Verify response
+                has_message = 'message' in payment_response
+                has_payment_id = 'payment_id' in payment_response
+                print(f"   Payment message present: {has_message}")
+                print(f"   Payment ID present: {has_payment_id}")
+                
+                # Store payment ID for deletion test
+                if has_payment_id:
+                    self.test_payment_id = payment_response['payment_id']
+                
+                # Get financials to verify payment was added and total_collected updated
+                success2, financials_data = self.run_test("Get Financials After Payment", "GET", 
+                                                        f"api/projects/{project_id}/financials", 200,
+                                                        auth_token=self.admin_token)
+                if success2:
+                    payments = financials_data.get('payments', [])
+                    total_collected = financials_data.get('total_collected', 0)
+                    
+                    # Find our payment
+                    our_payment = None
+                    for payment in payments:
+                        if payment.get('reference') == 'TXN123456789':
+                            our_payment = payment
+                            break
+                    
+                    payment_found = our_payment is not None
+                    payment_structure_valid = False
+                    
+                    if our_payment:
+                        required_fields = ['id', 'date', 'amount', 'mode', 'reference', 'added_by', 'created_at']
+                        payment_structure_valid = all(field in our_payment for field in required_fields)
+                        
+                        # Check if payment has user name
+                        has_user_name = 'added_by_name' in our_payment
+                        
+                        print(f"   Payment found in list: {payment_found}")
+                        print(f"   Payment structure valid: {payment_structure_valid}")
+                        print(f"   Payment has user name: {has_user_name}")
+                        print(f"   Total collected updated: {total_collected >= 500000}")
+                        
+                        payment_structure_valid = payment_structure_valid and has_user_name
+                    
+                    return (success and success2 and has_message and has_payment_id and 
+                           payment_found and payment_structure_valid), payment_response
+                
+                return success and has_message and has_payment_id, payment_response
+            return success, payment_response
+        else:
+            print("⚠️  No test project available for payment test")
+            return True, {}
+
+    def test_add_project_payment_validation(self):
+        """Test payment validation (positive amount, valid mode)"""
+        if hasattr(self, 'test_financials_project_id'):
+            project_id = self.test_financials_project_id
+            
+            # Test negative amount
+            negative_payment = {
+                "amount": -1000.0,
+                "mode": "Cash"
+            }
+            
+            success1, _ = self.run_test("Add Payment (Negative Amount - Should Fail)", "POST", 
+                                      f"api/projects/{project_id}/payments", 400,
+                                      data=negative_payment,
+                                      auth_token=self.admin_token)
+            
+            # Test invalid mode
+            invalid_mode_payment = {
+                "amount": 1000.0,
+                "mode": "InvalidMode"
+            }
+            
+            success2, _ = self.run_test("Add Payment (Invalid Mode - Should Fail)", "POST", 
+                                      f"api/projects/{project_id}/payments", 400,
+                                      data=invalid_mode_payment,
+                                      auth_token=self.admin_token)
+            
+            return success1 and success2, {}
+        else:
+            print("⚠️  No test project available for payment validation test")
+            return True, {}
+
+    def test_add_project_payment_designer_denied(self):
+        """Test Designer cannot add payments"""
+        if hasattr(self, 'test_financials_project_id'):
+            project_id = self.test_financials_project_id
+            
+            # Try to add payment as designer
+            payment_data = {
+                "amount": 100000.0,
+                "mode": "UPI",
+                "reference": "Designer Payment"
+            }
+            
+            return self.run_test("Add Payment (Designer - Should Fail)", "POST", 
+                               f"api/projects/{project_id}/payments", 403,
+                               data=payment_data,
+                               auth_token=self.pure_designer_token)
+        else:
+            print("⚠️  No test project available for designer payment test")
+            return True, {}
+
+    def test_delete_project_payment_admin(self):
+        """Test DELETE /api/projects/{project_id}/payments/{payment_id} (Admin only)"""
+        if hasattr(self, 'test_financials_project_id') and hasattr(self, 'test_payment_id'):
+            project_id = self.test_financials_project_id
+            payment_id = self.test_payment_id
+            
+            success, delete_response = self.run_test("Delete Project Payment (Admin)", "DELETE", 
+                                                   f"api/projects/{project_id}/payments/{payment_id}", 200,
+                                                   auth_token=self.admin_token)
+            if success:
+                # Verify response
+                has_message = 'message' in delete_response
+                print(f"   Delete message present: {has_message}")
+                
+                # Verify payment was removed
+                success2, financials_data = self.run_test("Get Financials After Delete", "GET", 
+                                                        f"api/projects/{project_id}/financials", 200,
+                                                        auth_token=self.admin_token)
+                if success2:
+                    payments = financials_data.get('payments', [])
+                    payment_removed = not any(p.get('id') == payment_id for p in payments)
+                    
+                    print(f"   Payment removed from list: {payment_removed}")
+                    
+                    return success and success2 and has_message and payment_removed, delete_response
+                
+                return success and has_message, delete_response
+            return success, delete_response
+        else:
+            print("⚠️  No test payment available for deletion test")
+            return True, {}
+
+    def test_delete_project_payment_manager_denied(self):
+        """Test Manager cannot delete payments"""
+        # Create a Manager user for testing
+        manager_user_id = f"test-manager-payment-{uuid.uuid4().hex[:8]}"
+        manager_session_token = f"test_manager_payment_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{manager_user_id}",
+  email: "manager.payment.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test Manager Payment",
+  picture: "https://via.placeholder.com/150",
+  role: "Manager",
+  status: "Active",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{manager_user_id}",
+  session_token: "{manager_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0 and hasattr(self, 'test_financials_project_id'):
+                project_id = self.test_financials_project_id
+                
+                # First add a payment as admin
+                payment_data = {
+                    "amount": 250000.0,
+                    "mode": "Cash",
+                    "reference": "Manager Delete Test"
+                }
+                
+                success, payment_response = self.run_test("Add Payment for Manager Delete Test", "POST", 
+                                                        f"api/projects/{project_id}/payments", 200,
+                                                        data=payment_data,
+                                                        auth_token=self.admin_token)
+                
+                if success and 'payment_id' in payment_response:
+                    payment_id = payment_response['payment_id']
+                    
+                    # Try to delete as manager (should fail)
+                    return self.run_test("Delete Payment (Manager - Should Fail)", "DELETE", 
+                                       f"api/projects/{project_id}/payments/{payment_id}", 403,
+                                       auth_token=manager_session_token)
+                else:
+                    print("⚠️  Failed to create payment for manager delete test")
+                    return False, {}
+            else:
+                print(f"❌ Failed to create Manager user or no test project: {result.stderr if result.returncode != 0 else 'No project'}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing Manager payment deletion: {str(e)}")
+            return False, {}
+
+    def test_delete_nonexistent_payment(self):
+        """Test deleting a payment that doesn't exist"""
+        if hasattr(self, 'test_financials_project_id'):
+            project_id = self.test_financials_project_id
+            fake_payment_id = "payment_nonexistent123"
+            
+            return self.run_test("Delete Nonexistent Payment", "DELETE", 
+                               f"api/projects/{project_id}/payments/{fake_payment_id}", 404,
+                               auth_token=self.admin_token)
+        else:
+            print("⚠️  No test project available for nonexistent payment test")
+            return True, {}
+
     # ============ EMAIL TEMPLATES TESTS ============
     
     def test_get_email_templates_admin(self):
