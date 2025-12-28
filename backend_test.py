@@ -541,6 +541,15 @@ def main():
         tester.test_get_single_project_designer()
         tester.test_get_nonexistent_project()
         
+        # Project Detail View tests
+        print("\n🔍 Testing Project Detail View Endpoints...")
+        tester.test_get_project_with_timeline_and_comments()
+        tester.test_add_comment_to_project()
+        tester.test_update_project_stage()
+        tester.test_add_comment_designer_access()
+        tester.test_update_stage_designer_access()
+        tester.test_presales_access_denied()
+        
         # Logout test (do this last as it invalidates session)
         tester.test_logout()
         
