@@ -2802,6 +2802,414 @@ async def get_dashboard(request: Request):
     return dashboard_data
 
 
+# ============ SETTINGS MODELS ============
+
+class CompanySettings(BaseModel):
+    name: Optional[str] = "Arkiflo"
+    address: Optional[str] = ""
+    phone: Optional[str] = ""
+    gst: Optional[str] = ""
+    website: Optional[str] = ""
+    support_email: Optional[str] = ""
+
+class BrandingSettings(BaseModel):
+    logo_url: Optional[str] = ""
+    primary_color: Optional[str] = "#2563EB"
+    secondary_color: Optional[str] = "#64748B"
+    theme: Optional[str] = "light"  # light, dark
+    favicon_url: Optional[str] = ""
+    sidebar_default_collapsed: Optional[bool] = False
+
+class LeadTATSettings(BaseModel):
+    bc_call_done: Optional[int] = 1
+    boq_shared: Optional[int] = 3
+    site_meeting: Optional[int] = 2
+    revised_boq_shared: Optional[int] = 2
+
+class ProjectTATSettings(BaseModel):
+    design_finalization: Optional[dict] = None
+    production_preparation: Optional[dict] = None
+    production: Optional[dict] = None
+    delivery: Optional[dict] = None
+    installation: Optional[dict] = None
+    handover: Optional[dict] = None
+
+class StageConfig(BaseModel):
+    name: str
+    order: int
+    enabled: bool = True
+    milestones: List[dict] = []
+
+class SystemLog(BaseModel):
+    id: str
+    action: str
+    user_id: str
+    user_name: str
+    user_role: str
+    timestamp: str
+    metadata: Optional[dict] = None
+
+# ============ SETTINGS ENDPOINTS ============
+
+# Default TAT configurations
+DEFAULT_LEAD_TAT = {
+    "bc_call_done": 1,
+    "boq_shared": 3,
+    "site_meeting": 2,
+    "revised_boq_shared": 2
+}
+
+DEFAULT_PROJECT_TAT = {
+    "design_finalization": {
+        "site_measurement": 1,
+        "site_validation": 2,
+        "design_meeting": 3,
+        "design_meeting_2": 2,
+        "final_proposal": 3,
+        "sign_off": 2,
+        "kickoff_meeting": 2
+    },
+    "production_preparation": {
+        "factory_slot": 3,
+        "jit_plan": 3,
+        "nm_dependencies": 3,
+        "raw_material": 3
+    },
+    "production": {
+        "production_start": 4,
+        "full_confirmation": 4,
+        "piv": 4
+    },
+    "delivery": {
+        "modular_delivery": 5
+    },
+    "installation": {
+        "modular_installation": 3,
+        "nm_handover_work": 3
+    },
+    "handover": {
+        "handover_with_snag": 2,
+        "cleaning": 2,
+        "handover_without_snag": 2
+    }
+}
+
+DEFAULT_STAGES = [
+    {"name": "Design Finalization", "order": 0, "enabled": True},
+    {"name": "Production Preparation", "order": 1, "enabled": True},
+    {"name": "Production", "order": 2, "enabled": True},
+    {"name": "Delivery", "order": 3, "enabled": True},
+    {"name": "Installation", "order": 4, "enabled": True},
+    {"name": "Handover", "order": 5, "enabled": True}
+]
+
+DEFAULT_LEAD_STAGES = [
+    {"name": "BC Call Done", "order": 0, "enabled": True},
+    {"name": "BOQ Shared", "order": 1, "enabled": True},
+    {"name": "Site Meeting", "order": 2, "enabled": True},
+    {"name": "Revised BOQ Shared", "order": 3, "enabled": True},
+    {"name": "Waiting for Booking", "order": 4, "enabled": True},
+    {"name": "Booking Completed", "order": 5, "enabled": True}
+]
+
+async def log_system_action(action: str, user: User, metadata: dict = None):
+    """Log a system action"""
+    log_entry = {
+        "id": f"log_{uuid.uuid4().hex[:8]}",
+        "action": action,
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "user_role": user.role,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "metadata": metadata or {}
+    }
+    await db.system_logs.insert_one(log_entry)
+    return log_entry
+
+async def get_settings(key: str, default_value: dict):
+    """Get settings from database or return default"""
+    settings = await db.settings.find_one({"key": key}, {"_id": 0})
+    if settings:
+        return settings.get("value", default_value)
+    return default_value
+
+async def save_settings(key: str, value: dict, user: User):
+    """Save settings to database"""
+    await db.settings.update_one(
+        {"key": key},
+        {"$set": {"key": key, "value": value, "updated_by": user.user_id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+
+# Company Settings
+@api_router.get("/settings/company")
+async def get_company_settings(request: Request):
+    """Get company settings"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    default = {
+        "name": "Arkiflo",
+        "address": "",
+        "phone": "",
+        "gst": "",
+        "website": "",
+        "support_email": ""
+    }
+    return await get_settings("company", default)
+
+@api_router.put("/settings/company")
+async def update_company_settings(settings: CompanySettings, request: Request):
+    """Update company settings (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    value = settings.model_dump(exclude_none=True)
+    await save_settings("company", value, user)
+    await log_system_action("company_settings_updated", user, {"changes": value})
+    
+    return {"message": "Company settings updated", "settings": value}
+
+# Branding Settings
+@api_router.get("/settings/branding")
+async def get_branding_settings(request: Request):
+    """Get branding settings"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    default = {
+        "logo_url": "",
+        "primary_color": "#2563EB",
+        "secondary_color": "#64748B",
+        "theme": "light",
+        "favicon_url": "",
+        "sidebar_default_collapsed": False
+    }
+    return await get_settings("branding", default)
+
+@api_router.put("/settings/branding")
+async def update_branding_settings(settings: BrandingSettings, request: Request):
+    """Update branding settings (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    value = settings.model_dump(exclude_none=True)
+    await save_settings("branding", value, user)
+    await log_system_action("branding_settings_updated", user, {"changes": value})
+    
+    return {"message": "Branding settings updated", "settings": value}
+
+# TAT Settings
+@api_router.get("/settings/tat/lead")
+async def get_lead_tat_settings(request: Request):
+    """Get lead TAT settings"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return await get_settings("lead_tat", DEFAULT_LEAD_TAT)
+
+@api_router.put("/settings/tat/lead")
+async def update_lead_tat_settings(settings: LeadTATSettings, request: Request):
+    """Update lead TAT settings (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    value = settings.model_dump(exclude_none=True)
+    await save_settings("lead_tat", value, user)
+    await log_system_action("lead_tat_updated", user, {"changes": value})
+    
+    return {"message": "Lead TAT settings updated", "settings": value}
+
+@api_router.get("/settings/tat/project")
+async def get_project_tat_settings(request: Request):
+    """Get project TAT settings"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return await get_settings("project_tat", DEFAULT_PROJECT_TAT)
+
+@api_router.put("/settings/tat/project")
+async def update_project_tat_settings(settings: ProjectTATSettings, request: Request):
+    """Update project TAT settings (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Merge with defaults to ensure all fields exist
+    current = await get_settings("project_tat", DEFAULT_PROJECT_TAT)
+    updates = settings.model_dump(exclude_none=True)
+    
+    for key, val in updates.items():
+        if val is not None:
+            current[key] = val
+    
+    await save_settings("project_tat", current, user)
+    await log_system_action("project_tat_updated", user, {"changes": updates})
+    
+    return {"message": "Project TAT settings updated", "settings": current}
+
+# Stage Settings
+@api_router.get("/settings/stages")
+async def get_stages_settings(request: Request):
+    """Get project stages configuration"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return await get_settings("project_stages", DEFAULT_STAGES)
+
+@api_router.put("/settings/stages")
+async def update_stages_settings(stages: List[dict], request: Request):
+    """Update project stages configuration (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    await save_settings("project_stages", stages, user)
+    await log_system_action("stages_updated", user, {"stages": stages})
+    
+    return {"message": "Stages updated", "stages": stages}
+
+@api_router.get("/settings/stages/lead")
+async def get_lead_stages_settings(request: Request):
+    """Get lead stages configuration"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return await get_settings("lead_stages", DEFAULT_LEAD_STAGES)
+
+@api_router.put("/settings/stages/lead")
+async def update_lead_stages_settings(stages: List[dict], request: Request):
+    """Update lead stages configuration (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    await save_settings("lead_stages", stages, user)
+    await log_system_action("lead_stages_updated", user, {"stages": stages})
+    
+    return {"message": "Lead stages updated", "stages": stages}
+
+# Milestones Settings
+@api_router.get("/settings/milestones")
+async def get_milestones_settings(request: Request):
+    """Get milestones configuration for all stages"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    default_milestones = {
+        "Design Finalization": [
+            {"name": "Site Measurement", "enabled": True, "order": 0},
+            {"name": "Site Validation", "enabled": True, "order": 1},
+            {"name": "Design Meeting", "enabled": True, "order": 2},
+            {"name": "Design Meeting – 2", "enabled": True, "order": 3},
+            {"name": "Final Design Proposal & Material Selection", "enabled": True, "order": 4},
+            {"name": "Sign-off KWS Units & Payment", "enabled": True, "order": 5},
+            {"name": "Kickoff Meeting", "enabled": True, "order": 6}
+        ],
+        "Production Preparation": [
+            {"name": "Factory Slot Allocation", "enabled": True, "order": 0},
+            {"name": "JIT Project Delivery Plan", "enabled": True, "order": 1},
+            {"name": "Non-Modular Dependencies", "enabled": True, "order": 2},
+            {"name": "Raw Material Procurement", "enabled": True, "order": 3}
+        ],
+        "Production": [
+            {"name": "Production Kick-start", "enabled": True, "order": 0},
+            {"name": "Full Order Confirmation", "enabled": True, "order": 1},
+            {"name": "PIV / Site Readiness", "enabled": True, "order": 2}
+        ],
+        "Delivery": [
+            {"name": "Modular Order Delivery at Site", "enabled": True, "order": 0}
+        ],
+        "Installation": [
+            {"name": "Modular Installation", "enabled": True, "order": 0},
+            {"name": "Non-Modular Dependency Work for Handover", "enabled": True, "order": 1}
+        ],
+        "Handover": [
+            {"name": "Handover with Snag", "enabled": True, "order": 0},
+            {"name": "Cleaning", "enabled": True, "order": 1},
+            {"name": "Handover Without Snag", "enabled": True, "order": 2}
+        ]
+    }
+    return await get_settings("milestones", default_milestones)
+
+@api_router.put("/settings/milestones")
+async def update_milestones_settings(milestones: dict, request: Request):
+    """Update milestones configuration (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    await save_settings("milestones", milestones, user)
+    await log_system_action("milestones_updated", user, {"stages_count": len(milestones)})
+    
+    return {"message": "Milestones updated", "milestones": milestones}
+
+# System Logs
+@api_router.get("/settings/logs")
+async def get_system_logs(request: Request, limit: int = 100, offset: int = 0):
+    """Get system logs (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    logs = await db.system_logs.find({}, {"_id": 0}).sort("timestamp", -1).skip(offset).limit(limit).to_list(limit)
+    total = await db.system_logs.count_documents({})
+    
+    return {
+        "logs": logs,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
+
+# Get all settings at once (for frontend initialization)
+@api_router.get("/settings/all")
+async def get_all_settings(request: Request):
+    """Get all settings at once"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    company = await get_settings("company", {"name": "Arkiflo", "address": "", "phone": "", "gst": "", "website": "", "support_email": ""})
+    branding = await get_settings("branding", {"logo_url": "", "primary_color": "#2563EB", "secondary_color": "#64748B", "theme": "light", "favicon_url": "", "sidebar_default_collapsed": False})
+    lead_tat = await get_settings("lead_tat", DEFAULT_LEAD_TAT)
+    project_tat = await get_settings("project_tat", DEFAULT_PROJECT_TAT)
+    
+    return {
+        "company": company,
+        "branding": branding,
+        "lead_tat": lead_tat,
+        "project_tat": project_tat,
+        "can_edit": user.role == "Admin"
+    }
+
+
 # ============ HEALTH CHECK ============
 
 @api_router.get("/")
