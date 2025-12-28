@@ -2551,6 +2551,9 @@ async def seed_projects(request: Request):
             "summary": "Colorful and safe play area design for preschool children",
             "timeline": generate_project_timeline("Delivery", (now - timedelta(days=45)).isoformat()),
             "comments": generate_comments(user_ids, (now - timedelta(days=45)).isoformat()),
+            "project_value": 650000,
+            "payment_schedule": default_schedule,
+            "payments": generate_payments(650000, 3, (now - timedelta(days=45)).isoformat(), user.user_id),
             "updated_at": (now - timedelta(days=7)).isoformat(),
             "created_at": (now - timedelta(days=45)).isoformat()
         }
