@@ -4129,6 +4129,104 @@ async def get_calendar_events(
                 "is_overdue": is_overdue
             })
     
+    # ============ FETCH MEETINGS ============
+    if event_type in [None, "all", "meeting"]:
+        meeting_query = {}
+        
+        # Role-based filtering for meetings
+        if user.role == "Designer":
+            meeting_query["scheduled_for"] = user.user_id
+        elif user.role == "PreSales":
+            meeting_query["$or"] = [
+                {"scheduled_by": user.user_id},
+                {"scheduled_for": user.user_id}
+            ]
+        
+        # Apply filters
+        if project_id:
+            meeting_query["project_id"] = project_id
+        
+        if designer_id and user.role in ["Admin", "Manager"]:
+            meeting_query["scheduled_for"] = designer_id
+        
+        meetings = await db.meetings.find(meeting_query, {"_id": 0}).to_list(1000)
+        
+        for meeting in meetings:
+            meeting_date_str = meeting.get("date")
+            if not meeting_date_str:
+                continue
+            
+            try:
+                meeting_date = datetime.fromisoformat(meeting_date_str.replace("Z", "+00:00"))
+                if meeting_date.tzinfo is None:
+                    meeting_date = meeting_date.replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+            
+            # Date range filter
+            if start_dt and meeting_date < start_dt:
+                continue
+            if end_dt and meeting_date > end_dt:
+                continue
+            
+            meeting_status = meeting.get("status", "Scheduled")
+            
+            # Status filter
+            if status and status != "all" and meeting_status.lower() != status.lower():
+                continue
+            
+            # Determine color based on status
+            if meeting_status == "Completed":
+                color = "#22C55E"  # Green
+            elif meeting_status == "Missed":
+                color = "#EF4444"  # Red
+            elif meeting_status == "Cancelled":
+                color = "#6B7280"  # Gray
+            else:
+                color = "#9333EA"  # Purple (Scheduled)
+            
+            # Get names
+            scheduled_for_name = None
+            scheduled_by_name = None
+            if meeting.get("scheduled_for") and meeting["scheduled_for"] in users_map:
+                scheduled_for_name = users_map[meeting["scheduled_for"]].get("name")
+            if meeting.get("scheduled_by") and meeting["scheduled_by"] in users_map:
+                scheduled_by_name = users_map[meeting["scheduled_by"]].get("name")
+            
+            # Get project/lead names
+            project_name = None
+            lead_name = None
+            if meeting.get("project_id"):
+                proj = await db.projects.find_one({"project_id": meeting["project_id"]}, {"_id": 0, "project_name": 1})
+                if proj:
+                    project_name = proj.get("project_name")
+            if meeting.get("lead_id"):
+                lead = await db.leads.find_one({"lead_id": meeting["lead_id"]}, {"_id": 0, "customer_name": 1})
+                if lead:
+                    lead_name = lead.get("customer_name")
+            
+            events.append({
+                "id": meeting["id"],
+                "title": meeting.get("title", "Meeting"),
+                "start": meeting_date_str,
+                "end": meeting_date_str,
+                "type": "meeting",
+                "status": meeting_status.lower(),
+                "color": color,
+                "project_id": meeting.get("project_id"),
+                "project_name": project_name,
+                "lead_id": meeting.get("lead_id"),
+                "lead_name": lead_name,
+                "description": meeting.get("description"),
+                "location": meeting.get("location"),
+                "start_time": meeting.get("start_time"),
+                "end_time": meeting.get("end_time"),
+                "scheduled_for": meeting.get("scheduled_for"),
+                "scheduled_for_name": scheduled_for_name,
+                "scheduled_by": meeting.get("scheduled_by"),
+                "scheduled_by_name": scheduled_by_name
+            })
+    
     # Sort by date
     events.sort(key=lambda x: x.get("start", ""))
     
@@ -4136,6 +4234,530 @@ async def get_calendar_events(
         "events": events,
         "total": len(events)
     }
+
+
+# ============ MEETING MODELS ============
+
+class MeetingCreate(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    project_id: Optional[str] = None
+    lead_id: Optional[str] = None
+    scheduled_for: str  # userId (designer)
+    date: str
+    start_time: str
+    end_time: str
+    location: Optional[str] = ""
+
+class MeetingUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    project_id: Optional[str] = None
+    lead_id: Optional[str] = None
+    scheduled_for: Optional[str] = None
+    date: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    location: Optional[str] = None
+    status: Optional[str] = None
+
+MEETING_STATUSES = ["Scheduled", "Completed", "Missed", "Cancelled"]
+
+# ============ MEETING ENDPOINTS ============
+
+@api_router.get("/meetings")
+async def list_meetings(
+    request: Request,
+    project_id: Optional[str] = None,
+    lead_id: Optional[str] = None,
+    scheduled_for: Optional[str] = None,
+    status: Optional[str] = None,
+    filter_type: Optional[str] = None  # "today", "this_week", "upcoming", "missed"
+):
+    """List meetings with filters - role-based access"""
+    user = await get_current_user(request)
+    
+    query = {}
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    week_end = today_start + timedelta(days=7)
+    
+    # Role-based filtering
+    if user.role == "Designer":
+        query["scheduled_for"] = user.user_id
+    elif user.role == "PreSales":
+        query["$or"] = [
+            {"scheduled_by": user.user_id},
+            {"scheduled_for": user.user_id},
+            {"lead_id": {"$ne": None}}  # PreSales can see lead meetings
+        ]
+    
+    # Apply filters
+    if project_id:
+        query["project_id"] = project_id
+    
+    if lead_id:
+        query["lead_id"] = lead_id
+    
+    if scheduled_for and user.role in ["Admin", "Manager"]:
+        query["scheduled_for"] = scheduled_for
+    
+    if status and status != "all":
+        query["status"] = status
+    
+    # Date-based filters
+    if filter_type == "today":
+        query["date"] = {"$gte": today_start.isoformat(), "$lt": today_end.isoformat()}
+    elif filter_type == "this_week":
+        query["date"] = {"$gte": today_start.isoformat(), "$lt": week_end.isoformat()}
+    elif filter_type == "upcoming":
+        query["date"] = {"$gte": today_start.isoformat()}
+        query["status"] = "Scheduled"
+    elif filter_type == "missed":
+        query["status"] = "Missed"
+    
+    meetings = await db.meetings.find(query, {"_id": 0}).to_list(1000)
+    
+    # Get user details
+    user_ids = set()
+    for m in meetings:
+        if m.get("scheduled_for"):
+            user_ids.add(m["scheduled_for"])
+        if m.get("scheduled_by"):
+            user_ids.add(m["scheduled_by"])
+    
+    users_map = {}
+    if user_ids:
+        users_list = await db.users.find(
+            {"user_id": {"$in": list(user_ids)}},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1, "role": 1}
+        ).to_list(1000)
+        users_map = {u["user_id"]: u for u in users_list}
+    
+    # Get project/lead names
+    project_ids = list(set([m.get("project_id") for m in meetings if m.get("project_id")]))
+    lead_ids = list(set([m.get("lead_id") for m in meetings if m.get("lead_id")]))
+    
+    projects_map = {}
+    leads_map = {}
+    
+    if project_ids:
+        projects_list = await db.projects.find(
+            {"project_id": {"$in": project_ids}},
+            {"_id": 0, "project_id": 1, "project_name": 1, "client_name": 1}
+        ).to_list(1000)
+        projects_map = {p["project_id"]: p for p in projects_list}
+    
+    if lead_ids:
+        leads_list = await db.leads.find(
+            {"lead_id": {"$in": lead_ids}},
+            {"_id": 0, "lead_id": 1, "customer_name": 1, "customer_phone": 1}
+        ).to_list(1000)
+        leads_map = {l["lead_id"]: l for l in leads_list}
+    
+    # Enrich meetings
+    result = []
+    for meeting in meetings:
+        enriched = {**meeting}
+        
+        if meeting.get("scheduled_for") and meeting["scheduled_for"] in users_map:
+            enriched["scheduled_for_user"] = users_map[meeting["scheduled_for"]]
+        
+        if meeting.get("scheduled_by") and meeting["scheduled_by"] in users_map:
+            enriched["scheduled_by_user"] = users_map[meeting["scheduled_by"]]
+        
+        if meeting.get("project_id") and meeting["project_id"] in projects_map:
+            enriched["project"] = projects_map[meeting["project_id"]]
+        
+        if meeting.get("lead_id") and meeting["lead_id"] in leads_map:
+            enriched["lead"] = leads_map[meeting["lead_id"]]
+        
+        result.append(enriched)
+    
+    # Sort by date descending
+    result.sort(key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
+    
+    return result
+
+@api_router.get("/meetings/{meeting_id}")
+async def get_meeting(meeting_id: str, request: Request):
+    """Get single meeting by ID"""
+    user = await get_current_user(request)
+    
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Role-based access check
+    if user.role == "Designer" and meeting.get("scheduled_for") != user.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if user.role == "PreSales":
+        is_scheduler = meeting.get("scheduled_by") == user.user_id
+        is_attendee = meeting.get("scheduled_for") == user.user_id
+        has_lead = meeting.get("lead_id") is not None
+        if not (is_scheduler or is_attendee or has_lead):
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get user details
+    if meeting.get("scheduled_for"):
+        user_doc = await db.users.find_one(
+            {"user_id": meeting["scheduled_for"]},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1, "role": 1}
+        )
+        if user_doc:
+            meeting["scheduled_for_user"] = user_doc
+    
+    if meeting.get("scheduled_by"):
+        user_doc = await db.users.find_one(
+            {"user_id": meeting["scheduled_by"]},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1, "role": 1}
+        )
+        if user_doc:
+            meeting["scheduled_by_user"] = user_doc
+    
+    # Get project/lead details
+    if meeting.get("project_id"):
+        project = await db.projects.find_one(
+            {"project_id": meeting["project_id"]},
+            {"_id": 0, "project_id": 1, "project_name": 1, "client_name": 1}
+        )
+        if project:
+            meeting["project"] = project
+    
+    if meeting.get("lead_id"):
+        lead = await db.leads.find_one(
+            {"lead_id": meeting["lead_id"]},
+            {"_id": 0, "lead_id": 1, "customer_name": 1, "customer_phone": 1}
+        )
+        if lead:
+            meeting["lead"] = lead
+    
+    return meeting
+
+@api_router.post("/meetings")
+async def create_meeting(meeting_data: MeetingCreate, request: Request):
+    """Create a new meeting"""
+    user = await get_current_user(request)
+    
+    # Role-based permissions
+    if user.role == "Designer":
+        # Designers can only schedule meetings for projects they're assigned to
+        if meeting_data.project_id:
+            project = await db.projects.find_one({"project_id": meeting_data.project_id}, {"_id": 0})
+            if not project or user.user_id not in project.get("collaborators", []):
+                raise HTTPException(status_code=403, detail="You can only schedule meetings for your projects")
+        # Cannot schedule for others
+        if meeting_data.scheduled_for != user.user_id:
+            raise HTTPException(status_code=403, detail="You can only schedule meetings for yourself")
+    
+    if user.role == "PreSales":
+        # PreSales can only schedule lead meetings
+        if meeting_data.project_id:
+            raise HTTPException(status_code=403, detail="PreSales cannot schedule project meetings")
+        if not meeting_data.lead_id:
+            raise HTTPException(status_code=403, detail="PreSales must link meetings to a lead")
+    
+    # Validate project if provided
+    if meeting_data.project_id:
+        project = await db.projects.find_one({"project_id": meeting_data.project_id}, {"_id": 0})
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Validate lead if provided
+    if meeting_data.lead_id:
+        lead = await db.leads.find_one({"lead_id": meeting_data.lead_id}, {"_id": 0})
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Validate scheduled_for user
+    scheduled_user = await db.users.find_one({"user_id": meeting_data.scheduled_for}, {"_id": 0})
+    if not scheduled_user:
+        raise HTTPException(status_code=404, detail="Scheduled user not found")
+    
+    now = datetime.now(timezone.utc)
+    meeting_id = f"meeting_{uuid.uuid4().hex[:8]}"
+    
+    new_meeting = {
+        "id": meeting_id,
+        "title": meeting_data.title,
+        "description": meeting_data.description or "",
+        "project_id": meeting_data.project_id,
+        "lead_id": meeting_data.lead_id,
+        "scheduled_by": user.user_id,
+        "scheduled_for": meeting_data.scheduled_for,
+        "date": meeting_data.date,
+        "start_time": meeting_data.start_time,
+        "end_time": meeting_data.end_time,
+        "location": meeting_data.location or "",
+        "status": "Scheduled",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.meetings.insert_one(new_meeting)
+    
+    # Remove MongoDB _id from response
+    new_meeting.pop("_id", None)
+    
+    # Create notification for scheduled user if different from creator
+    if meeting_data.scheduled_for != user.user_id:
+        meeting_context = ""
+        if meeting_data.project_id:
+            project = await db.projects.find_one({"project_id": meeting_data.project_id}, {"_id": 0, "project_name": 1})
+            meeting_context = f" for project '{project.get('project_name', '')}'" if project else ""
+        elif meeting_data.lead_id:
+            lead = await db.leads.find_one({"lead_id": meeting_data.lead_id}, {"_id": 0, "customer_name": 1})
+            meeting_context = f" with lead '{lead.get('customer_name', '')}'" if lead else ""
+        
+        await create_notification(
+            meeting_data.scheduled_for,
+            "New Meeting Scheduled",
+            f"{user.name} scheduled a meeting: '{meeting_data.title}'{meeting_context} on {meeting_data.date} at {meeting_data.start_time}",
+            "meeting",
+            "/meetings"
+        )
+    
+    return {"message": "Meeting created successfully", "meeting": new_meeting}
+
+@api_router.put("/meetings/{meeting_id}")
+async def update_meeting(meeting_id: str, meeting_data: MeetingUpdate, request: Request):
+    """Update a meeting"""
+    user = await get_current_user(request)
+    
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Role-based access check
+    if user.role == "Designer":
+        if meeting.get("scheduled_for") != user.user_id and meeting.get("scheduled_by") != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    if user.role == "PreSales":
+        if meeting.get("scheduled_by") != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Validate status if provided
+    if meeting_data.status and meeting_data.status not in MEETING_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {MEETING_STATUSES}")
+    
+    # Build update dict
+    update_dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if meeting_data.title is not None:
+        update_dict["title"] = meeting_data.title
+    if meeting_data.description is not None:
+        update_dict["description"] = meeting_data.description
+    if meeting_data.project_id is not None:
+        update_dict["project_id"] = meeting_data.project_id if meeting_data.project_id else None
+    if meeting_data.lead_id is not None:
+        update_dict["lead_id"] = meeting_data.lead_id if meeting_data.lead_id else None
+    if meeting_data.scheduled_for is not None:
+        update_dict["scheduled_for"] = meeting_data.scheduled_for
+    if meeting_data.date is not None:
+        update_dict["date"] = meeting_data.date
+    if meeting_data.start_time is not None:
+        update_dict["start_time"] = meeting_data.start_time
+    if meeting_data.end_time is not None:
+        update_dict["end_time"] = meeting_data.end_time
+    if meeting_data.location is not None:
+        update_dict["location"] = meeting_data.location
+    if meeting_data.status is not None:
+        update_dict["status"] = meeting_data.status
+    
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {"$set": update_dict}
+    )
+    
+    # Notify if status changed
+    if meeting_data.status and meeting_data.status != meeting.get("status"):
+        notify_user = meeting.get("scheduled_for") if meeting.get("scheduled_for") != user.user_id else meeting.get("scheduled_by")
+        if notify_user:
+            await create_notification(
+                notify_user,
+                f"Meeting {meeting_data.status}",
+                f"Meeting '{meeting.get('title')}' has been marked as {meeting_data.status}",
+                "meeting",
+                "/meetings"
+            )
+    
+    # Get updated meeting
+    updated_meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    return {"message": "Meeting updated successfully", "meeting": updated_meeting}
+
+@api_router.delete("/meetings/{meeting_id}")
+async def delete_meeting(meeting_id: str, request: Request):
+    """Delete a meeting"""
+    user = await get_current_user(request)
+    
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Role-based access check - only creator or Admin/Manager can delete
+    if user.role not in ["Admin", "Manager"]:
+        if meeting.get("scheduled_by") != user.user_id:
+            raise HTTPException(status_code=403, detail="Only the meeting creator can delete this meeting")
+    
+    await db.meetings.delete_one({"id": meeting_id})
+    
+    return {"message": "Meeting deleted successfully"}
+
+@api_router.get("/projects/{project_id}/meetings")
+async def get_project_meetings(project_id: str, request: Request):
+    """Get meetings for a specific project"""
+    user = await get_current_user(request)
+    
+    # Verify project exists and user has access
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check access for Designer role
+    if user.role == "Designer" and user.user_id not in project.get("collaborators", []):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if user.role == "PreSales":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    meetings = await db.meetings.find({"project_id": project_id}, {"_id": 0}).to_list(1000)
+    
+    # Get user details
+    user_ids = set()
+    for m in meetings:
+        if m.get("scheduled_for"):
+            user_ids.add(m["scheduled_for"])
+        if m.get("scheduled_by"):
+            user_ids.add(m["scheduled_by"])
+    
+    users_map = {}
+    if user_ids:
+        users_list = await db.users.find(
+            {"user_id": {"$in": list(user_ids)}},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1, "role": 1}
+        ).to_list(1000)
+        users_map = {u["user_id"]: u for u in users_list}
+    
+    result = []
+    for meeting in meetings:
+        enriched = {**meeting}
+        if meeting.get("scheduled_for") and meeting["scheduled_for"] in users_map:
+            enriched["scheduled_for_user"] = users_map[meeting["scheduled_for"]]
+        if meeting.get("scheduled_by") and meeting["scheduled_by"] in users_map:
+            enriched["scheduled_by_user"] = users_map[meeting["scheduled_by"]]
+        result.append(enriched)
+    
+    # Sort by date
+    result.sort(key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
+    
+    return result
+
+@api_router.get("/leads/{lead_id}/meetings")
+async def get_lead_meetings(lead_id: str, request: Request):
+    """Get meetings for a specific lead"""
+    user = await get_current_user(request)
+    
+    # Verify lead exists
+    lead = await db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Check access based on role
+    if user.role == "Designer":
+        if lead.get("designer_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    meetings = await db.meetings.find({"lead_id": lead_id}, {"_id": 0}).to_list(1000)
+    
+    # Get user details
+    user_ids = set()
+    for m in meetings:
+        if m.get("scheduled_for"):
+            user_ids.add(m["scheduled_for"])
+        if m.get("scheduled_by"):
+            user_ids.add(m["scheduled_by"])
+    
+    users_map = {}
+    if user_ids:
+        users_list = await db.users.find(
+            {"user_id": {"$in": list(user_ids)}},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1, "role": 1}
+        ).to_list(1000)
+        users_map = {u["user_id"]: u for u in users_list}
+    
+    result = []
+    for meeting in meetings:
+        enriched = {**meeting}
+        if meeting.get("scheduled_for") and meeting["scheduled_for"] in users_map:
+            enriched["scheduled_for_user"] = users_map[meeting["scheduled_for"]]
+        if meeting.get("scheduled_by") and meeting["scheduled_by"] in users_map:
+            enriched["scheduled_by_user"] = users_map[meeting["scheduled_by"]]
+        result.append(enriched)
+    
+    # Sort by date
+    result.sort(key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
+    
+    return result
+
+@api_router.post("/meetings/check-missed")
+async def check_missed_meetings(request: Request):
+    """Check and mark meetings as missed (called periodically or on page load)"""
+    user = await get_current_user(request)
+    
+    now = datetime.now(timezone.utc)
+    
+    # Find scheduled meetings that have passed their end time
+    query = {"status": "Scheduled"}
+    
+    # Role-based filtering
+    if user.role == "Designer":
+        query["scheduled_for"] = user.user_id
+    elif user.role == "PreSales":
+        query["$or"] = [
+            {"scheduled_by": user.user_id},
+            {"scheduled_for": user.user_id}
+        ]
+    
+    meetings = await db.meetings.find(query, {"_id": 0}).to_list(1000)
+    
+    missed_count = 0
+    for meeting in meetings:
+        try:
+            meeting_date_str = meeting.get("date", "")
+            end_time_str = meeting.get("end_time", "23:59")
+            
+            # Parse the meeting datetime
+            meeting_datetime_str = f"{meeting_date_str}T{end_time_str}:00"
+            meeting_end = datetime.fromisoformat(meeting_datetime_str)
+            if meeting_end.tzinfo is None:
+                meeting_end = meeting_end.replace(tzinfo=timezone.utc)
+            
+            # If meeting end time has passed, mark as missed
+            if meeting_end < now:
+                await db.meetings.update_one(
+                    {"id": meeting["id"]},
+                    {"$set": {"status": "Missed", "updated_at": now.isoformat()}}
+                )
+                missed_count += 1
+                
+                # Notify
+                await create_notification(
+                    meeting.get("scheduled_for"),
+                    "Meeting Missed",
+                    f"Meeting '{meeting.get('title')}' was marked as missed",
+                    "meeting",
+                    "/meetings"
+                )
+        except Exception:
+            pass
+    
+    return {"message": f"Checked meetings, marked {missed_count} as missed", "missed_count": missed_count}
 
 
 # ============ HEALTH CHECK ============
