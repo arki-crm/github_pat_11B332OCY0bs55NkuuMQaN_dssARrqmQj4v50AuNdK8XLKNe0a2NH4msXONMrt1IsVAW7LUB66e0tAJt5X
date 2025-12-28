@@ -1148,6 +1148,309 @@ db.user_sessions.insertOne({{
             print("⚠️  No leads found for TAT calculation test")
             return False, {}
 
+    # ============ DASHBOARD ENDPOINTS TESTS ============
+
+    def test_dashboard_admin(self):
+        """Test GET /api/dashboard for Admin role - should return all KPIs and data"""
+        success, dashboard_data = self.run_test("Dashboard (Admin)", "GET", "api/dashboard", 200,
+                                              auth_token=self.admin_token)
+        if success:
+            # Verify admin dashboard structure
+            has_user_info = all(field in dashboard_data for field in ['user_role', 'user_name', 'user_id'])
+            is_admin = dashboard_data.get('user_role') == 'Admin'
+            
+            # Check KPIs structure for Admin (should have 7 KPIs)
+            kpis = dashboard_data.get('kpis', {})
+            expected_admin_kpis = [
+                'totalLeads', 'qualifiedLeads', 'totalProjects', 'bookingConversionRate',
+                'activeDesigners', 'avgTurnaroundDays', 'delayedMilestonesCount'
+            ]
+            has_all_kpis = all(kpi in kpis for kpi in expected_admin_kpis)
+            
+            # Check other admin-specific data
+            has_project_distribution = 'projectStageDistribution' in dashboard_data
+            has_lead_distribution = 'leadStageDistribution' in dashboard_data
+            has_delayed_milestones = 'delayedMilestones' in dashboard_data
+            has_upcoming_milestones = 'upcomingMilestones' in dashboard_data
+            has_designer_performance = 'designerPerformance' in dashboard_data
+            has_presales_performance = 'presalesPerformance' in dashboard_data
+            
+            print(f"   User info present: {has_user_info}")
+            print(f"   Is Admin role: {is_admin}")
+            print(f"   Has all Admin KPIs: {has_all_kpis}")
+            print(f"   KPIs found: {list(kpis.keys())}")
+            print(f"   Has project distribution: {has_project_distribution}")
+            print(f"   Has lead distribution: {has_lead_distribution}")
+            print(f"   Has delayed milestones: {has_delayed_milestones}")
+            print(f"   Has upcoming milestones: {has_upcoming_milestones}")
+            print(f"   Has designer performance: {has_designer_performance}")
+            print(f"   Has presales performance: {has_presales_performance}")
+            
+            # Verify milestone structure if present
+            delayed_milestones = dashboard_data.get('delayedMilestones', [])
+            upcoming_milestones = dashboard_data.get('upcomingMilestones', [])
+            
+            milestone_structure_valid = True
+            if delayed_milestones:
+                first_delayed = delayed_milestones[0]
+                required_fields = ['id', 'name', 'milestone', 'expectedDate', 'daysDelayed', 'stage']
+                milestone_structure_valid = all(field in first_delayed for field in required_fields)
+                print(f"   Delayed milestone structure valid: {milestone_structure_valid}")
+            
+            if upcoming_milestones:
+                first_upcoming = upcoming_milestones[0]
+                required_fields = ['id', 'name', 'milestone', 'expectedDate', 'status', 'stage']
+                upcoming_structure_valid = all(field in first_upcoming for field in required_fields)
+                print(f"   Upcoming milestone structure valid: {upcoming_structure_valid}")
+                milestone_structure_valid = milestone_structure_valid and upcoming_structure_valid
+            
+            return (success and has_user_info and is_admin and has_all_kpis and 
+                   has_project_distribution and has_lead_distribution and has_delayed_milestones and 
+                   has_upcoming_milestones and has_designer_performance and has_presales_performance and
+                   milestone_structure_valid), dashboard_data
+        return success, dashboard_data
+
+    def test_dashboard_manager(self):
+        """Test GET /api/dashboard for Manager role - should return limited KPIs"""
+        # Create a Manager user for testing
+        manager_user_id = f"test-manager-{uuid.uuid4().hex[:8]}"
+        manager_session_token = f"test_manager_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{manager_user_id}",
+  email: "manager.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test Manager",
+  picture: "https://via.placeholder.com/150",
+  role: "Manager",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{manager_user_id}",
+  session_token: "{manager_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                success, dashboard_data = self.run_test("Dashboard (Manager)", "GET", "api/dashboard", 200,
+                                                      auth_token=manager_session_token)
+                if success:
+                    # Verify manager dashboard structure
+                    is_manager = dashboard_data.get('user_role') == 'Manager'
+                    
+                    # Check KPIs structure for Manager (should have 3 KPIs)
+                    kpis = dashboard_data.get('kpis', {})
+                    expected_manager_kpis = ['totalLeads', 'totalProjects', 'delayedMilestonesCount']
+                    has_manager_kpis = all(kpi in kpis for kpi in expected_manager_kpis)
+                    
+                    # Should NOT have admin-only KPIs
+                    admin_only_kpis = ['qualifiedLeads', 'bookingConversionRate', 'activeDesigners', 'avgTurnaroundDays']
+                    no_admin_kpis = not any(kpi in kpis for kpi in admin_only_kpis)
+                    
+                    # Check other manager data
+                    has_project_distribution = 'projectStageDistribution' in dashboard_data
+                    has_lead_distribution = 'leadStageDistribution' in dashboard_data
+                    has_delayed_milestones = 'delayedMilestones' in dashboard_data
+                    has_upcoming_milestones = 'upcomingMilestones' in dashboard_data
+                    has_designer_performance = 'designerPerformance' in dashboard_data
+                    
+                    # Should NOT have presales performance
+                    no_presales_performance = 'presalesPerformance' not in dashboard_data
+                    
+                    print(f"   Is Manager role: {is_manager}")
+                    print(f"   Has Manager KPIs: {has_manager_kpis}")
+                    print(f"   No Admin-only KPIs: {no_admin_kpis}")
+                    print(f"   KPIs found: {list(kpis.keys())}")
+                    print(f"   No presales performance: {no_presales_performance}")
+                    
+                    return (success and is_manager and has_manager_kpis and no_admin_kpis and
+                           has_project_distribution and has_lead_distribution and has_delayed_milestones and
+                           has_upcoming_milestones and has_designer_performance and no_presales_performance), dashboard_data
+                return success, dashboard_data
+            else:
+                print(f"❌ Failed to create Manager user: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing Manager dashboard: {str(e)}")
+            return False, {}
+
+    def test_dashboard_presales(self):
+        """Test GET /api/dashboard for PreSales role - should return lead-specific KPIs"""
+        # Create a PreSales user for testing
+        presales_user_id = f"test-presales-{uuid.uuid4().hex[:8]}"
+        presales_session_token = f"test_presales_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{presales_user_id}",
+  email: "presales.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test PreSales",
+  picture: "https://via.placeholder.com/150",
+  role: "PreSales",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{presales_user_id}",
+  session_token: "{presales_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                success, dashboard_data = self.run_test("Dashboard (PreSales)", "GET", "api/dashboard", 200,
+                                                      auth_token=presales_session_token)
+                if success:
+                    # Verify presales dashboard structure
+                    is_presales = dashboard_data.get('user_role') == 'PreSales'
+                    
+                    # Check KPIs structure for PreSales (should have 6 lead-specific KPIs)
+                    kpis = dashboard_data.get('kpis', {})
+                    expected_presales_kpis = [
+                        'myLeads', 'bcCallDone', 'boqShared', 'waitingForBooking', 
+                        'followupsDueToday', 'lostLeads7Days'
+                    ]
+                    has_presales_kpis = all(kpi in kpis for kpi in expected_presales_kpis)
+                    
+                    # Should have lead distribution but NOT project data
+                    has_lead_distribution = 'leadStageDistribution' in dashboard_data
+                    no_project_data = 'projectStageDistribution' not in dashboard_data
+                    no_delayed_milestones = 'delayedMilestones' not in dashboard_data
+                    no_upcoming_milestones = 'upcomingMilestones' not in dashboard_data
+                    no_designer_performance = 'designerPerformance' not in dashboard_data
+                    no_presales_performance = 'presalesPerformance' not in dashboard_data
+                    
+                    print(f"   Is PreSales role: {is_presales}")
+                    print(f"   Has PreSales KPIs: {has_presales_kpis}")
+                    print(f"   KPIs found: {list(kpis.keys())}")
+                    print(f"   Has lead distribution: {has_lead_distribution}")
+                    print(f"   No project data: {no_project_data}")
+                    print(f"   No milestone data: {no_delayed_milestones and no_upcoming_milestones}")
+                    print(f"   No performance data: {no_designer_performance and no_presales_performance}")
+                    
+                    return (success and is_presales and has_presales_kpis and has_lead_distribution and
+                           no_project_data and no_delayed_milestones and no_upcoming_milestones and
+                           no_designer_performance and no_presales_performance), dashboard_data
+                return success, dashboard_data
+            else:
+                print(f"❌ Failed to create PreSales user: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing PreSales dashboard: {str(e)}")
+            return False, {}
+
+    def test_dashboard_designer(self):
+        """Test GET /api/dashboard for Designer role - should return project-specific KPIs"""
+        success, dashboard_data = self.run_test("Dashboard (Designer)", "GET", "api/dashboard", 200,
+                                              auth_token=self.designer_token)
+        if success:
+            # Verify designer dashboard structure
+            is_designer = dashboard_data.get('user_role') == 'Designer'
+            
+            # Check KPIs structure for Designer (should have 3 project-specific KPIs)
+            kpis = dashboard_data.get('kpis', {})
+            expected_designer_kpis = ['myProjects', 'projectsDelayed', 'milestonesToday']
+            has_designer_kpis = all(kpi in kpis for kpi in expected_designer_kpis)
+            
+            # Should have project distribution and milestone data
+            has_project_distribution = 'projectStageDistribution' in dashboard_data
+            has_delayed_milestones = 'delayedMilestones' in dashboard_data
+            has_upcoming_milestones = 'upcomingMilestones' in dashboard_data
+            
+            # Should NOT have lead data or performance data
+            no_lead_data = 'leadStageDistribution' not in dashboard_data
+            no_designer_performance = 'designerPerformance' not in dashboard_data
+            no_presales_performance = 'presalesPerformance' not in dashboard_data
+            
+            print(f"   Is Designer role: {is_designer}")
+            print(f"   Has Designer KPIs: {has_designer_kpis}")
+            print(f"   KPIs found: {list(kpis.keys())}")
+            print(f"   Has project distribution: {has_project_distribution}")
+            print(f"   Has milestone data: {has_delayed_milestones and has_upcoming_milestones}")
+            print(f"   No lead data: {no_lead_data}")
+            print(f"   No performance data: {no_designer_performance and no_presales_performance}")
+            
+            return (success and is_designer and has_designer_kpis and has_project_distribution and
+                   has_delayed_milestones and has_upcoming_milestones and no_lead_data and
+                   no_designer_performance and no_presales_performance), dashboard_data
+        return success, dashboard_data
+
+    def test_dashboard_no_auth(self):
+        """Test GET /api/dashboard without authentication - should fail"""
+        return self.run_test("Dashboard (No Auth)", "GET", "api/dashboard", 401)
+
+    def test_dashboard_data_structure_validation(self):
+        """Test dashboard data structure validation after seeding data"""
+        # First ensure we have seeded data
+        self.run_test("Seed Projects for Dashboard Test", "POST", "api/projects/seed", 200,
+                     auth_token=self.admin_token)
+        self.run_test("Seed Leads for Dashboard Test", "POST", "api/leads/seed", 200,
+                     auth_token=self.admin_token)
+        
+        # Now test dashboard with actual data
+        success, dashboard_data = self.run_test("Dashboard Data Structure Validation", "GET", "api/dashboard", 200,
+                                              auth_token=self.admin_token)
+        if success:
+            # Verify KPI values are numbers
+            kpis = dashboard_data.get('kpis', {})
+            numeric_kpis = ['totalLeads', 'qualifiedLeads', 'totalProjects', 'activeDesigners', 'delayedMilestonesCount']
+            kpis_are_numeric = all(isinstance(kpis.get(kpi, 0), (int, float)) for kpi in numeric_kpis)
+            
+            # Verify stage distributions are objects with string keys and numeric values
+            project_dist = dashboard_data.get('projectStageDistribution', {})
+            lead_dist = dashboard_data.get('leadStageDistribution', {})
+            
+            project_dist_valid = isinstance(project_dist, dict) and all(
+                isinstance(k, str) and isinstance(v, (int, float)) 
+                for k, v in project_dist.items()
+            )
+            lead_dist_valid = isinstance(lead_dist, dict) and all(
+                isinstance(k, str) and isinstance(v, (int, float)) 
+                for k, v in lead_dist.items()
+            )
+            
+            # Verify milestone arrays
+            delayed_milestones = dashboard_data.get('delayedMilestones', [])
+            upcoming_milestones = dashboard_data.get('upcomingMilestones', [])
+            
+            milestones_are_arrays = isinstance(delayed_milestones, list) and isinstance(upcoming_milestones, list)
+            
+            # Verify performance arrays
+            designer_perf = dashboard_data.get('designerPerformance', [])
+            presales_perf = dashboard_data.get('presalesPerformance', [])
+            
+            performance_are_arrays = isinstance(designer_perf, list) and isinstance(presales_perf, list)
+            
+            print(f"   KPIs are numeric: {kpis_are_numeric}")
+            print(f"   Project distribution valid: {project_dist_valid}")
+            print(f"   Lead distribution valid: {lead_dist_valid}")
+            print(f"   Milestones are arrays: {milestones_are_arrays}")
+            print(f"   Performance data are arrays: {performance_are_arrays}")
+            print(f"   Delayed milestones count: {len(delayed_milestones)}")
+            print(f"   Upcoming milestones count: {len(upcoming_milestones)}")
+            print(f"   Designer performance count: {len(designer_perf)}")
+            print(f"   PreSales performance count: {len(presales_perf)}")
+            
+            return (success and kpis_are_numeric and project_dist_valid and lead_dist_valid and
+                   milestones_are_arrays and performance_are_arrays), dashboard_data
+        return success, dashboard_data
+
     def cleanup_test_data(self):
         """Clean up test data from MongoDB"""
         print("\n🧹 Cleaning up test data...")
