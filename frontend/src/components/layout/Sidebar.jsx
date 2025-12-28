@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCog,
-  User
+  User,
+  Calendar
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
@@ -35,6 +36,12 @@ const Sidebar = () => {
       path: '/dashboard', 
       label: 'Dashboard', 
       icon: LayoutDashboard,
+      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'Trainee']
+    },
+    { 
+      path: '/calendar', 
+      label: 'Calendar', 
+      icon: Calendar,
       roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'Trainee']
     },
     { 
