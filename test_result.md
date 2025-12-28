@@ -101,3 +101,127 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Implement TAT (Time-to-Action/Completion) system with automatic expected dates, delay detection, and dynamic milestone timeline behavior for both Leads and Projects"
+
+backend:
+  - task: "TAT Configuration for Leads"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added LEAD_TAT config with days for each milestone: BC Call Done (1 day), BOQ Shared (3 days), Site Meeting (2 days), etc."
+
+  - task: "TAT Configuration for Projects"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added PROJECT_TAT config with group-based timing: Design (1-3 days), Production Prep (3 days), Production (4 days), Delivery (5 days), Installation (3 days), Handover (2 days)"
+
+  - task: "Generate Lead Timeline with TAT"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated generate_lead_timeline() to use TAT rules, now returns expectedDate, completedDate, and status (pending/completed/delayed)"
+
+  - task: "Generate Project Timeline with TAT"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created new generate_project_timeline() function using TAT rules with cumulative day calculation"
+
+  - task: "Lead Stage Update with TAT Logic"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated lead stage endpoint to mark completed milestones with completedDate and check for delays based on expectedDate"
+
+  - task: "Project Stage Update with TAT Logic"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated project stage endpoint with TAT-aware timeline updates, first milestone in current stage marked completed"
+
+frontend:
+  - task: "Project Timeline UI with TAT Display"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/ProjectDetails.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated TimelinePanel to show colored status dots (green=completed, gray=pending, red=delayed) and display Expected/Completed dates"
+
+  - task: "Lead Timeline UI with TAT Display"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/LeadDetails.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated LeadTimelinePanel to show colored status dots and Expected/Completed dates with proper styling for delayed items"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "TAT Configuration for Leads"
+    - "TAT Configuration for Projects"
+    - "Generate Lead Timeline with TAT"
+    - "Generate Project Timeline with TAT"
+    - "Lead Stage Update with TAT Logic"
+    - "Project Stage Update with TAT Logic"
+    - "Project Timeline UI with TAT Display"
+    - "Lead Timeline UI with TAT Display"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented TAT system for both Leads and Projects. Backend includes TAT configuration, timeline generation with expected dates, and stage update logic with delay detection. Frontend updated to show colored status dots (green/gray/red) and Expected/Completed dates. Please test: 1) Seed projects and leads to see new timeline structure, 2) Check timeline displays with dates and colors, 3) Test stage changes to verify completedDate is set and delays are detected"
