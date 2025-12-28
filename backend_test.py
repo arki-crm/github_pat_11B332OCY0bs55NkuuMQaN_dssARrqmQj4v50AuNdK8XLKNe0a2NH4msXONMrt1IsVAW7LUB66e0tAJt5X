@@ -234,7 +234,7 @@ print("Pure Designer user ID: {pure_designer_user_id}");
     def test_seed_projects_designer(self):
         """Test seeding projects with designer token (should fail)"""
         return self.run_test("Seed Projects (Designer - Should Fail)", "POST", "api/projects/seed", 403,
-                           auth_token=self.designer_token)
+                           auth_token=self.pure_designer_token)
 
     def test_list_projects_admin(self):
         """Test list projects endpoint (Admin sees all)"""
