@@ -34,8 +34,23 @@ Build the foundational structure for a web application named "Arkiflo", designed
 - ✅ Role-based navigation filtering
 - ✅ Protected routes with role validation
 - ✅ Admin settings page for user role management
-- ✅ Placeholder pages: Dashboard, PreSales, Leads, Projects, Academy, Settings
+- ✅ Placeholder pages: Dashboard, PreSales, Leads, Academy, Settings
 - ✅ Access denied toast for unauthorized routes
+
+### December 28, 2025 - Phase 2: Projects List Dashboard
+- ✅ Project data model (projectId, projectName, clientName, clientPhone, stage, collaborators, summary, timestamps)
+- ✅ Projects API endpoints (GET /api/projects, GET /api/projects/:id, POST /api/projects/seed)
+- ✅ My Projects page with role badge
+- ✅ Filter tabs: All, Pre 10%, 10-50%, 50-100%, Completed
+- ✅ Real-time search by project name, client name, or phone
+- ✅ Projects table with columns: Name, Collaborators, Stage, Phone (masked), Summary, Updated
+- ✅ Stage badges with color coding (gray, amber, blue, green)
+- ✅ Collaborator avatar stack with initials
+- ✅ Phone number masking (98****21 format)
+- ✅ Role-based filtering (Designer sees only assigned projects)
+- ✅ Empty state for no matching results
+- ✅ Click-to-navigate to project detail page
+- ✅ Project detail page showing basic info
 
 ## Pages & Routes
 | Route | Page | Access |
@@ -51,8 +66,9 @@ Build the foundational structure for a web application named "Arkiflo", designed
 ## Prioritized Backlog
 
 ### P0 - Next Sprint
+- [ ] Project detail page (timeline, tasks, documents)
 - [ ] CRM Lead management module
-- [ ] Project management with status tracking
+- [ ] Create/Edit project functionality
 - [ ] Team assignment to projects
 
 ### P1 - Future
@@ -74,9 +90,15 @@ Build the foundational structure for a web application named "Arkiflo", designed
 - Emergent Auth (Google OAuth)
 
 ## API Endpoints
+### Auth
 - `GET /api/health` - Health check
 - `POST /api/auth/session` - Exchange session_id for session_token
 - `GET /api/auth/me` - Get current user
 - `POST /api/auth/logout` - Logout
 - `GET /api/auth/users` - List all users (Admin)
 - `PUT /api/auth/users/:user_id/role` - Update user role (Admin)
+
+### Projects
+- `GET /api/projects` - List projects (with optional stage/search filters)
+- `GET /api/projects/:project_id` - Get single project
+- `POST /api/projects/seed` - Seed sample projects (Admin/Manager)
