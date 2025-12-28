@@ -44,7 +44,8 @@ import {
   ListTodo,
   X,
   MoreVertical,
-  Trash2
+  Trash2,
+  CalendarDays
 } from 'lucide-react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -68,6 +69,18 @@ const COLORS = {
     delayed: '#EF4444'
   },
   task: {
+    pending: '#EAB308',
+    inProgress: '#F97316',
+    completed: '#22C55E',
+    overdue: '#EF4444'
+  },
+  meeting: {
+    scheduled: '#9333EA',
+    completed: '#22C55E',
+    missed: '#EF4444',
+    cancelled: '#6B7280'
+  }
+};
     pending: '#EAB308',
     inProgress: '#F97316',
     completed: '#22C55E',
