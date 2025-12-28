@@ -5190,6 +5190,747 @@ async def check_missed_meetings(request: Request):
     return {"message": f"Checked meetings, marked {missed_count} as missed", "missed_count": missed_count}
 
 
+# ============ REPORTS & ANALYTICS ============
+
+# Probability mapping for revenue forecasting
+STAGE_PROBABILITY = {
+    "Design Finalization": 0.40,
+    "Production Preparation": 0.60,
+    "Production": 0.80,
+    "Delivery": 0.90,
+    "Installation": 0.95,
+    "Handover": 1.00
+}
+
+@api_router.get("/reports/revenue")
+async def get_revenue_report(request: Request):
+    """Revenue Forecast Report - Admin/Manager only"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    next_month = (current_month_start + timedelta(days=32)).replace(day=1)
+    
+    # Get all projects
+    projects = await db.projects.find({}, {"_id": 0}).to_list(1000)
+    
+    # Calculate metrics
+    total_forecast = 0
+    expected_this_month = 0
+    pending_collections = []
+    stage_wise_revenue = {}
+    
+    for project in projects:
+        project_value = project.get("project_value", 0)
+        stage = project.get("stage", "Design Finalization")
+        probability = STAGE_PROBABILITY.get(stage, 0.40)
+        
+        # Total Revenue Forecast
+        total_forecast += project_value * probability
+        
+        # Collected and pending
+        payments = project.get("payments", [])
+        collected = sum(p.get("amount", 0) for p in payments)
+        pending = project_value - collected
+        
+        # Stage-wise revenue
+        if stage not in stage_wise_revenue:
+            stage_wise_revenue[stage] = {"count": 0, "value": 0, "weighted": 0}
+        stage_wise_revenue[stage]["count"] += 1
+        stage_wise_revenue[stage]["value"] += project_value
+        stage_wise_revenue[stage]["weighted"] += project_value * probability
+        
+        # Expected this month - check payment schedule milestones
+        payment_schedule = project.get("payment_schedule", [])
+        custom_enabled = project.get("custom_payment_schedule_enabled", False)
+        custom_schedule = project.get("custom_payment_schedule", [])
+        active_schedule = custom_schedule if (custom_enabled and custom_schedule) else payment_schedule
+        
+        # Determine next payment stage based on collected amount
+        cumulative = 0
+        next_stage = None
+        next_amount = 0
+        
+        for milestone in active_schedule:
+            milestone_type = milestone.get("type", "percentage")
+            if milestone_type == "fixed":
+                milestone_amount = milestone.get("fixedAmount", 0)
+            elif milestone_type == "percentage":
+                milestone_amount = (project_value * milestone.get("percentage", 0)) / 100
+            else:  # remaining
+                milestone_amount = max(0, project_value - cumulative)
+            
+            cumulative += milestone_amount
+            if collected < cumulative:
+                next_stage = milestone.get("stage")
+                next_amount = milestone_amount
+                break
+        
+        # Expected date from timeline
+        expected_date = None
+        timeline = project.get("timeline", [])
+        for item in timeline:
+            if item.get("status") == "pending":
+                expected_date = item.get("expectedDate")
+                break
+        
+        # Determine status color
+        status_color = "blue"  # upcoming
+        if pending <= 0:
+            status_color = "green"  # completed
+        elif expected_date:
+            try:
+                exp_dt = datetime.fromisoformat(expected_date.replace("Z", "+00:00"))
+                if exp_dt.tzinfo is None:
+                    exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+                if exp_dt < now:
+                    status_color = "red"  # overdue
+                elif exp_dt < now + timedelta(days=7):
+                    status_color = "orange"  # due soon
+                
+                # Check if expected this month
+                if current_month_start <= exp_dt < next_month:
+                    expected_this_month += next_amount if next_amount else pending
+            except Exception:
+                pass
+        
+        if pending > 0:
+            pending_collections.append({
+                "project_id": project.get("project_id"),
+                "project_name": project.get("project_name"),
+                "client_name": project.get("client_name"),
+                "project_value": project_value,
+                "collected": collected,
+                "pending": pending,
+                "next_stage": next_stage,
+                "next_amount": next_amount,
+                "expected_date": expected_date,
+                "status_color": status_color,
+                "stage": stage
+            })
+    
+    # Sort pending collections by status priority
+    status_priority = {"red": 0, "orange": 1, "blue": 2, "green": 3}
+    pending_collections.sort(key=lambda x: (status_priority.get(x["status_color"], 2), x.get("expected_date") or "9999"))
+    
+    # Stage-wise projection for payment milestones
+    milestone_projection = {
+        "Design Booking": 0,
+        "Production Start": 0,
+        "Before Installation": 0
+    }
+    
+    for project in projects:
+        project_value = project.get("project_value", 0)
+        payments = project.get("payments", [])
+        collected = sum(p.get("amount", 0) for p in payments)
+        
+        # Simple projection based on default schedule
+        booking_amount = min(25000, project_value * 0.10)
+        production_amount = project_value * 0.50
+        installation_amount = project_value - booking_amount - production_amount
+        
+        if collected < booking_amount:
+            milestone_projection["Design Booking"] += booking_amount - collected
+            milestone_projection["Production Start"] += production_amount
+            milestone_projection["Before Installation"] += installation_amount
+        elif collected < booking_amount + production_amount:
+            milestone_projection["Production Start"] += (booking_amount + production_amount) - collected
+            milestone_projection["Before Installation"] += installation_amount
+        elif collected < project_value:
+            milestone_projection["Before Installation"] += project_value - collected
+    
+    return {
+        "total_forecast": round(total_forecast, 2),
+        "expected_this_month": round(expected_this_month, 2),
+        "total_pending": sum(p["pending"] for p in pending_collections),
+        "total_collected": sum(project.get("payments", []) for project in projects if isinstance(project.get("payments"), list)),
+        "pending_collections": pending_collections,
+        "stage_wise_revenue": stage_wise_revenue,
+        "milestone_projection": milestone_projection,
+        "projects_count": len(projects)
+    }
+
+@api_router.get("/reports/projects")
+async def get_projects_report(request: Request):
+    """Project Health Report - Admin/Manager only"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get all projects
+    projects = await db.projects.find({}, {"_id": 0}).to_list(1000)
+    
+    # Get all users for designer names
+    users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "role": 1}).to_list(1000)
+    users_map = {u["user_id"]: u for u in users}
+    
+    # Metrics
+    total_active = 0
+    projects_by_stage = {}
+    delayed_count = 0
+    on_track_count = 0
+    total_delay_days = 0
+    delay_project_count = 0
+    pending_payment_count = 0
+    production_count = 0
+    installation_count = 0
+    
+    project_details = []
+    
+    for project in projects:
+        stage = project.get("stage", "Design Finalization")
+        project_value = project.get("project_value", 0)
+        payments = project.get("payments", [])
+        collected = sum(p.get("amount", 0) for p in payments)
+        timeline = project.get("timeline", [])
+        collaborators = project.get("collaborators", [])
+        
+        # Count stages
+        if stage not in projects_by_stage:
+            projects_by_stage[stage] = 0
+        projects_by_stage[stage] += 1
+        
+        # Active projects (not completed)
+        if stage not in ["Handover", "Delivery"]:
+            total_active += 1
+        
+        # Production vs Installation
+        if stage in ["Production", "Production Preparation"]:
+            production_count += 1
+        elif stage == "Installation":
+            installation_count += 1
+        
+        # Check delay status
+        delay_status = "On Time"
+        delay_days = 0
+        expected_handover = None
+        
+        for item in timeline:
+            expected_date_str = item.get("expectedDate")
+            completed_date_str = item.get("completedDate")
+            status = item.get("status", "pending")
+            
+            if item.get("title") == "Handover" or "handover" in item.get("title", "").lower():
+                expected_handover = expected_date_str
+            
+            if status == "delayed" or (status == "pending" and expected_date_str):
+                try:
+                    expected_dt = datetime.fromisoformat(expected_date_str.replace("Z", "+00:00"))
+                    if expected_dt.tzinfo is None:
+                        expected_dt = expected_dt.replace(tzinfo=timezone.utc)
+                    
+                    if status == "delayed":
+                        if completed_date_str:
+                            completed_dt = datetime.fromisoformat(completed_date_str.replace("Z", "+00:00"))
+                            if completed_dt.tzinfo is None:
+                                completed_dt = completed_dt.replace(tzinfo=timezone.utc)
+                            days = (completed_dt - expected_dt).days
+                        else:
+                            days = (now - expected_dt).days
+                        
+                        if days > delay_days:
+                            delay_days = days
+                            if days > 14:
+                                delay_status = "Critical"
+                            else:
+                                delay_status = "Delayed"
+                    elif expected_dt < now:
+                        days = (now - expected_dt).days
+                        if days > delay_days:
+                            delay_days = days
+                            if days > 14:
+                                delay_status = "Critical"
+                            else:
+                                delay_status = "Delayed"
+                except Exception:
+                    pass
+        
+        if delay_status in ["Delayed", "Critical"]:
+            delayed_count += 1
+            total_delay_days += delay_days
+            delay_project_count += 1
+        else:
+            on_track_count += 1
+        
+        # Payment status
+        payment_status = "Pending"
+        if project_value > 0:
+            if collected >= project_value:
+                payment_status = "Complete"
+            elif collected > 0:
+                payment_status = f"Partial ({int(collected/project_value*100)}%)"
+            
+            if collected < project_value:
+                pending_payment_count += 1
+        
+        # Get designer name
+        designer_name = None
+        for collab_id in collaborators:
+            if collab_id in users_map and users_map[collab_id].get("role") == "Designer":
+                designer_name = users_map[collab_id].get("name")
+                break
+        
+        project_details.append({
+            "project_id": project.get("project_id"),
+            "project_name": project.get("project_name"),
+            "client_name": project.get("client_name"),
+            "designer": designer_name,
+            "stage": stage,
+            "delay_status": delay_status,
+            "delay_days": delay_days,
+            "payment_status": payment_status,
+            "project_value": project_value,
+            "collected": collected,
+            "expected_handover": expected_handover
+        })
+    
+    # Sort by delay status priority
+    delay_priority = {"Critical": 0, "Delayed": 1, "On Time": 2}
+    project_details.sort(key=lambda x: (delay_priority.get(x["delay_status"], 2), -x.get("delay_days", 0)))
+    
+    avg_delay = round(total_delay_days / delay_project_count, 1) if delay_project_count > 0 else 0
+    
+    return {
+        "total_projects": len(projects),
+        "total_active": total_active,
+        "projects_by_stage": projects_by_stage,
+        "delayed_count": delayed_count,
+        "on_track_count": on_track_count,
+        "avg_delay_days": avg_delay,
+        "pending_payment_count": pending_payment_count,
+        "production_count": production_count,
+        "installation_count": installation_count,
+        "project_details": project_details
+    }
+
+@api_router.get("/reports/leads")
+async def get_leads_report(request: Request):
+    """Lead Conversion Report - Admin/Manager/PreSales"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager", "PreSales"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get all leads
+    leads = await db.leads.find({}, {"_id": 0}).to_list(1000)
+    
+    # Get all users
+    users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "role": 1}).to_list(1000)
+    users_map = {u["user_id"]: u for u in users}
+    presales_users = [u for u in users if u.get("role") == "PreSales"]
+    
+    # Metrics
+    total_leads = len(leads)
+    qualified_count = 0
+    converted_count = 0
+    lost_count = 0
+    total_cycle_days = 0
+    cycle_count = 0
+    
+    source_performance = {}
+    presales_performance = {}
+    
+    # Initialize presales performance
+    for ps in presales_users:
+        presales_performance[ps["user_id"]] = {
+            "name": ps.get("name"),
+            "assigned": 0,
+            "qualified": 0,
+            "converted": 0,
+            "lost": 0,
+            "response_times": []
+        }
+    
+    for lead in leads:
+        status = lead.get("status", "New")
+        source = lead.get("source", "Unknown")
+        presales_id = lead.get("presales_id")
+        created_at = lead.get("created_at")
+        converted_at = lead.get("converted_at")
+        
+        # Source performance
+        if source not in source_performance:
+            source_performance[source] = {"total": 0, "qualified": 0, "converted": 0, "lost": 0}
+        source_performance[source]["total"] += 1
+        
+        # Status counts
+        if status in ["Qualified", "Site Visit Scheduled", "Site Visit Done", "Converted"]:
+            qualified_count += 1
+            source_performance[source]["qualified"] += 1
+        
+        if status == "Converted":
+            converted_count += 1
+            source_performance[source]["converted"] += 1
+            
+            # Calculate cycle time
+            if created_at and converted_at:
+                try:
+                    created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    converted_dt = datetime.fromisoformat(converted_at.replace("Z", "+00:00"))
+                    if created_dt.tzinfo is None:
+                        created_dt = created_dt.replace(tzinfo=timezone.utc)
+                    if converted_dt.tzinfo is None:
+                        converted_dt = converted_dt.replace(tzinfo=timezone.utc)
+                    cycle_days = (converted_dt - created_dt).days
+                    total_cycle_days += cycle_days
+                    cycle_count += 1
+                except Exception:
+                    pass
+        
+        if status in ["Lost", "Not Interested"]:
+            lost_count += 1
+            source_performance[source]["lost"] += 1
+        
+        # PreSales performance
+        if presales_id and presales_id in presales_performance:
+            presales_performance[presales_id]["assigned"] += 1
+            
+            if status in ["Qualified", "Site Visit Scheduled", "Site Visit Done", "Converted"]:
+                presales_performance[presales_id]["qualified"] += 1
+            
+            if status == "Converted":
+                presales_performance[presales_id]["converted"] += 1
+            
+            if status in ["Lost", "Not Interested"]:
+                presales_performance[presales_id]["lost"] += 1
+    
+    conversion_rate = round((converted_count / total_leads) * 100, 1) if total_leads > 0 else 0
+    avg_cycle_time = round(total_cycle_days / cycle_count, 1) if cycle_count > 0 else 0
+    
+    # Convert presales performance to list
+    presales_list = []
+    for ps_id, data in presales_performance.items():
+        ps_conversion = round((data["converted"] / data["assigned"]) * 100, 1) if data["assigned"] > 0 else 0
+        presales_list.append({
+            "user_id": ps_id,
+            "name": data["name"],
+            "assigned": data["assigned"],
+            "qualified": data["qualified"],
+            "converted": data["converted"],
+            "lost": data["lost"],
+            "conversion_rate": ps_conversion
+        })
+    
+    # Sort by conversion rate
+    presales_list.sort(key=lambda x: x["conversion_rate"], reverse=True)
+    
+    # If PreSales, filter to show only their data
+    if user.role == "PreSales":
+        presales_list = [p for p in presales_list if p["user_id"] == user.user_id]
+    
+    return {
+        "total_leads": total_leads,
+        "qualified_count": qualified_count,
+        "converted_count": converted_count,
+        "lost_count": lost_count,
+        "conversion_rate": conversion_rate,
+        "avg_cycle_time": avg_cycle_time,
+        "source_performance": source_performance,
+        "presales_performance": presales_list
+    }
+
+@api_router.get("/reports/designers")
+async def get_designers_report(request: Request):
+    """Designer Performance Report - Designer sees own, Admin/Manager sees all"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager", "Designer"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get all designers
+    designers_query = {"role": "Designer"}
+    if user.role == "Designer":
+        designers_query["user_id"] = user.user_id
+    
+    designers = await db.users.find(designers_query, {"_id": 0}).to_list(100)
+    
+    # Get all projects
+    projects = await db.projects.find({}, {"_id": 0}).to_list(1000)
+    
+    # Get all tasks
+    tasks = await db.tasks.find({}, {"_id": 0}).to_list(1000)
+    
+    # Get all meetings
+    meetings = await db.meetings.find({}, {"_id": 0}).to_list(1000)
+    
+    designer_performance = []
+    
+    for designer in designers:
+        designer_id = designer.get("user_id")
+        designer_name = designer.get("name")
+        
+        # Filter projects for this designer
+        designer_projects = [p for p in projects if designer_id in p.get("collaborators", [])]
+        
+        project_count = len(designer_projects)
+        total_value = sum(p.get("project_value", 0) for p in designer_projects)
+        
+        # Milestone analysis
+        on_time_milestones = 0
+        delayed_milestones = 0
+        total_delay_days = 0
+        
+        for project in designer_projects:
+            timeline = project.get("timeline", [])
+            for item in timeline:
+                status = item.get("status", "pending")
+                if status == "completed":
+                    on_time_milestones += 1
+                elif status == "delayed":
+                    delayed_milestones += 1
+                    expected = item.get("expectedDate")
+                    completed = item.get("completedDate")
+                    if expected and completed:
+                        try:
+                            exp_dt = datetime.fromisoformat(expected.replace("Z", "+00:00"))
+                            comp_dt = datetime.fromisoformat(completed.replace("Z", "+00:00"))
+                            if exp_dt.tzinfo is None:
+                                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+                            if comp_dt.tzinfo is None:
+                                comp_dt = comp_dt.replace(tzinfo=timezone.utc)
+                            total_delay_days += max(0, (comp_dt - exp_dt).days)
+                        except Exception:
+                            pass
+        
+        # Tasks completed
+        designer_tasks = [t for t in tasks if t.get("assigned_to") == designer_id]
+        tasks_completed = len([t for t in designer_tasks if t.get("status") == "Completed"])
+        tasks_total = len(designer_tasks)
+        
+        # Meetings completed
+        designer_meetings = [m for m in meetings if m.get("scheduled_for") == designer_id]
+        meetings_completed = len([m for m in designer_meetings if m.get("status") == "Completed"])
+        meetings_total = len(designer_meetings)
+        
+        # Revenue contribution (collected payments from designer's projects)
+        revenue_contribution = 0
+        for project in designer_projects:
+            payments = project.get("payments", [])
+            revenue_contribution += sum(p.get("amount", 0) for p in payments)
+        
+        # Average delay per project
+        avg_delay = round(total_delay_days / project_count, 1) if project_count > 0 else 0
+        
+        designer_performance.append({
+            "user_id": designer_id,
+            "name": designer_name,
+            "picture": designer.get("picture"),
+            "project_count": project_count,
+            "total_value": total_value,
+            "on_time_milestones": on_time_milestones,
+            "delayed_milestones": delayed_milestones,
+            "tasks_completed": tasks_completed,
+            "tasks_total": tasks_total,
+            "meetings_completed": meetings_completed,
+            "meetings_total": meetings_total,
+            "revenue_contribution": revenue_contribution,
+            "avg_delay_days": avg_delay
+        })
+    
+    # Sort by revenue contribution
+    designer_performance.sort(key=lambda x: x["revenue_contribution"], reverse=True)
+    
+    # Summary metrics
+    total_projects = sum(d["project_count"] for d in designer_performance)
+    total_revenue = sum(d["revenue_contribution"] for d in designer_performance)
+    total_on_time = sum(d["on_time_milestones"] for d in designer_performance)
+    total_delayed = sum(d["delayed_milestones"] for d in designer_performance)
+    
+    return {
+        "designers": designer_performance,
+        "summary": {
+            "total_designers": len(designer_performance),
+            "total_projects": total_projects,
+            "total_revenue": total_revenue,
+            "total_on_time_milestones": total_on_time,
+            "total_delayed_milestones": total_delayed,
+            "on_time_percentage": round((total_on_time / (total_on_time + total_delayed)) * 100, 1) if (total_on_time + total_delayed) > 0 else 100
+        }
+    }
+
+@api_router.get("/reports/delays")
+async def get_delays_report(request: Request):
+    """Delay Analytics Report - Admin/Manager only"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get all projects
+    projects = await db.projects.find({}, {"_id": 0}).to_list(1000)
+    
+    # Get all designers
+    designers = await db.users.find({"role": "Designer"}, {"_id": 0, "user_id": 1, "name": 1}).to_list(100)
+    designers_map = {d["user_id"]: d.get("name", "Unknown") for d in designers}
+    
+    # Metrics
+    stage_delays = {}
+    designer_delays = {}
+    monthly_delays = {}
+    delay_reasons = {}
+    projects_with_delays = []
+    
+    for project in projects:
+        timeline = project.get("timeline", [])
+        collaborators = project.get("collaborators", [])
+        comments = project.get("comments", [])
+        
+        # Get designer
+        designer_id = None
+        designer_name = None
+        for collab_id in collaborators:
+            if collab_id in designers_map:
+                designer_id = collab_id
+                designer_name = designers_map[collab_id]
+                break
+        
+        project_delay_count = 0
+        project_total_delay_days = 0
+        
+        for item in timeline:
+            status = item.get("status", "pending")
+            stage_ref = item.get("stage_ref") or item.get("title", "Unknown")
+            
+            if status == "delayed":
+                project_delay_count += 1
+                
+                # Stage delays
+                if stage_ref not in stage_delays:
+                    stage_delays[stage_ref] = {"count": 0, "total_days": 0}
+                stage_delays[stage_ref]["count"] += 1
+                
+                # Calculate delay days
+                expected = item.get("expectedDate")
+                completed = item.get("completedDate")
+                delay_days = 0
+                
+                if expected:
+                    try:
+                        exp_dt = datetime.fromisoformat(expected.replace("Z", "+00:00"))
+                        if exp_dt.tzinfo is None:
+                            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+                        
+                        if completed:
+                            comp_dt = datetime.fromisoformat(completed.replace("Z", "+00:00"))
+                            if comp_dt.tzinfo is None:
+                                comp_dt = comp_dt.replace(tzinfo=timezone.utc)
+                            delay_days = max(0, (comp_dt - exp_dt).days)
+                        else:
+                            delay_days = max(0, (now - exp_dt).days)
+                        
+                        stage_delays[stage_ref]["total_days"] += delay_days
+                        project_total_delay_days += delay_days
+                        
+                        # Monthly tracking
+                        month_key = exp_dt.strftime("%Y-%m")
+                        if month_key not in monthly_delays:
+                            monthly_delays[month_key] = {"count": 0, "total_days": 0}
+                        monthly_delays[month_key]["count"] += 1
+                        monthly_delays[month_key]["total_days"] += delay_days
+                    except Exception:
+                        pass
+                
+                # Designer delays
+                if designer_id:
+                    if designer_id not in designer_delays:
+                        designer_delays[designer_id] = {"name": designer_name, "count": 0, "total_days": 0}
+                    designer_delays[designer_id]["count"] += 1
+                    designer_delays[designer_id]["total_days"] += delay_days
+        
+        # Look for delay reasons in comments
+        for comment in comments:
+            content = comment.get("content", "").lower()
+            if "#delay" in content or "delay" in content:
+                # Extract reason (simplified)
+                reason = "Unspecified"
+                if "material" in content:
+                    reason = "Material Delay"
+                elif "client" in content:
+                    reason = "Client Decision"
+                elif "vendor" in content:
+                    reason = "Vendor Issue"
+                elif "design" in content:
+                    reason = "Design Changes"
+                elif "approval" in content:
+                    reason = "Approval Pending"
+                
+                if reason not in delay_reasons:
+                    delay_reasons[reason] = 0
+                delay_reasons[reason] += 1
+        
+        if project_delay_count > 0:
+            projects_with_delays.append({
+                "project_id": project.get("project_id"),
+                "project_name": project.get("project_name"),
+                "designer": designer_name,
+                "delay_count": project_delay_count,
+                "total_delay_days": project_total_delay_days,
+                "avg_delay": round(project_total_delay_days / project_delay_count, 1) if project_delay_count > 0 else 0
+            })
+    
+    # Calculate averages for stages
+    stage_analysis = []
+    for stage, data in stage_delays.items():
+        avg_delay = round(data["total_days"] / data["count"], 1) if data["count"] > 0 else 0
+        stage_analysis.append({
+            "stage": stage,
+            "delay_count": data["count"],
+            "total_delay_days": data["total_days"],
+            "avg_delay_days": avg_delay
+        })
+    
+    stage_analysis.sort(key=lambda x: x["delay_count"], reverse=True)
+    
+    # Designer analysis
+    designer_analysis = []
+    total_delays_all = sum(d["count"] for d in designer_delays.values())
+    
+    for designer_id, data in designer_delays.items():
+        delay_percentage = round((data["count"] / total_delays_all) * 100, 1) if total_delays_all > 0 else 0
+        designer_analysis.append({
+            "designer_id": designer_id,
+            "name": data["name"],
+            "delay_count": data["count"],
+            "total_delay_days": data["total_days"],
+            "delay_percentage": delay_percentage
+        })
+    
+    designer_analysis.sort(key=lambda x: x["delay_count"], reverse=True)
+    
+    # Monthly trend
+    monthly_trend = []
+    for month, data in sorted(monthly_delays.items()):
+        monthly_trend.append({
+            "month": month,
+            "delay_count": data["count"],
+            "avg_delay_days": round(data["total_days"] / data["count"], 1) if data["count"] > 0 else 0
+        })
+    
+    # Sort projects by delay
+    projects_with_delays.sort(key=lambda x: x["total_delay_days"], reverse=True)
+    
+    return {
+        "total_delays": sum(d["count"] for d in stage_delays.values()),
+        "projects_with_delays": len(projects_with_delays),
+        "stage_analysis": stage_analysis,
+        "designer_analysis": designer_analysis,
+        "monthly_trend": monthly_trend[-12:],  # Last 12 months
+        "delay_reasons": delay_reasons,
+        "top_delayed_projects": projects_with_delays[:10]
+    }
+
+
 # ============ HEALTH CHECK ============
 
 @api_router.get("/")
