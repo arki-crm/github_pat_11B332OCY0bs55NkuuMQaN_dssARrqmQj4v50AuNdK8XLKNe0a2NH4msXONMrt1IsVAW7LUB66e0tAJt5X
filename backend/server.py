@@ -1936,42 +1936,6 @@ async def seed_projects(request: Request):
     user_ids = [u["user_id"] for u in users]
     users_map = {u["user_id"]: u for u in users}
     
-    def generate_timeline(stage, created_date):
-        """Generate timeline based on project stage with grouped milestones"""
-        base_date = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
-        if base_date.tzinfo is None:
-            base_date = base_date.replace(tzinfo=timezone.utc)
-        
-        stage_index = STAGE_ORDER.index(stage) if stage in STAGE_ORDER else 0
-        
-        timeline = []
-        day_offset = 0
-        
-        # Generate milestones for each stage group
-        for idx, stage_name in enumerate(STAGE_ORDER):
-            milestones = MILESTONE_GROUPS.get(stage_name, [])
-            for milestone in milestones:
-                # Determine status based on current stage
-                if idx < stage_index:
-                    status = "completed"
-                elif idx == stage_index:
-                    # Current stage - first milestone completed, rest pending
-                    milestone_idx = milestones.index(milestone)
-                    status = "completed" if milestone_idx == 0 else "pending"
-                else:
-                    status = "pending"
-                
-                timeline.append({
-                    "id": f"tl_{uuid.uuid4().hex[:6]}",
-                    "title": milestone,
-                    "date": (base_date + timedelta(days=day_offset)).isoformat(),
-                    "status": status,
-                    "stage_ref": stage_name
-                })
-                day_offset += 3  # Space milestones 3 days apart
-        
-        return timeline
-    
     def generate_comments(collaborator_ids, created_date):
         """Generate sample comments"""
         base_date = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
