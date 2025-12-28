@@ -2721,6 +2721,9 @@ use('test_database');
 db.users.deleteMany({{user_id: {{$regex: "^test-"}}}});
 db.user_sessions.deleteMany({{user_id: {{$regex: "^test-"}}}});
 db.projects.deleteMany({{project_id: {{$regex: "^proj_"}}}});
+db.leads.deleteMany({{lead_id: {{$regex: "^lead_"}}}});
+db.notifications.deleteMany({{user_id: {{$regex: "^test-"}}}});
+db.email_templates.deleteMany({{updated_at: {{$exists: true}}}});
 print("Test data cleaned up");
 '''
         
