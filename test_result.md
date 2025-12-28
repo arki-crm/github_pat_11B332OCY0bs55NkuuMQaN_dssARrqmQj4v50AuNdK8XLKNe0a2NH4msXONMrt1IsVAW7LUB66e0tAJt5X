@@ -241,6 +241,126 @@ frontend:
         agent: "testing"
         comment: "✅ VERIFIED: Lead Timeline UI working perfectly! Found 7 timeline items with proper TAT display: 7 'Expected:' labels, 1 'Completed:' label, colored status indicators (1 green, 1 red), 8 dates in DD/MM/YYYY format. Lead stage change functionality tested successfully. Timeline shows Lead Created (completed), BC Call Completed (delayed), BOQ Shared (pending) with proper expected dates."
 
+  - task: "User Management System - List Users API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/users endpoint with filters (status, role, search) and role-based access (Admin/Manager only)"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: List Users API working correctly. Endpoint returns users with new fields (phone, status, last_login, updated_at). Filters working: status=Active, role=Designer, search=Test. Role-based access enforced: Admin/Manager can access, Designer denied (403). Sorting fixed for mixed datetime/string types."
+
+  - task: "User Management System - User Invite API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added POST /api/users/invite endpoint (Admin only) to invite new users with role assignment"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: User Invite API working correctly. Admin can invite users with proper response structure (message, user_id, user data). Role validation enforced. Designer access denied (403). Creates user with status=Active and proper initials generation."
+
+  - task: "User Management System - User Update API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added PUT /api/users/{user_id} endpoint with role-based restrictions (Manager cannot edit Admin/Manager, cannot change status)"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: User Update API working correctly. Admin can update all fields (name, phone, role, status). Manager restrictions enforced: cannot edit Admin users, cannot change status, can only assign Designer/PreSales/Trainee roles. Updated timestamp properly set."
+
+  - task: "User Management System - Status Toggle API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added PUT /api/users/{user_id}/status endpoint to toggle Active/Inactive status (Admin only)"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Status Toggle API working correctly. Admin can toggle user status between Active/Inactive. Proper response with message and new status. Designer access denied (403). Cannot change own status protection working."
+
+  - task: "User Management System - Delete User API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added DELETE /api/users/{user_id} endpoint to delete users (Admin only)"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Delete User API working correctly. Admin can delete users with proper success message. Designer access denied (403). Cannot delete own account protection working. Also deletes user sessions."
+
+  - task: "User Management System - Profile APIs"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/profile and PUT /api/profile endpoints for current user profile management"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Profile APIs working correctly. GET /api/profile returns current user with all fields (basic + extended). PUT /api/profile updates name/phone with proper response and updated timestamp. Initials generation working."
+
+  - task: "User Management System - Active Users APIs"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/users/active and GET /api/users/active/designers endpoints for dropdown lists"
+      - working: false
+        agent: "testing"
+        comment: "❌ ISSUE: GET /api/users/active returns 404 'User not found' error, but GET /api/users/active/designers works correctly. Both endpoints use identical authentication logic. Minor: GET /api/users/active/designers returns only active designers with proper fields (user_id, name, email, role)."
+
+  - task: "User Management System - Inactive User Login Block"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added status check in session creation to block inactive users from logging in"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Inactive user login block working correctly. Session creation checks user status and returns 403 'Your account is inactive' for inactive users. Created test inactive user and verified status=Inactive in database."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
