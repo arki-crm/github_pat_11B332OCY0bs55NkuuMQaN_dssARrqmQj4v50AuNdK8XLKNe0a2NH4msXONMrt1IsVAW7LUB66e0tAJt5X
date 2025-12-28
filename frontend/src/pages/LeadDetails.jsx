@@ -110,14 +110,21 @@ const getAvatarColor = (name) => {
 const LeadTimelinePanel = ({ timeline, currentStage }) => {
   const currentStageIndex = LEAD_STAGES.indexOf(currentStage);
 
-  const getStatusIcon = (status) => {
+  // Format date for display (DD/MM/YYYY)
+  const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const getStatusDotColor = (status) => {
     switch (status) {
       case 'completed':
-        return <Check className="w-3 h-3 text-green-600" />;
+        return 'bg-green-500';
       case 'delayed':
-        return <AlertTriangle className="w-3 h-3 text-red-500" />;
+        return 'bg-red-500';
       default:
-        return <Clock className="w-3 h-3 text-slate-400" />;
+        return 'bg-slate-300';
     }
   };
 
@@ -136,30 +143,60 @@ const LeadTimelinePanel = ({ timeline, currentStage }) => {
             const itemStageIndex = LEAD_STAGES.indexOf(item.stage_ref);
             const isCompleted = item.status === 'completed' || itemStageIndex < currentStageIndex;
             const isCurrent = item.stage_ref === currentStage;
+            const isDelayed = item.status === 'delayed';
             
             return (
               <div key={item.id || index} className="relative flex gap-3" data-testid={`timeline-item-${index}`}>
                 {/* Status dot */}
                 <div className={cn(
-                  "relative z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white",
-                  isCompleted ? 'border-green-400' :
-                  isCurrent ? 'border-blue-400' : 'border-slate-300'
+                  "relative z-10 w-6 h-6 rounded-full flex items-center justify-center",
+                  isCompleted ? 'bg-green-500' :
+                  isDelayed ? 'bg-red-500' :
+                  isCurrent ? 'bg-blue-500' : 'bg-white border-2 border-slate-300'
                 )}>
-                  {getStatusIcon(isCompleted ? 'completed' : item.status)}
+                  {isCompleted ? (
+                    <Check className="w-3 h-3 text-white" />
+                  ) : isDelayed ? (
+                    <AlertTriangle className="w-3 h-3 text-white" />
+                  ) : (
+                    <Clock className="w-3 h-3 text-slate-400" />
+                  )}
                 </div>
                 
                 {/* Content */}
                 <div className={cn(
                   "flex-1 p-2.5 rounded-lg border",
                   isCompleted ? 'bg-green-50 border-green-200' :
+                  isDelayed ? 'bg-red-50 border-red-200' :
                   isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'
                 )}>
                   <p className={cn(
                     "text-sm font-medium",
                     isCompleted ? 'text-green-700' :
+                    isDelayed ? 'text-red-700' :
                     isCurrent ? 'text-blue-700' : 'text-slate-700'
                   )}>{item.title}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{formatDate(item.date)}</p>
+                  
+                  {/* Date display */}
+                  <div className="flex flex-col gap-0.5 mt-1">
+                    {item.expectedDate && (
+                      <p className={cn(
+                        "text-xs",
+                        isDelayed ? 'text-red-500' : 'text-slate-500'
+                      )}>
+                        Expected: {formatDisplayDate(item.expectedDate)}
+                      </p>
+                    )}
+                    {item.completedDate && (
+                      <p className="text-xs text-green-600">
+                        Completed: {formatDisplayDate(item.completedDate)}
+                      </p>
+                    )}
+                    {/* Fallback to old date field if new fields not present */}
+                    {!item.expectedDate && !item.completedDate && item.date && (
+                      <p className="text-xs text-slate-500">{formatDisplayDate(item.date)}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             );
