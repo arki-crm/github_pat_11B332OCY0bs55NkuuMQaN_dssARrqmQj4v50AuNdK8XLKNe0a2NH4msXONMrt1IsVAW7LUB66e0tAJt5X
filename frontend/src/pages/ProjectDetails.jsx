@@ -1281,7 +1281,12 @@ const ProjectDetails = () => {
       {activeTab === 'files' && (
         <Card className="border-slate-200">
           <CardContent className="p-6">
-            <FilesTab />
+            <FilesTab 
+              projectId={id}
+              files={files}
+              onFilesChange={setFiles}
+              userRole={user?.role}
+            />
           </CardContent>
         </Card>
       )}
@@ -1289,7 +1294,13 @@ const ProjectDetails = () => {
       {activeTab === 'notes' && (
         <Card className="border-slate-200">
           <CardContent className="p-6">
-            <NotesTab />
+            <NotesTab 
+              projectId={id}
+              notes={notes}
+              onNotesChange={setNotes}
+              userRole={user?.role}
+              currentUserId={user?.user_id}
+            />
           </CardContent>
         </Card>
       )}
@@ -1297,7 +1308,12 @@ const ProjectDetails = () => {
       {activeTab === 'collaborators' && (
         <Card className="border-slate-200">
           <CardContent className="p-6">
-            <CollaboratorsTab collaborators={project?.collaborators || []} />
+            <CollaboratorsTabFull 
+              projectId={id}
+              collaborators={collaborators}
+              onCollaboratorsChange={setCollaborators}
+              userRole={user?.role}
+            />
           </CardContent>
         </Card>
       )}
