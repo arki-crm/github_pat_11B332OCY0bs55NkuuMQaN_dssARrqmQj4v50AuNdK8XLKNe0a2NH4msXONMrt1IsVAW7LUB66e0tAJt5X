@@ -20,6 +20,7 @@ import Users from './pages/Users';
 import UserInvite from './pages/UserInvite';
 import UserEdit from './pages/UserEdit';
 import Profile from './pages/Profile';
+import Notifications from './pages/Notifications';
 
 import './App.css';
 
@@ -58,6 +59,7 @@ const AppRouter = () => {
         <Route path="/users/invite" element={<UserInvite />} />
         <Route path="/users/:id" element={<UserEdit />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/notifications" element={<Notifications />} />
       </Route>
 
       {/* Redirect root to dashboard */}
