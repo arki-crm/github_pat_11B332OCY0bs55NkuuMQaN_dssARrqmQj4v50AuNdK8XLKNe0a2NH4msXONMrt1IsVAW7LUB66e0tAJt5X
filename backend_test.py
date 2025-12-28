@@ -4236,6 +4236,19 @@ def main():
         tester.test_project_stage_update_with_tat()
         tester.test_tat_calculation_verification()
         
+        # Payment Schedule System Tests
+        print("\n💰 Testing Payment Schedule System...")
+        tester.test_get_project_financials_structure()
+        tester.test_default_payment_schedule_3_stage()
+        tester.test_payment_schedule_calculations()
+        tester.test_change_design_booking_to_percentage()
+        tester.test_enable_custom_payment_schedule()
+        tester.test_add_custom_payment_stages()
+        tester.test_payment_schedule_validation()
+        tester.test_seed_projects_with_new_schedule()
+        tester.test_designer_financial_access()
+        tester.test_presales_financial_access_denied()
+        
         # Dashboard Tests
         print("\n📊 Testing Dashboard Endpoints...")
         tester.test_dashboard_no_auth()
