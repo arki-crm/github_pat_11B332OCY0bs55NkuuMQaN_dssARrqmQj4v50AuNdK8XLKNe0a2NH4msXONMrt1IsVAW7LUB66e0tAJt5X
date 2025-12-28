@@ -214,3 +214,26 @@ Build the foundational structure for a web application named "Arkiflo", designed
 - Completed: Green (#22C55E)
 - Missed: Red (#EF4444)
 - Cancelled: Gray (#6B7280)
+
+### December 28, 2025 - Phase 13.5: Project Financials
+- ✅ Extended Project model with: projectValue, paymentSchedule, payments[]
+- ✅ Default payment schedule: Booking 10%, Design Finalization 40%, Production 40%, Handover 10%
+- ✅ Financials API endpoints with role-based access
+- ✅ Financials tab in ProjectDetails.jsx
+- ✅ Summary cards (Project Value, Total Collected, Balance Pending)
+- ✅ Payment Milestones display with calculated amounts
+- ✅ Payment History table with Add/Delete functionality
+- ✅ Add Payment modal (Amount, Mode, Date, Reference)
+- ✅ Role permissions: Admin (full), Manager (edit+add), Designer (view), PreSales (no access)
+
+## Project Financials API Endpoints
+
+### Financials
+- `GET /api/projects/:project_id/financials` - Get financial details
+- `PUT /api/projects/:project_id/financials` - Update project value (Admin/Manager)
+- `POST /api/projects/:project_id/payments` - Add payment (Admin/Manager)
+- `DELETE /api/projects/:project_id/payments/:payment_id` - Delete payment (Admin only)
+
+## Financial Data Model
+- Payment modes: Cash, Bank, UPI, Other
+- Payment structure: id, date, amount, mode, reference, addedBy, createdAt
