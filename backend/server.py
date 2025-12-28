@@ -1028,6 +1028,28 @@ async def add_comment(project_id: str, comment: CommentCreate, request: Request)
         }
     )
     
+    # Check for @mentions in the comment
+    try:
+        import re
+        mentions = re.findall(r'@(\w+)', comment.message)
+        if mentions:
+            # Find mentioned users
+            for mention in mentions:
+                mentioned_user = await db.users.find_one(
+                    {"name": {"$regex": f"^{mention}", "$options": "i"}, "status": "Active"},
+                    {"_id": 0, "user_id": 1, "name": 1}
+                )
+                if mentioned_user and mentioned_user["user_id"] != user.user_id:
+                    await create_notification(
+                        mentioned_user["user_id"],
+                        "You were mentioned",
+                        f"{user.name} mentioned you in a comment on '{project.get('project_name', 'a project')}'",
+                        "comment",
+                        f"/projects/{project_id}"
+                    )
+    except Exception as e:
+        print(f"Error processing mentions: {e}")
+    
     return new_comment
 
 @api_router.put("/projects/{project_id}/stage")
