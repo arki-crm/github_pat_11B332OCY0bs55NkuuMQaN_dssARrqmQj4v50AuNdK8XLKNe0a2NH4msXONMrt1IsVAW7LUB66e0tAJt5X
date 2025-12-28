@@ -586,7 +586,9 @@ frontend:
 
 test_plan:
   current_focus:
-    - "Settings Module Frontend UI"
+    - "Notifications API - CRUD Operations"
+    - "Notifications API - Triggers and Automation"
+    - "Email Templates API - Management"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
