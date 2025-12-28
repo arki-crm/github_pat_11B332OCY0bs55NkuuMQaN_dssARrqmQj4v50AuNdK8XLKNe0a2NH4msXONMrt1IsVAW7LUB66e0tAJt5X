@@ -462,7 +462,7 @@ db.user_sessions.insertOne({{
                     # Test stage update (should be denied)
                     success3, _ = self.run_test("PreSales Update Stage (Should Fail)", "PUT", 
                                               f"api/projects/{project_id}/stage", 403,
-                                              data={"stage": "10-50%"},
+                                              data={"stage": "Production Preparation"},
                                               auth_token=presales_session_token)
                     
                     return success and success2 and success3, {}
