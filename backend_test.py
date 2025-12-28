@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import uuid
 
 class ArkifloAPITester:
-    def __init__(self, base_url="https://design-workflow-7.preview.emergentagent.com"):
+    def __init__(self, base_url="https://interiorflo.preview.emergentagent.com"):
         self.base_url = base_url
         self.admin_token = None
         self.designer_token = None
