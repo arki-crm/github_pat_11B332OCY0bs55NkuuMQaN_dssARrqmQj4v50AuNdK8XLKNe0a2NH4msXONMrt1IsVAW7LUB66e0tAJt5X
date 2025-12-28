@@ -1323,6 +1323,14 @@ const ProjectDetails = () => {
             <Users className="w-4 h-4 mr-2" />
             Collaborators
           </TabsTrigger>
+          <TabsTrigger 
+            value="meetings" 
+            className="data-[state=active]:bg-white"
+            data-testid="tab-meetings"
+          >
+            <CalendarDays className="w-4 h-4 mr-2" />
+            Meetings
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
