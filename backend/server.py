@@ -2395,6 +2395,39 @@ async def seed_projects(request: Request):
     
     # Sample projects data with timeline and comments
     now = datetime.now(timezone.utc)
+    
+    # Default payment schedule for all projects
+    default_schedule = [
+        {"stage": "Booking", "percentage": 10},
+        {"stage": "Design Finalization", "percentage": 40},
+        {"stage": "Production", "percentage": 40},
+        {"stage": "Handover", "percentage": 10}
+    ]
+    
+    # Sample payment generator
+    def generate_payments(project_value, stages_completed, created_date, user_id):
+        payments = []
+        base_date = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
+        if base_date.tzinfo is None:
+            base_date = base_date.replace(tzinfo=timezone.utc)
+        
+        percentages = {"Booking": 10, "Design Finalization": 40, "Production": 40}
+        modes = ["Bank", "UPI", "Cash"]
+        
+        for i, (stage, pct) in enumerate(percentages.items()):
+            if i < stages_completed:
+                amount = (project_value * pct) / 100
+                payments.append({
+                    "id": f"payment_{uuid.uuid4().hex[:8]}",
+                    "date": (base_date + timedelta(days=i*15)).strftime("%Y-%m-%d"),
+                    "amount": amount,
+                    "mode": modes[i % len(modes)],
+                    "reference": f"TXN{uuid.uuid4().hex[:6].upper()}",
+                    "added_by": user_id,
+                    "created_at": (base_date + timedelta(days=i*15)).isoformat()
+                })
+        return payments
+    
     sample_projects = [
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -2406,6 +2439,9 @@ async def seed_projects(request: Request):
             "summary": "Complete interior design for a 3BHK apartment with minimalist aesthetics",
             "timeline": generate_project_timeline("Design Finalization", (now - timedelta(days=5)).isoformat()),
             "comments": generate_comments(user_ids[:2] if len(user_ids) >= 2 else user_ids, (now - timedelta(days=5)).isoformat()),
+            "project_value": 850000,
+            "payment_schedule": default_schedule,
+            "payments": generate_payments(850000, 1, (now - timedelta(days=5)).isoformat(), user.user_id),
             "updated_at": now.isoformat(),
             "created_at": (now - timedelta(days=5)).isoformat()
         },
@@ -2419,6 +2455,9 @@ async def seed_projects(request: Request):
             "summary": "High-end villa interior design with custom furniture and lighting",
             "timeline": generate_project_timeline("Production Preparation", (now - timedelta(days=15)).isoformat()),
             "comments": generate_comments(user_ids[:3] if len(user_ids) >= 3 else user_ids, (now - timedelta(days=15)).isoformat()),
+            "project_value": 2500000,
+            "payment_schedule": default_schedule,
+            "payments": generate_payments(2500000, 2, (now - timedelta(days=15)).isoformat(), user.user_id),
             "updated_at": (now - timedelta(hours=6)).isoformat(),
             "created_at": (now - timedelta(days=15)).isoformat()
         },
