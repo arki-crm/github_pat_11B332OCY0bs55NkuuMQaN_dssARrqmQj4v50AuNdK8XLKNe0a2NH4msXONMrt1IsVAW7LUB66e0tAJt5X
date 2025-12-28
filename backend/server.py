@@ -405,6 +405,10 @@ async def get_project(project_id: str, request: Request):
     """Get single project by ID"""
     user = await get_current_user(request)
     
+    # PreSales cannot access project details
+    if user.role == "PreSales":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
     
     if not project:
