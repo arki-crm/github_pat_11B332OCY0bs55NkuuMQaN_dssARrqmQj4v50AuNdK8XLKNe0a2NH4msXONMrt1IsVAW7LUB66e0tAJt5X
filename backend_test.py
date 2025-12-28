@@ -271,6 +271,7 @@ print("Designer user ID: {designer_user_id}");
 use('test_database');
 db.users.deleteMany({{user_id: {{$regex: "^test-"}}}});
 db.user_sessions.deleteMany({{user_id: {{$regex: "^test-"}}}});
+db.projects.deleteMany({{project_id: {{$regex: "^proj_"}}}});
 print("Test data cleaned up");
 '''
         
