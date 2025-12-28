@@ -593,7 +593,7 @@ const Calendar = () => {
         </div>
         
         {/* Quick Stats */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
             <Milestone className="h-4 w-4 text-blue-600" />
             <span className="text-sm font-medium text-blue-700">{stats.totalMilestones} Milestones</span>
@@ -607,6 +607,10 @@ const Calendar = () => {
             {stats.overdueTasks > 0 && (
               <Badge variant="destructive" className="text-xs">{stats.overdueTasks} overdue</Badge>
             )}
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg">
+            <CalendarDays className="h-4 w-4 text-purple-600" />
+            <span className="text-sm font-medium text-purple-700">{stats.totalMeetings} Meetings</span>
           </div>
         </div>
       </div>
