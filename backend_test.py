@@ -331,7 +331,7 @@ print("Designer user ID: {designer_user_id}");
             current_stage = projects_data[0].get('stage', 'Pre 10%')
             
             # Choose a different stage to update to
-            stages = ["Pre 10%", "10-50%", "50-100%", "Completed"]
+            stages = ["Design Finalization", "Production Preparation", "Production", "Delivery", "Installation", "Handover"]
             new_stage = None
             for stage in stages:
                 if stage != current_stage:
