@@ -559,13 +559,16 @@ const Calendar = () => {
   const stats = useMemo(() => {
     const milestones = events.filter(e => e.type === 'milestone');
     const tasks = events.filter(e => e.type === 'task');
+    const meetings = events.filter(e => e.type === 'meeting');
     
     return {
       totalMilestones: milestones.length,
       delayedMilestones: milestones.filter(m => m.status === 'delayed').length,
       totalTasks: tasks.length,
       pendingTasks: tasks.filter(t => t.status === 'pending').length,
-      overdueTasks: tasks.filter(t => t.is_overdue).length
+      overdueTasks: tasks.filter(t => t.is_overdue).length,
+      totalMeetings: meetings.length,
+      scheduledMeetings: meetings.filter(m => m.status === 'scheduled').length
     };
   }, [events]);
 
