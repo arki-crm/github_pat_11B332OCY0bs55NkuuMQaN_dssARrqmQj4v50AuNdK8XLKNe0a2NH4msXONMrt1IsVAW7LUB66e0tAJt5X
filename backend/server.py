@@ -437,8 +437,135 @@ async def get_project(project_id: str, request: Request):
         "stage": project["stage"],
         "collaborators": collaborator_details,
         "summary": project.get("summary", ""),
+        "timeline": project.get("timeline", []),
+        "comments": project.get("comments", []),
         "updated_at": updated_at,
         "created_at": created_at
+    }
+
+@api_router.post("/projects/{project_id}/comments")
+async def add_comment(project_id: str, comment: CommentCreate, request: Request):
+    """Add a comment to a project"""
+    user = await get_current_user(request)
+    
+    # PreSales cannot access project details
+    if user.role == "PreSales":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check access for Designer role
+    if user.role == "Designer" and user.user_id not in project.get("collaborators", []):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Create comment
+    new_comment = {
+        "id": f"comment_{uuid.uuid4().hex[:8]}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "role": user.role,
+        "message": comment.message,
+        "is_system": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Add to comments array
+    await db.projects.update_one(
+        {"project_id": project_id},
+        {
+            "$push": {"comments": new_comment},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    return new_comment
+
+@api_router.put("/projects/{project_id}/stage")
+async def update_stage(project_id: str, stage_update: StageUpdate, request: Request):
+    """Update project stage"""
+    user = await get_current_user(request)
+    
+    # PreSales cannot access project details
+    if user.role == "PreSales":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Validate stage
+    if stage_update.stage not in STAGE_ORDER:
+        raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {STAGE_ORDER}")
+    
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check access for Designer role - can only change own projects
+    if user.role == "Designer" and user.user_id not in project.get("collaborators", []):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    old_stage = project.get("stage", "Pre 10%")
+    new_stage = stage_update.stage
+    
+    if old_stage == new_stage:
+        return {"message": "Stage unchanged", "stage": new_stage}
+    
+    # Create system comment for stage change
+    system_comment = {
+        "id": f"comment_{uuid.uuid4().hex[:8]}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "role": user.role,
+        "message": f"Stage updated from \"{old_stage}\" to \"{new_stage}\"",
+        "is_system": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Update timeline based on new stage
+    timeline = project.get("timeline", [])
+    new_stage_index = STAGE_ORDER.index(new_stage)
+    
+    for item in timeline:
+        item_stage = item.get("stage_ref", "")
+        if item_stage in STAGE_ORDER:
+            item_index = STAGE_ORDER.index(item_stage)
+            if item_index <= new_stage_index:
+                item["status"] = "completed"
+            else:
+                # Check if delayed
+                expected_date = item.get("date", "")
+                if expected_date:
+                    try:
+                        expected = datetime.fromisoformat(expected_date.replace("Z", "+00:00"))
+                        if expected.tzinfo is None:
+                            expected = expected.replace(tzinfo=timezone.utc)
+                        if expected < datetime.now(timezone.utc):
+                            item["status"] = "delayed"
+                        else:
+                            item["status"] = "pending"
+                    except:
+                        item["status"] = "pending"
+                else:
+                    item["status"] = "pending"
+    
+    # Update project
+    await db.projects.update_one(
+        {"project_id": project_id},
+        {
+            "$set": {
+                "stage": new_stage,
+                "timeline": timeline,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            "$push": {"comments": system_comment}
+        }
+    )
+    
+    return {
+        "message": "Stage updated successfully",
+        "stage": new_stage,
+        "system_comment": system_comment
     }
 
 @api_router.post("/projects/seed")
