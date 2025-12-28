@@ -563,7 +563,13 @@ async def list_all_users(
         ]
     
     # Sort by created_at descending
-    users.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    def get_sort_key(user):
+        created_at = user.get("created_at", "")
+        if isinstance(created_at, datetime):
+            return created_at.isoformat()
+        return str(created_at) if created_at else ""
+    
+    users.sort(key=get_sort_key, reverse=True)
     
     return [format_user_response(u) for u in users]
 
