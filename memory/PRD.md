@@ -50,7 +50,23 @@ Build the foundational structure for a web application named "Arkiflo", designed
 - ✅ Role-based filtering (Designer sees only assigned projects)
 - ✅ Empty state for no matching results
 - ✅ Click-to-navigate to project detail page
-- ✅ Project detail page showing basic info
+
+### December 28, 2025 - Phase 3: Project Detail View
+- ✅ Three-column layout (Timeline | Comments | Stages)
+- ✅ Tab navigation: Overview (default), Files, Notes, Collaborators
+- ✅ Extended data model: timeline array, comments array with system messages
+- ✅ Timeline panel with vertical connector, status badges (Completed/Pending/Delayed)
+- ✅ Activity & Comments feed with user avatars, role badges, timestamps
+- ✅ Immutable comments - no edit/delete after posting
+- ✅ Add comment functionality with real-time updates
+- ✅ System-generated comments for stage changes
+- ✅ Stage selector with visual progress indicator
+- ✅ Stage change auto-updates timeline and generates system comment
+- ✅ Files tab placeholder
+- ✅ Notes tab placeholder
+- ✅ Collaborators tab with team list (disabled add/remove for now)
+- ✅ PreSales redirect to dashboard with "Access denied" toast
+- ✅ Designer can only access/modify assigned projects
 
 ## Pages & Routes
 | Route | Page | Access |
@@ -66,10 +82,10 @@ Build the foundational structure for a web application named "Arkiflo", designed
 ## Prioritized Backlog
 
 ### P0 - Next Sprint
-- [ ] Project detail page (timeline, tasks, documents)
 - [ ] CRM Lead management module
-- [ ] Create/Edit project functionality
-- [ ] Team assignment to projects
+- [ ] Create/Edit project functionality  
+- [ ] Team assignment (add/remove collaborators)
+- [ ] Files module (upload/download documents)
 
 ### P1 - Future
 - [ ] Pre-Sales pipeline & inquiry tracking
@@ -100,5 +116,7 @@ Build the foundational structure for a web application named "Arkiflo", designed
 
 ### Projects
 - `GET /api/projects` - List projects (with optional stage/search filters)
-- `GET /api/projects/:project_id` - Get single project
+- `GET /api/projects/:project_id` - Get single project with timeline & comments
+- `POST /api/projects/:project_id/comments` - Add comment to project
+- `PUT /api/projects/:project_id/stage` - Update project stage (auto-generates system comment)
 - `POST /api/projects/seed` - Seed sample projects (Admin/Manager)
