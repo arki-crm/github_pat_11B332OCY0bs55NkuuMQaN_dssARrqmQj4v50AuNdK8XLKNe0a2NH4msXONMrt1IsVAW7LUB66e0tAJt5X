@@ -716,7 +716,7 @@ const ProjectDetails = () => {
           {/* Left Column - Timeline (25%) */}
           <Card className="border-slate-200 lg:col-span-1">
             <CardContent className="p-4">
-              <TimelinePanel timeline={project?.timeline || []} />
+              <TimelinePanel timeline={project?.timeline || []} currentStage={project?.stage} />
             </CardContent>
           </Card>
 
