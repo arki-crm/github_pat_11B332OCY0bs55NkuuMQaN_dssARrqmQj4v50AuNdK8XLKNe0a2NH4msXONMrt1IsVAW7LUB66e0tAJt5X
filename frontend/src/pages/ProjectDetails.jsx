@@ -1179,6 +1179,101 @@ const ProjectDetails = () => {
     }
   };
 
+  // Fetch financials for this project
+  const fetchFinancials = async () => {
+    try {
+      setLoadingFinancials(true);
+      const response = await axios.get(`${API}/projects/${id}/financials`, {
+        withCredentials: true
+      });
+      setFinancials(response.data);
+      setNewProjectValue(response.data.project_value?.toString() || '');
+    } catch (err) {
+      console.error('Failed to fetch financials:', err);
+      toast.error('Failed to load financial data');
+    } finally {
+      setLoadingFinancials(false);
+    }
+  };
+
+  // Fetch financials when tab changes to financials
+  useEffect(() => {
+    if (activeTab === 'financials' && id && user?.role !== 'PreSales') {
+      fetchFinancials();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, id]);
+
+  // Update project value
+  const handleUpdateProjectValue = async () => {
+    const value = parseFloat(newProjectValue);
+    if (isNaN(value) || value < 0) {
+      toast.error('Please enter a valid project value');
+      return;
+    }
+    
+    try {
+      await axios.put(`${API}/projects/${id}/financials`, {
+        project_value: value
+      }, { withCredentials: true });
+      
+      toast.success('Project value updated');
+      setEditingProjectValue(false);
+      fetchFinancials();
+    } catch (err) {
+      console.error('Failed to update project value:', err);
+      toast.error(err.response?.data?.detail || 'Failed to update');
+    }
+  };
+
+  // Add payment
+  const handleAddPayment = async () => {
+    const amount = parseFloat(newPayment.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    
+    try {
+      await axios.post(`${API}/projects/${id}/payments`, {
+        amount,
+        mode: newPayment.mode,
+        reference: newPayment.reference,
+        date: newPayment.date
+      }, { withCredentials: true });
+      
+      toast.success('Payment added');
+      setShowAddPaymentModal(false);
+      setNewPayment({
+        amount: '',
+        mode: 'Bank',
+        reference: '',
+        date: new Date().toISOString().split('T')[0]
+      });
+      fetchFinancials();
+    } catch (err) {
+      console.error('Failed to add payment:', err);
+      toast.error(err.response?.data?.detail || 'Failed to add payment');
+    }
+  };
+
+  // Delete payment (Admin only)
+  const handleDeletePayment = async (paymentId) => {
+    if (!window.confirm('Are you sure you want to delete this payment?')) return;
+    
+    try {
+      await axios.delete(`${API}/projects/${id}/payments/${paymentId}`, {
+        withCredentials: true
+      });
+      
+      toast.success('Payment deleted');
+      fetchFinancials();
+    } catch (err) {
+      console.error('Failed to delete payment:', err);
+      toast.error(err.response?.data?.detail || 'Failed to delete payment');
+    }
+  };
+
   // Add comment
   const handleAddComment = async (message) => {
     try {
