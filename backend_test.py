@@ -802,7 +802,7 @@ db.user_sessions.insertOne({{
             return self.run_test("Add Collaborator (Designer - Should Fail)", "POST", 
                                f"api/projects/{project_id}/collaborators", 403,
                                data=collaborator_data,
-                               auth_token=self.designer_token)
+                               auth_token=self.pure_designer_token)
         else:
             print("⚠️  No projects found for designer add collaborator test")
             return False, {}
