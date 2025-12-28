@@ -2015,7 +2015,7 @@ async def seed_projects(request: Request):
             "stage": "Production",
             "collaborators": user_ids[:2] if len(user_ids) >= 2 else user_ids,
             "summary": "Modern workspace design for 50+ employees with collaborative zones",
-            "timeline": generate_timeline("Production", (now - timedelta(days=30)).isoformat()),
+            "timeline": generate_project_timeline("Production", (now - timedelta(days=30)).isoformat()),
             "comments": generate_comments(user_ids[:2] if len(user_ids) >= 2 else user_ids, (now - timedelta(days=30)).isoformat()),
             "updated_at": (now - timedelta(days=1)).isoformat(),
             "created_at": (now - timedelta(days=30)).isoformat()
