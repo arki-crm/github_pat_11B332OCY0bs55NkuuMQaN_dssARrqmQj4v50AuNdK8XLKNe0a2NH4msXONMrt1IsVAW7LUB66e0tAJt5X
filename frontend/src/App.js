@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import PreSales from './pages/PreSales';
 import Leads from './pages/Leads';
+import LeadDetails from './pages/LeadDetails';
 import Projects from './pages/Projects';
 import ProjectDetails from './pages/ProjectDetails';
 import Academy from './pages/Academy';
