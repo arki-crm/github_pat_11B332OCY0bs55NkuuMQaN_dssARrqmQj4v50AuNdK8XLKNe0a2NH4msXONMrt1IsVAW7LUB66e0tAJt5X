@@ -2567,17 +2567,33 @@ async def seed_projects(request: Request):
 
 # ============ PROJECT FINANCIALS ============
 
-# Default payment schedule
+# Default payment schedule - Arki Dots business rules
+# Stage 1: Design Booking - Fixed ₹25,000 (can be changed to percentage)
+# Stage 2: Production Start - 50% of project value
+# Stage 3: Before Installation - Remaining amount
 DEFAULT_PAYMENT_SCHEDULE = [
-    {"stage": "Booking", "percentage": 10},
-    {"stage": "Design Finalization", "percentage": 40},
-    {"stage": "Production", "percentage": 40},
-    {"stage": "Handover", "percentage": 10}
+    {
+        "stage": "Design Booking",
+        "type": "fixed",  # fixed, percentage, or remaining
+        "fixedAmount": 25000,
+        "percentage": 10  # Used if type is changed to percentage
+    },
+    {
+        "stage": "Production Start",
+        "type": "percentage",
+        "percentage": 50
+    },
+    {
+        "stage": "Before Installation",
+        "type": "remaining"
+    }
 ]
 
 class ProjectFinancialsUpdate(BaseModel):
     project_value: Optional[float] = None
     payment_schedule: Optional[List[dict]] = None
+    custom_payment_schedule_enabled: Optional[bool] = None
+    custom_payment_schedule: Optional[List[dict]] = None
 
 class PaymentCreate(BaseModel):
     amount: float
@@ -2586,6 +2602,89 @@ class PaymentCreate(BaseModel):
     date: Optional[str] = None
 
 PAYMENT_MODES = ["Cash", "Bank", "UPI", "Other"]
+PAYMENT_SCHEDULE_TYPES = ["fixed", "percentage", "remaining"]
+
+def calculate_schedule_amounts(payment_schedule, project_value):
+    """Calculate amounts for each payment schedule stage"""
+    milestone_amounts = []
+    total_fixed_and_percentage = 0
+    remaining_index = -1
+    
+    for i, schedule in enumerate(payment_schedule):
+        stage_type = schedule.get("type", "percentage")
+        stage = schedule.get("stage", f"Stage {i+1}")
+        
+        if stage_type == "fixed":
+            amount = schedule.get("fixedAmount", 0)
+            total_fixed_and_percentage += amount
+            milestone_amounts.append({
+                "stage": stage,
+                "type": "fixed",
+                "fixedAmount": schedule.get("fixedAmount", 0),
+                "percentage": schedule.get("percentage", 0),
+                "amount": amount
+            })
+        elif stage_type == "percentage":
+            percentage = schedule.get("percentage", 0)
+            amount = (project_value * percentage) / 100
+            total_fixed_and_percentage += amount
+            milestone_amounts.append({
+                "stage": stage,
+                "type": "percentage",
+                "percentage": percentage,
+                "amount": amount
+            })
+        elif stage_type == "remaining":
+            remaining_index = i
+            milestone_amounts.append({
+                "stage": stage,
+                "type": "remaining",
+                "amount": 0  # Will be calculated after
+            })
+    
+    # Calculate remaining amount
+    if remaining_index >= 0:
+        remaining_amount = max(0, project_value - total_fixed_and_percentage)
+        milestone_amounts[remaining_index]["amount"] = remaining_amount
+    
+    return milestone_amounts
+
+def validate_payment_schedule(schedule):
+    """Validate payment schedule"""
+    errors = []
+    remaining_count = 0
+    total_percentage = 0
+    
+    for i, item in enumerate(schedule):
+        stage_type = item.get("type", "percentage")
+        
+        if stage_type not in PAYMENT_SCHEDULE_TYPES:
+            errors.append(f"Stage {i+1}: Invalid type '{stage_type}'")
+        
+        if stage_type == "remaining":
+            remaining_count += 1
+        
+        if stage_type == "percentage":
+            percentage = item.get("percentage", 0)
+            if percentage < 0 or percentage > 100:
+                errors.append(f"Stage {i+1}: Percentage must be between 0 and 100")
+            total_percentage += percentage
+        
+        if stage_type == "fixed":
+            fixed_amount = item.get("fixedAmount", 0)
+            if fixed_amount < 0:
+                errors.append(f"Stage {i+1}: Fixed amount cannot be negative")
+        
+        if not item.get("stage"):
+            errors.append(f"Stage {i+1}: Stage name is required")
+    
+    if remaining_count > 1:
+        errors.append("Only one 'remaining' stage is allowed")
+    
+    if total_percentage > 100:
+        errors.append(f"Total percentage ({total_percentage}%) cannot exceed 100%")
+    
+    return errors
 
 @api_router.get("/projects/{project_id}/financials")
 async def get_project_financials(project_id: str, request: Request):
@@ -2606,8 +2705,13 @@ async def get_project_financials(project_id: str, request: Request):
     
     # Initialize financial fields if not present
     project_value = project.get("project_value", 0)
-    payment_schedule = project.get("payment_schedule", DEFAULT_PAYMENT_SCHEDULE)
+    custom_enabled = project.get("custom_payment_schedule_enabled", False)
+    custom_schedule = project.get("custom_payment_schedule", [])
+    default_schedule = project.get("payment_schedule", DEFAULT_PAYMENT_SCHEDULE)
     payments = project.get("payments", [])
+    
+    # Use custom schedule if enabled and has items, otherwise use default
+    active_schedule = custom_schedule if (custom_enabled and custom_schedule) else default_schedule
     
     # Calculate totals
     total_collected = sum(p.get("amount", 0) for p in payments)
@@ -2634,15 +2738,23 @@ async def get_project_financials(project_id: str, request: Request):
     # Sort payments by date (newest first)
     enriched_payments.sort(key=lambda x: x.get("date", ""), reverse=True)
     
-    # Calculate milestone amounts
-    milestone_amounts = []
-    for schedule in payment_schedule:
-        amount = (project_value * schedule.get("percentage", 0)) / 100
-        milestone_amounts.append({
-            "stage": schedule.get("stage"),
-            "percentage": schedule.get("percentage"),
-            "amount": amount
-        })
+    # Calculate milestone amounts using the active schedule
+    milestone_amounts = calculate_schedule_amounts(active_schedule, project_value)
+    
+    return {
+        "project_id": project_id,
+        "project_name": project.get("project_name"),
+        "project_value": project_value,
+        "custom_payment_schedule_enabled": custom_enabled,
+        "custom_payment_schedule": custom_schedule,
+        "default_payment_schedule": default_schedule,
+        "payment_schedule": milestone_amounts,  # Calculated amounts for display
+        "payments": enriched_payments,
+        "total_collected": total_collected,
+        "balance_pending": balance_pending,
+        "can_edit": user.role in ["Admin", "Manager"],
+        "can_delete_payments": user.role == "Admin"
+    }
     
     return {
         "project_id": project_id,
