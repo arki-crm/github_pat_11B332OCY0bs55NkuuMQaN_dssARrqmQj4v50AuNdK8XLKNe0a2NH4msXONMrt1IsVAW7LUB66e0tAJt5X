@@ -1428,6 +1428,8 @@ async def update_lead_stage(lead_id: str, stage_update: LeadStageUpdate, request
     if old_stage == new_stage:
         return {"message": "Stage unchanged", "stage": new_stage}
     
+    now = datetime.now(timezone.utc)
+    
     # Create system comment
     system_comment = {
         "id": f"comment_{uuid.uuid4().hex[:8]}",
@@ -1436,10 +1438,10 @@ async def update_lead_stage(lead_id: str, stage_update: LeadStageUpdate, request
         "role": user.role,
         "message": f"Stage updated from \"{old_stage}\" to \"{new_stage}\"",
         "is_system": True,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": now.isoformat()
     }
     
-    # Update timeline
+    # Update timeline with TAT-aware logic
     timeline = lead.get("timeline", [])
     new_stage_index = LEAD_STAGES.index(new_stage)
     
@@ -1447,10 +1449,33 @@ async def update_lead_stage(lead_id: str, stage_update: LeadStageUpdate, request
         item_stage = item.get("stage_ref", "")
         if item_stage in LEAD_STAGES:
             item_index = LEAD_STAGES.index(item_stage)
-            if item_index <= new_stage_index:
+            if item_index < new_stage_index:
+                # Past stages - mark as completed
                 item["status"] = "completed"
+                if not item.get("completedDate"):
+                    item["completedDate"] = now.isoformat()
+            elif item_index == new_stage_index:
+                # Current stage - mark first as completed, check others for delay
+                item["status"] = "completed"
+                if not item.get("completedDate"):
+                    item["completedDate"] = now.isoformat()
             else:
-                item["status"] = "pending"
+                # Future stages - check if delayed
+                expected_date_str = item.get("expectedDate", item.get("date", ""))
+                if expected_date_str:
+                    try:
+                        expected = datetime.fromisoformat(expected_date_str.replace("Z", "+00:00"))
+                        if expected.tzinfo is None:
+                            expected = expected.replace(tzinfo=timezone.utc)
+                        if expected < now:
+                            item["status"] = "delayed"
+                        else:
+                            item["status"] = "pending"
+                    except:
+                        item["status"] = "pending"
+                else:
+                    item["status"] = "pending"
+                item["completedDate"] = None
     
     # Update status based on stage
     new_status = lead.get("status", "New")
@@ -1468,7 +1493,7 @@ async def update_lead_stage(lead_id: str, stage_update: LeadStageUpdate, request
                 "stage": new_stage,
                 "status": new_status,
                 "timeline": timeline,
-                "updated_at": datetime.now(timezone.utc).isoformat()
+                "updated_at": now.isoformat()
             },
             "$push": {"comments": system_comment}
         }
