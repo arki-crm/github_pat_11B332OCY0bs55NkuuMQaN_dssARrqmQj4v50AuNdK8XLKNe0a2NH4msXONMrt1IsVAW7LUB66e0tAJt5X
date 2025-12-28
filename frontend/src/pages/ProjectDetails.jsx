@@ -1352,6 +1352,16 @@ const ProjectDetails = () => {
             <CalendarDays className="w-4 h-4 mr-2" />
             Meetings
           </TabsTrigger>
+          {user?.role !== 'PreSales' && (
+            <TabsTrigger 
+              value="financials" 
+              className="data-[state=active]:bg-white"
+              data-testid="tab-financials"
+            >
+              <IndianRupee className="w-4 h-4 mr-2" />
+              Financials
+            </TabsTrigger>
+          )}
         </TabsList>
       </Tabs>
 
