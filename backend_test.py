@@ -1859,6 +1859,478 @@ db.user_sessions.insertOne({{
                    milestones_are_arrays and performance_are_arrays), dashboard_data
         return success, dashboard_data
 
+    # ============ SETTINGS ENDPOINTS TESTS ============
+
+    def test_get_company_settings_admin(self):
+        """Test GET /api/settings/company (Admin access)"""
+        return self.run_test("Get Company Settings (Admin)", "GET", "api/settings/company", 200,
+                           auth_token=self.admin_token)
+
+    def test_get_company_settings_manager(self):
+        """Test GET /api/settings/company (Manager access)"""
+        # Create a Manager user for testing
+        manager_user_id = f"test-manager-{uuid.uuid4().hex[:8]}"
+        manager_session_token = f"test_manager_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{manager_user_id}",
+  email: "manager.settings.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test Manager Settings",
+  picture: "https://via.placeholder.com/150",
+  role: "Manager",
+  status: "Active",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{manager_user_id}",
+  session_token: "{manager_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                return self.run_test("Get Company Settings (Manager)", "GET", "api/settings/company", 200,
+                                   auth_token=manager_session_token)
+            else:
+                print(f"❌ Failed to create Manager user: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing Manager access: {str(e)}")
+            return False, {}
+
+    def test_get_company_settings_designer(self):
+        """Test GET /api/settings/company (Designer access - should fail)"""
+        return self.run_test("Get Company Settings (Designer - Should Fail)", "GET", "api/settings/company", 403,
+                           auth_token=self.designer_token)
+
+    def test_update_company_settings_admin(self):
+        """Test PUT /api/settings/company (Admin only)"""
+        company_data = {
+            "name": "Test Company Updated",
+            "phone": "123456789",
+            "address": "123 Test Street",
+            "gst": "GST123456",
+            "website": "https://testcompany.com",
+            "support_email": "support@testcompany.com"
+        }
+        
+        success, response_data = self.run_test("Update Company Settings (Admin)", "PUT", "api/settings/company", 200,
+                                             data=company_data, auth_token=self.admin_token)
+        if success:
+            # Verify response structure
+            has_message = 'message' in response_data
+            has_settings = 'settings' in response_data
+            settings_match = response_data.get('settings', {}).get('name') == company_data['name']
+            
+            print(f"   Has message: {has_message}")
+            print(f"   Has settings: {has_settings}")
+            print(f"   Settings updated correctly: {settings_match}")
+            
+            return success and has_message and has_settings and settings_match, response_data
+        return success, response_data
+
+    def test_update_company_settings_designer(self):
+        """Test PUT /api/settings/company (Designer access - should fail)"""
+        company_data = {"name": "Unauthorized Update"}
+        return self.run_test("Update Company Settings (Designer - Should Fail)", "PUT", "api/settings/company", 403,
+                           data=company_data, auth_token=self.designer_token)
+
+    def test_get_branding_settings_admin(self):
+        """Test GET /api/settings/branding (Admin access)"""
+        return self.run_test("Get Branding Settings (Admin)", "GET", "api/settings/branding", 200,
+                           auth_token=self.admin_token)
+
+    def test_update_branding_settings_admin(self):
+        """Test PUT /api/settings/branding (Admin only)"""
+        branding_data = {
+            "primary_color": "#FF0000",
+            "secondary_color": "#00FF00",
+            "theme": "dark",
+            "logo_url": "https://example.com/logo.png",
+            "favicon_url": "https://example.com/favicon.ico",
+            "sidebar_default_collapsed": True
+        }
+        
+        success, response_data = self.run_test("Update Branding Settings (Admin)", "PUT", "api/settings/branding", 200,
+                                             data=branding_data, auth_token=self.admin_token)
+        if success:
+            # Verify response structure
+            has_message = 'message' in response_data
+            has_settings = 'settings' in response_data
+            color_match = response_data.get('settings', {}).get('primary_color') == branding_data['primary_color']
+            
+            print(f"   Has message: {has_message}")
+            print(f"   Has settings: {has_settings}")
+            print(f"   Primary color updated: {color_match}")
+            
+            return success and has_message and has_settings and color_match, response_data
+        return success, response_data
+
+    def test_get_lead_tat_settings_admin(self):
+        """Test GET /api/settings/tat/lead (Admin access)"""
+        success, tat_data = self.run_test("Get Lead TAT Settings (Admin)", "GET", "api/settings/tat/lead", 200,
+                                        auth_token=self.admin_token)
+        if success:
+            # Verify TAT structure
+            expected_fields = ['bc_call_done', 'boq_shared', 'site_meeting', 'revised_boq_shared']
+            has_all_fields = all(field in tat_data for field in expected_fields)
+            
+            print(f"   Has all TAT fields: {has_all_fields}")
+            print(f"   TAT fields found: {list(tat_data.keys())}")
+            
+            return success and has_all_fields, tat_data
+        return success, tat_data
+
+    def test_update_lead_tat_settings_admin(self):
+        """Test PUT /api/settings/tat/lead (Admin only)"""
+        tat_data = {
+            "bc_call_done": 2,
+            "boq_shared": 4,
+            "site_meeting": 3,
+            "revised_boq_shared": 3
+        }
+        
+        success, response_data = self.run_test("Update Lead TAT Settings (Admin)", "PUT", "api/settings/tat/lead", 200,
+                                             data=tat_data, auth_token=self.admin_token)
+        if success:
+            # Verify response structure
+            has_message = 'message' in response_data
+            has_settings = 'settings' in response_data
+            bc_call_match = response_data.get('settings', {}).get('bc_call_done') == tat_data['bc_call_done']
+            
+            print(f"   Has message: {has_message}")
+            print(f"   Has settings: {has_settings}")
+            print(f"   BC Call TAT updated: {bc_call_match}")
+            
+            return success and has_message and has_settings and bc_call_match, response_data
+        return success, response_data
+
+    def test_get_project_tat_settings_admin(self):
+        """Test GET /api/settings/tat/project (Admin access)"""
+        success, tat_data = self.run_test("Get Project TAT Settings (Admin)", "GET", "api/settings/tat/project", 200,
+                                        auth_token=self.admin_token)
+        if success:
+            # Verify TAT structure
+            expected_stages = ['design_finalization', 'production_preparation', 'production', 'delivery', 'installation', 'handover']
+            has_all_stages = all(stage in tat_data for stage in expected_stages)
+            
+            print(f"   Has all TAT stages: {has_all_stages}")
+            print(f"   TAT stages found: {list(tat_data.keys())}")
+            
+            return success and has_all_stages, tat_data
+        return success, tat_data
+
+    def test_update_project_tat_settings_admin(self):
+        """Test PUT /api/settings/tat/project (Admin only)"""
+        tat_data = {
+            "design_finalization": {
+                "site_measurement": 2,
+                "site_validation": 3
+            },
+            "production_preparation": {
+                "factory_slot": 4
+            }
+        }
+        
+        success, response_data = self.run_test("Update Project TAT Settings (Admin)", "PUT", "api/settings/tat/project", 200,
+                                             data=tat_data, auth_token=self.admin_token)
+        if success:
+            # Verify response structure
+            has_message = 'message' in response_data
+            has_settings = 'settings' in response_data
+            site_measurement_match = response_data.get('settings', {}).get('design_finalization', {}).get('site_measurement') == 2
+            
+            print(f"   Has message: {has_message}")
+            print(f"   Has settings: {has_settings}")
+            print(f"   Site measurement TAT updated: {site_measurement_match}")
+            
+            return success and has_message and has_settings and site_measurement_match, response_data
+        return success, response_data
+
+    def test_get_stages_settings_admin(self):
+        """Test GET /api/settings/stages (Admin access)"""
+        success, stages_data = self.run_test("Get Project Stages Settings (Admin)", "GET", "api/settings/stages", 200,
+                                           auth_token=self.admin_token)
+        if success:
+            # Verify stages structure
+            is_array = isinstance(stages_data, list)
+            has_stages = len(stages_data) > 0 if is_array else False
+            
+            if has_stages:
+                first_stage = stages_data[0]
+                has_required_fields = all(field in first_stage for field in ['name', 'order', 'enabled'])
+                print(f"   Is array: {is_array}")
+                print(f"   Has stages: {has_stages}")
+                print(f"   First stage has required fields: {has_required_fields}")
+                print(f"   Stages count: {len(stages_data)}")
+                
+                return success and is_array and has_stages and has_required_fields, stages_data
+            
+            return success and is_array, stages_data
+        return success, stages_data
+
+    def test_update_stages_settings_admin(self):
+        """Test PUT /api/settings/stages (Admin only)"""
+        stages_data = [
+            {"name": "Design Finalization", "order": 0, "enabled": True},
+            {"name": "Production Preparation", "order": 1, "enabled": True},
+            {"name": "Production", "order": 2, "enabled": False},
+            {"name": "Delivery", "order": 3, "enabled": True},
+            {"name": "Installation", "order": 4, "enabled": True},
+            {"name": "Handover", "order": 5, "enabled": True}
+        ]
+        
+        success, response_data = self.run_test("Update Project Stages Settings (Admin)", "PUT", "api/settings/stages", 200,
+                                             data=stages_data, auth_token=self.admin_token)
+        if success:
+            # Verify response structure
+            has_message = 'message' in response_data
+            has_stages = 'stages' in response_data
+            production_disabled = any(stage.get('name') == 'Production' and not stage.get('enabled') 
+                                    for stage in response_data.get('stages', []))
+            
+            print(f"   Has message: {has_message}")
+            print(f"   Has stages: {has_stages}")
+            print(f"   Production stage disabled: {production_disabled}")
+            
+            return success and has_message and has_stages and production_disabled, response_data
+        return success, response_data
+
+    def test_get_lead_stages_settings_admin(self):
+        """Test GET /api/settings/stages/lead (Admin access)"""
+        success, stages_data = self.run_test("Get Lead Stages Settings (Admin)", "GET", "api/settings/stages/lead", 200,
+                                           auth_token=self.admin_token)
+        if success:
+            # Verify lead stages structure
+            is_array = isinstance(stages_data, list)
+            has_stages = len(stages_data) > 0 if is_array else False
+            
+            if has_stages:
+                first_stage = stages_data[0]
+                has_required_fields = all(field in first_stage for field in ['name', 'order', 'enabled'])
+                print(f"   Is array: {is_array}")
+                print(f"   Has lead stages: {has_stages}")
+                print(f"   First stage has required fields: {has_required_fields}")
+                print(f"   Lead stages count: {len(stages_data)}")
+                
+                return success and is_array and has_stages and has_required_fields, stages_data
+            
+            return success and is_array, stages_data
+        return success, stages_data
+
+    def test_update_lead_stages_settings_admin(self):
+        """Test PUT /api/settings/stages/lead (Admin only)"""
+        stages_data = [
+            {"name": "BC Call Done", "order": 0, "enabled": True},
+            {"name": "BOQ Shared", "order": 1, "enabled": True},
+            {"name": "Site Meeting", "order": 2, "enabled": False},
+            {"name": "Revised BOQ Shared", "order": 3, "enabled": True},
+            {"name": "Waiting for Booking", "order": 4, "enabled": True},
+            {"name": "Booking Completed", "order": 5, "enabled": True}
+        ]
+        
+        success, response_data = self.run_test("Update Lead Stages Settings (Admin)", "PUT", "api/settings/stages/lead", 200,
+                                             data=stages_data, auth_token=self.admin_token)
+        if success:
+            # Verify response structure
+            has_message = 'message' in response_data
+            has_stages = 'stages' in response_data
+            site_meeting_disabled = any(stage.get('name') == 'Site Meeting' and not stage.get('enabled') 
+                                      for stage in response_data.get('stages', []))
+            
+            print(f"   Has message: {has_message}")
+            print(f"   Has stages: {has_stages}")
+            print(f"   Site Meeting stage disabled: {site_meeting_disabled}")
+            
+            return success and has_message and has_stages and site_meeting_disabled, response_data
+        return success, response_data
+
+    def test_get_milestones_settings_admin(self):
+        """Test GET /api/settings/milestones (Admin access)"""
+        success, milestones_data = self.run_test("Get Milestones Settings (Admin)", "GET", "api/settings/milestones", 200,
+                                                auth_token=self.admin_token)
+        if success:
+            # Verify milestones structure
+            is_dict = isinstance(milestones_data, dict)
+            expected_stages = ['Design Finalization', 'Production Preparation', 'Production', 'Delivery', 'Installation', 'Handover']
+            has_all_stages = all(stage in milestones_data for stage in expected_stages) if is_dict else False
+            
+            if has_all_stages:
+                design_milestones = milestones_data.get('Design Finalization', [])
+                has_design_milestones = len(design_milestones) > 0
+                
+                if has_design_milestones:
+                    first_milestone = design_milestones[0]
+                    has_milestone_fields = all(field in first_milestone for field in ['name', 'enabled', 'order'])
+                    
+                    print(f"   Is dict: {is_dict}")
+                    print(f"   Has all stages: {has_all_stages}")
+                    print(f"   Design milestones count: {len(design_milestones)}")
+                    print(f"   First milestone has required fields: {has_milestone_fields}")
+                    
+                    return success and is_dict and has_all_stages and has_design_milestones and has_milestone_fields, milestones_data
+            
+            return success and is_dict and has_all_stages, milestones_data
+        return success, milestones_data
+
+    def test_update_milestones_settings_admin(self):
+        """Test PUT /api/settings/milestones (Admin only)"""
+        milestones_data = {
+            "Design Finalization": [
+                {"name": "Site Measurement", "enabled": True, "order": 0},
+                {"name": "Site Validation", "enabled": False, "order": 1},
+                {"name": "Design Meeting", "enabled": True, "order": 2}
+            ],
+            "Production Preparation": [
+                {"name": "Factory Slot Allocation", "enabled": True, "order": 0},
+                {"name": "JIT Project Delivery Plan", "enabled": True, "order": 1}
+            ]
+        }
+        
+        success, response_data = self.run_test("Update Milestones Settings (Admin)", "PUT", "api/settings/milestones", 200,
+                                             data=milestones_data, auth_token=self.admin_token)
+        if success:
+            # Verify response structure
+            has_message = 'message' in response_data
+            has_milestones = 'milestones' in response_data
+            site_validation_disabled = False
+            
+            if has_milestones:
+                design_milestones = response_data.get('milestones', {}).get('Design Finalization', [])
+                site_validation_disabled = any(milestone.get('name') == 'Site Validation' and not milestone.get('enabled') 
+                                             for milestone in design_milestones)
+            
+            print(f"   Has message: {has_message}")
+            print(f"   Has milestones: {has_milestones}")
+            print(f"   Site Validation milestone disabled: {site_validation_disabled}")
+            
+            return success and has_message and has_milestones and site_validation_disabled, response_data
+        return success, response_data
+
+    def test_get_system_logs_admin(self):
+        """Test GET /api/settings/logs (Admin only)"""
+        success, logs_data = self.run_test("Get System Logs (Admin)", "GET", "api/settings/logs", 200,
+                                         auth_token=self.admin_token)
+        if success:
+            # Verify logs structure
+            has_logs = 'logs' in logs_data
+            has_total = 'total' in logs_data
+            has_limit = 'limit' in logs_data
+            has_offset = 'offset' in logs_data
+            
+            logs_array = logs_data.get('logs', [])
+            is_logs_array = isinstance(logs_array, list)
+            
+            print(f"   Has logs field: {has_logs}")
+            print(f"   Has total field: {has_total}")
+            print(f"   Has limit field: {has_limit}")
+            print(f"   Has offset field: {has_offset}")
+            print(f"   Logs is array: {is_logs_array}")
+            print(f"   Logs count: {len(logs_array)}")
+            
+            # Check if logs have proper structure (if any exist)
+            if len(logs_array) > 0:
+                first_log = logs_array[0]
+                has_log_fields = all(field in first_log for field in ['id', 'action', 'user_id', 'user_name', 'timestamp'])
+                print(f"   First log has required fields: {has_log_fields}")
+                return (success and has_logs and has_total and has_limit and has_offset and 
+                       is_logs_array and has_log_fields), logs_data
+            
+            return (success and has_logs and has_total and has_limit and has_offset and is_logs_array), logs_data
+        return success, logs_data
+
+    def test_get_system_logs_designer(self):
+        """Test GET /api/settings/logs (Designer access - should fail)"""
+        return self.run_test("Get System Logs (Designer - Should Fail)", "GET", "api/settings/logs", 403,
+                           auth_token=self.designer_token)
+
+    def test_get_all_settings_admin(self):
+        """Test GET /api/settings/all (Admin access)"""
+        success, settings_data = self.run_test("Get All Settings (Admin)", "GET", "api/settings/all", 200,
+                                              auth_token=self.admin_token)
+        if success:
+            # Verify all settings structure
+            expected_sections = ['company', 'branding', 'lead_tat', 'project_tat']
+            has_all_sections = all(section in settings_data for section in expected_sections)
+            has_can_edit = 'can_edit' in settings_data
+            can_edit_true = settings_data.get('can_edit') == True
+            
+            print(f"   Has all settings sections: {has_all_sections}")
+            print(f"   Sections found: {list(settings_data.keys())}")
+            print(f"   Has can_edit field: {has_can_edit}")
+            print(f"   Can edit is True (Admin): {can_edit_true}")
+            
+            return success and has_all_sections and has_can_edit and can_edit_true, settings_data
+        return success, settings_data
+
+    def test_get_all_settings_manager(self):
+        """Test GET /api/settings/all (Manager access - can view but not edit)"""
+        # Create a Manager user for testing
+        manager_user_id = f"test-manager-all-{uuid.uuid4().hex[:8]}"
+        manager_session_token = f"test_manager_all_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{manager_user_id}",
+  email: "manager.all.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test Manager All Settings",
+  picture: "https://via.placeholder.com/150",
+  role: "Manager",
+  status: "Active",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{manager_user_id}",
+  session_token: "{manager_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                success, settings_data = self.run_test("Get All Settings (Manager)", "GET", "api/settings/all", 200,
+                                                      auth_token=manager_session_token)
+                if success:
+                    # Verify Manager can view but not edit
+                    expected_sections = ['company', 'branding', 'lead_tat', 'project_tat']
+                    has_all_sections = all(section in settings_data for section in expected_sections)
+                    has_can_edit = 'can_edit' in settings_data
+                    can_edit_false = settings_data.get('can_edit') == False
+                    
+                    print(f"   Has all settings sections: {has_all_sections}")
+                    print(f"   Has can_edit field: {has_can_edit}")
+                    print(f"   Can edit is False (Manager): {can_edit_false}")
+                    
+                    return success and has_all_sections and has_can_edit and can_edit_false, settings_data
+                return success, settings_data
+            else:
+                print(f"❌ Failed to create Manager user: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing Manager all settings access: {str(e)}")
+            return False, {}
+
+    def test_get_all_settings_designer(self):
+        """Test GET /api/settings/all (Designer access - should fail)"""
+        return self.run_test("Get All Settings (Designer - Should Fail)", "GET", "api/settings/all", 403,
+                           auth_token=self.designer_token)
+
     def cleanup_test_data(self):
         """Clean up test data from MongoDB"""
         print("\n🧹 Cleaning up test data...")
