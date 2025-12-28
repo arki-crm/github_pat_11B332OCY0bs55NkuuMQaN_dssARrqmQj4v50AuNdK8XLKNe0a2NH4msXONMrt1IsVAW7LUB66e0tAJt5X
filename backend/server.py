@@ -2054,7 +2054,7 @@ async def seed_projects(request: Request):
             "stage": "Design Finalization",
             "collaborators": user_ids[:1] if len(user_ids) >= 1 else user_ids,
             "summary": "Fine dining restaurant with fusion Indian-European theme",
-            "timeline": generate_timeline("Design Finalization", (now - timedelta(days=3)).isoformat()),
+            "timeline": generate_project_timeline("Design Finalization", (now - timedelta(days=3)).isoformat()),
             "comments": generate_comments(user_ids[:1] if len(user_ids) >= 1 else user_ids, (now - timedelta(days=3)).isoformat()),
             "updated_at": (now - timedelta(days=3)).isoformat(),
             "created_at": (now - timedelta(days=3)).isoformat()
