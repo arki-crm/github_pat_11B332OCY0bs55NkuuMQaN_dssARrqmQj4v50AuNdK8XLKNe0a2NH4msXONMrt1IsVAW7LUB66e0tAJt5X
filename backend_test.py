@@ -396,7 +396,7 @@ print("Designer user ID: {designer_user_id}");
             current_stage = projects_data[0].get('stage', 'Pre 10%')
             
             # Try to update to next stage
-            stages = ["Pre 10%", "10-50%", "50-100%", "Completed"]
+            stages = ["Design Finalization", "Production Preparation", "Production", "Delivery", "Installation", "Handover"]
             current_index = stages.index(current_stage) if current_stage in stages else 0
             new_stage = stages[min(current_index + 1, len(stages) - 1)]
             
