@@ -2396,35 +2396,52 @@ async def seed_projects(request: Request):
     # Sample projects data with timeline and comments
     now = datetime.now(timezone.utc)
     
-    # Default payment schedule for all projects
+    # Default payment schedule for all projects - Arki Dots 3-stage model
     default_schedule = [
-        {"stage": "Booking", "percentage": 10},
-        {"stage": "Design Finalization", "percentage": 40},
-        {"stage": "Production", "percentage": 40},
-        {"stage": "Handover", "percentage": 10}
+        {
+            "stage": "Design Booking",
+            "type": "fixed",
+            "fixedAmount": 25000,
+            "percentage": 10
+        },
+        {
+            "stage": "Production Start",
+            "type": "percentage",
+            "percentage": 50
+        },
+        {
+            "stage": "Before Installation",
+            "type": "remaining"
+        }
     ]
     
-    # Sample payment generator
+    # Sample payment generator for new 3-stage model
     def generate_payments(project_value, stages_completed, created_date, user_id):
         payments = []
         base_date = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
         if base_date.tzinfo is None:
             base_date = base_date.replace(tzinfo=timezone.utc)
         
-        percentages = {"Booking": 10, "Design Finalization": 40, "Production": 40}
+        # Stage 1: Design Booking - Fixed ₹25,000
+        # Stage 2: Production Start - 50%
+        # Stage 3: Before Installation - Remaining
+        stage_amounts = [
+            ("Design Booking", 25000),
+            ("Production Start", project_value * 0.50),
+            ("Before Installation", project_value - 25000 - (project_value * 0.50))
+        ]
         modes = ["Bank", "UPI", "Cash"]
         
-        for i, (stage, pct) in enumerate(percentages.items()):
-            if i < stages_completed:
-                amount = (project_value * pct) / 100
+        for i, (stage, amount) in enumerate(stage_amounts):
+            if i < stages_completed and amount > 0:
                 payments.append({
                     "id": f"payment_{uuid.uuid4().hex[:8]}",
-                    "date": (base_date + timedelta(days=i*15)).strftime("%Y-%m-%d"),
+                    "date": (base_date + timedelta(days=i*20)).strftime("%Y-%m-%d"),
                     "amount": amount,
                     "mode": modes[i % len(modes)],
                     "reference": f"TXN{uuid.uuid4().hex[:6].upper()}",
                     "added_by": user_id,
-                    "created_at": (base_date + timedelta(days=i*15)).isoformat()
+                    "created_at": (base_date + timedelta(days=i*20)).isoformat()
                 })
         return payments
     
@@ -2441,6 +2458,8 @@ async def seed_projects(request: Request):
             "comments": generate_comments(user_ids[:2] if len(user_ids) >= 2 else user_ids, (now - timedelta(days=5)).isoformat()),
             "project_value": 850000,
             "payment_schedule": default_schedule,
+            "custom_payment_schedule_enabled": False,
+            "custom_payment_schedule": [],
             "payments": generate_payments(850000, 1, (now - timedelta(days=5)).isoformat(), user.user_id),
             "updated_at": now.isoformat(),
             "created_at": (now - timedelta(days=5)).isoformat()
