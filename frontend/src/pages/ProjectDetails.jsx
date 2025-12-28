@@ -102,71 +102,125 @@ const getAvatarColor = (name) => {
   return colors[index];
 };
 
+// Group timeline items by stage
+const groupTimelineByStage = (timeline) => {
+  const groups = {};
+  STAGES.forEach(stage => {
+    groups[stage] = [];
+  });
+  
+  timeline?.forEach(item => {
+    const stage = item.stage_ref;
+    if (groups[stage]) {
+      groups[stage].push(item);
+    }
+  });
+  
+  return groups;
+};
+
 // ============ TIMELINE COMPONENT ============
-const TimelinePanel = ({ timeline }) => {
+const TimelinePanel = ({ timeline, currentStage }) => {
+  const groupedTimeline = groupTimelineByStage(timeline);
+  const currentStageIndex = STAGES.indexOf(currentStage);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
-        return <Check className="w-3.5 h-3.5 text-green-600" />;
+        return <Check className="w-3 h-3 text-green-600" />;
       case 'delayed':
-        return <AlertTriangle className="w-3.5 h-3.5 text-red-500" />;
+        return <AlertTriangle className="w-3 h-3 text-red-500" />;
       default:
-        return <Clock className="w-3.5 h-3.5 text-slate-400" />;
-    }
-  };
-
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 border-green-300';
-      case 'delayed':
-        return 'bg-red-50 border-red-300';
-      default:
-        return 'bg-slate-50 border-slate-200';
+        return <Clock className="w-3 h-3 text-slate-400" />;
     }
   };
 
   return (
-    <div className="space-y-0" data-testid="timeline-panel">
+    <div data-testid="timeline-panel">
       <h3 className="text-sm font-semibold text-slate-900 mb-4" style={{ fontFamily: 'Manrope, sans-serif' }}>
-        Timeline
+        Milestones
       </h3>
-      <div className="relative">
-        {/* Vertical line */}
-        <div className="absolute left-3 top-2 bottom-2 w-px bg-slate-200" />
-        
-        <div className="space-y-3">
-          {timeline?.map((item, index) => (
-            <div key={item.id || index} className="relative flex gap-3" data-testid={`timeline-item-${index}`}>
-              {/* Status dot */}
-              <div className={cn(
-                "relative z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white",
-                item.status === 'completed' ? 'border-green-400' :
-                item.status === 'delayed' ? 'border-red-400' : 'border-slate-300'
-              )}>
-                {getStatusIcon(item.status)}
+      
+      <ScrollArea className="h-[450px] pr-2">
+        <div className="space-y-4">
+          {STAGES.map((stage, stageIndex) => {
+            const milestones = groupedTimeline[stage] || [];
+            const isCurrentStage = stage === currentStage;
+            const isCompletedStage = stageIndex < currentStageIndex;
+            const stageColors = STAGE_COLORS[stage] || STAGE_COLORS['Design Finalization'];
+            
+            return (
+              <div 
+                key={stage} 
+                className={cn(
+                  "rounded-lg border p-3",
+                  isCurrentStage ? `${stageColors.bg} border-current ${stageColors.text}` :
+                  isCompletedStage ? "bg-green-50 border-green-200" : "bg-white border-slate-200"
+                )}
+                data-testid={`milestone-group-${stage.replace(/\s+/g, '-').toLowerCase()}`}
+              >
+                {/* Stage Header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={cn(
+                    "w-5 h-5 rounded-full flex items-center justify-center",
+                    isCompletedStage ? "bg-green-500" : 
+                    isCurrentStage ? stageColors.bg.replace('100', '500') : "bg-slate-200"
+                  )}>
+                    {isCompletedStage ? (
+                      <Check className="w-3 h-3 text-white" />
+                    ) : (
+                      <span className={cn(
+                        "w-2 h-2 rounded-full",
+                        isCurrentStage ? "bg-white" : "bg-slate-400"
+                      )} />
+                    )}
+                  </div>
+                  <span className={cn(
+                    "text-xs font-semibold uppercase tracking-wide",
+                    isCurrentStage ? stageColors.text : 
+                    isCompletedStage ? "text-green-700" : "text-slate-500"
+                  )}>
+                    {stage}
+                  </span>
+                  {isCurrentStage && (
+                    <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded ml-auto">
+                      Current
+                    </span>
+                  )}
+                </div>
+                
+                {/* Milestones */}
+                <div className="space-y-1.5 ml-2.5 pl-4 border-l border-slate-200">
+                  {milestones.map((item, index) => (
+                    <div 
+                      key={item.id || index} 
+                      className="flex items-center gap-2 py-1"
+                      data-testid={`milestone-${item.id}`}
+                    >
+                      <div className={cn(
+                        "w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0",
+                        item.status === 'completed' ? 'bg-green-100' :
+                        item.status === 'delayed' ? 'bg-red-100' : 'bg-slate-100'
+                      )}>
+                        {getStatusIcon(item.status)}
+                      </div>
+                      <span className={cn(
+                        "text-xs",
+                        item.status === 'completed' ? 'text-slate-700' : 'text-slate-500'
+                      )}>
+                        {item.title}
+                      </span>
+                    </div>
+                  ))}
+                  {milestones.length === 0 && (
+                    <p className="text-xs text-slate-400 italic py-1">No milestones</p>
+                  )}
+                </div>
               </div>
-              
-              {/* Content */}
-              <div className={cn(
-                "flex-1 p-2.5 rounded-lg border",
-                getStatusStyle(item.status)
-              )}>
-                <p className="text-sm font-medium text-slate-900">{item.title}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{formatDate(item.date)}</p>
-                <span className={cn(
-                  "inline-block mt-1 text-xs px-1.5 py-0.5 rounded",
-                  item.status === 'completed' ? 'bg-green-200 text-green-700' :
-                  item.status === 'delayed' ? 'bg-red-200 text-red-700' : 'bg-slate-200 text-slate-600'
-                )}>
-                  {item.status === 'completed' ? 'Completed' : 
-                   item.status === 'delayed' ? 'Delayed' : 'Pending'}
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 };
