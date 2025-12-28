@@ -718,7 +718,7 @@ db.user_sessions.insertOne({{
                 success, _ = self.run_test("Update Admin Note as Designer (Should Fail)", "PUT", 
                                          f"api/projects/{project_id}/notes/{admin_note_id}", 403,
                                          data=update_data,
-                                         auth_token=self.designer_token)
+                                         auth_token=self.pure_designer_token)
                 return success, {}
             else:
                 print("⚠️  Failed to create admin note for permission test")
