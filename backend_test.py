@@ -1558,6 +1558,473 @@ db.users.insertOne({{
 
     # ============ DASHBOARD ENDPOINTS TESTS ============
 
+    # ============ PAYMENT SCHEDULE SYSTEM TESTS ============
+
+    def test_get_project_financials_structure(self):
+        """Test GET /api/projects/{project_id}/financials returns correct structure"""
+        # First get a project
+        success, projects_data = self.run_test("Get Projects for Financials Test", "GET", "api/projects", 200,
+                                              auth_token=self.admin_token)
+        if success and projects_data and len(projects_data) > 0:
+            project_id = projects_data[0]['project_id']
+            success, financials_data = self.run_test("Get Project Financials Structure", "GET", 
+                                                   f"api/projects/{project_id}/financials", 200,
+                                                   auth_token=self.admin_token)
+            if success:
+                # Verify required fields
+                required_fields = [
+                    'custom_payment_schedule_enabled', 'custom_payment_schedule', 
+                    'default_payment_schedule', 'payment_schedule', 'project_value',
+                    'payments', 'total_collected', 'balance_pending', 'can_edit', 'can_delete_payments'
+                ]
+                
+                missing_fields = [field for field in required_fields if field not in financials_data]
+                has_all_fields = len(missing_fields) == 0
+                
+                print(f"   Has all required fields: {has_all_fields}")
+                if missing_fields:
+                    print(f"   Missing fields: {missing_fields}")
+                
+                # Store project_id for other tests
+                self.test_project_id_financials = project_id
+                
+                return success and has_all_fields, financials_data
+            return success, financials_data
+        else:
+            print("⚠️  No projects found for financials test")
+            return False, {}
+
+    def test_default_payment_schedule_3_stage(self):
+        """Test default payment schedule has 3 stages with correct structure"""
+        if hasattr(self, 'test_project_id_financials'):
+            success, financials_data = self.run_test("Get Default Payment Schedule", "GET", 
+                                                   f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                                   auth_token=self.admin_token)
+            if success:
+                default_schedule = financials_data.get('default_payment_schedule', [])
+                
+                # Check 3 stages
+                has_3_stages = len(default_schedule) == 3
+                print(f"   Has 3 stages: {has_3_stages} (found: {len(default_schedule)})")
+                
+                if has_3_stages:
+                    # Check Design Booking stage
+                    design_booking = default_schedule[0]
+                    is_design_booking = (
+                        design_booking.get('stage') == 'Design Booking' and
+                        design_booking.get('type') == 'fixed' and
+                        design_booking.get('fixedAmount') == 25000 and
+                        design_booking.get('percentage') == 10
+                    )
+                    
+                    # Check Production Start stage
+                    production_start = default_schedule[1]
+                    is_production_start = (
+                        production_start.get('stage') == 'Production Start' and
+                        production_start.get('type') == 'percentage' and
+                        production_start.get('percentage') == 50
+                    )
+                    
+                    # Check Before Installation stage
+                    before_installation = default_schedule[2]
+                    is_before_installation = (
+                        before_installation.get('stage') == 'Before Installation' and
+                        before_installation.get('type') == 'remaining'
+                    )
+                    
+                    print(f"   Design Booking correct: {is_design_booking}")
+                    print(f"   Production Start correct: {is_production_start}")
+                    print(f"   Before Installation correct: {is_before_installation}")
+                    
+                    return (success and has_3_stages and is_design_booking and 
+                           is_production_start and is_before_installation), financials_data
+                
+                return success and has_3_stages, financials_data
+            return success, financials_data
+        else:
+            print("⚠️  No test project available for default schedule test")
+            return False, {}
+
+    def test_payment_schedule_calculations(self):
+        """Test payment schedule amount calculations for project_value = 1,000,000"""
+        if hasattr(self, 'test_project_id_financials'):
+            # First update project value to 1,000,000
+            success, _ = self.run_test("Update Project Value for Calculation Test", "PUT", 
+                                     f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                     data={"project_value": 1000000},
+                                     auth_token=self.admin_token)
+            
+            if success:
+                # Get financials to check calculations
+                success, financials_data = self.run_test("Get Financials for Calculation Test", "GET", 
+                                                       f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                                       auth_token=self.admin_token)
+                if success:
+                    payment_schedule = financials_data.get('payment_schedule', [])
+                    
+                    if len(payment_schedule) == 3:
+                        # Check Design Booking (fixed): ₹25,000
+                        design_amount = payment_schedule[0].get('amount', 0)
+                        design_correct = design_amount == 25000
+                        
+                        # Check Production Start (50%): ₹500,000
+                        production_amount = payment_schedule[1].get('amount', 0)
+                        production_correct = production_amount == 500000
+                        
+                        # Check Before Installation (remaining): ₹475,000
+                        installation_amount = payment_schedule[2].get('amount', 0)
+                        installation_correct = installation_amount == 475000
+                        
+                        print(f"   Design Booking amount: ₹{design_amount:,.0f} (expected: ₹25,000)")
+                        print(f"   Production Start amount: ₹{production_amount:,.0f} (expected: ₹500,000)")
+                        print(f"   Before Installation amount: ₹{installation_amount:,.0f} (expected: ₹475,000)")
+                        print(f"   Design Booking correct: {design_correct}")
+                        print(f"   Production Start correct: {production_correct}")
+                        print(f"   Before Installation correct: {installation_correct}")
+                        
+                        return (success and design_correct and production_correct and 
+                               installation_correct), financials_data
+                    else:
+                        print(f"   Expected 3 payment schedule items, found: {len(payment_schedule)}")
+                        return False, financials_data
+                return success, financials_data
+            return success, {}
+        else:
+            print("⚠️  No test project available for calculation test")
+            return False, {}
+
+    def test_change_design_booking_to_percentage(self):
+        """Test changing Design Booking from fixed to percentage"""
+        if hasattr(self, 'test_project_id_financials'):
+            # Update default schedule to change Design Booking to percentage
+            new_schedule = [
+                {
+                    "stage": "Design Booking",
+                    "type": "percentage",
+                    "fixedAmount": 25000,
+                    "percentage": 10
+                },
+                {
+                    "stage": "Production Start", 
+                    "type": "percentage",
+                    "percentage": 50
+                },
+                {
+                    "stage": "Before Installation",
+                    "type": "remaining"
+                }
+            ]
+            
+            success, _ = self.run_test("Change Design Booking to Percentage", "PUT", 
+                                     f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                     data={"payment_schedule": new_schedule},
+                                     auth_token=self.admin_token)
+            
+            if success:
+                # Get financials to check new calculations
+                success, financials_data = self.run_test("Get Financials After Design Booking Change", "GET", 
+                                                       f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                                       auth_token=self.admin_token)
+                if success:
+                    payment_schedule = financials_data.get('payment_schedule', [])
+                    
+                    if len(payment_schedule) == 3:
+                        # Check Design Booking (10%): ₹100,000
+                        design_amount = payment_schedule[0].get('amount', 0)
+                        design_correct = design_amount == 100000
+                        
+                        # Check Production Start (50%): ₹500,000
+                        production_amount = payment_schedule[1].get('amount', 0)
+                        production_correct = production_amount == 500000
+                        
+                        # Check Before Installation (remaining): ₹400,000
+                        installation_amount = payment_schedule[2].get('amount', 0)
+                        installation_correct = installation_amount == 400000
+                        
+                        print(f"   Design Booking amount: ₹{design_amount:,.0f} (expected: ₹100,000)")
+                        print(f"   Production Start amount: ₹{production_amount:,.0f} (expected: ₹500,000)")
+                        print(f"   Before Installation amount: ₹{installation_amount:,.0f} (expected: ₹400,000)")
+                        print(f"   Design Booking correct: {design_correct}")
+                        print(f"   Production Start correct: {production_correct}")
+                        print(f"   Before Installation correct: {installation_correct}")
+                        
+                        return (success and design_correct and production_correct and 
+                               installation_correct), financials_data
+                    else:
+                        print(f"   Expected 3 payment schedule items, found: {len(payment_schedule)}")
+                        return False, financials_data
+                return success, financials_data
+            return success, {}
+        else:
+            print("⚠️  No test project available for design booking change test")
+            return False, {}
+
+    def test_enable_custom_payment_schedule(self):
+        """Test enabling custom payment schedule"""
+        if hasattr(self, 'test_project_id_financials'):
+            # Enable custom schedule
+            success, _ = self.run_test("Enable Custom Payment Schedule", "PUT", 
+                                     f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                     data={"custom_payment_schedule_enabled": True},
+                                     auth_token=self.admin_token)
+            
+            if success:
+                # Verify it's enabled
+                success, financials_data = self.run_test("Verify Custom Schedule Enabled", "GET", 
+                                                       f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                                       auth_token=self.admin_token)
+                if success:
+                    custom_enabled = financials_data.get('custom_payment_schedule_enabled', False)
+                    print(f"   Custom schedule enabled: {custom_enabled}")
+                    return success and custom_enabled, financials_data
+                return success, financials_data
+            return success, {}
+        else:
+            print("⚠️  No test project available for custom schedule enable test")
+            return False, {}
+
+    def test_add_custom_payment_stages(self):
+        """Test adding custom payment stages"""
+        if hasattr(self, 'test_project_id_financials'):
+            # Add custom payment schedule
+            custom_schedule = [
+                {
+                    "stage": "Advance Payment",
+                    "type": "fixed",
+                    "fixedAmount": 50000
+                },
+                {
+                    "stage": "Design Approval",
+                    "type": "percentage", 
+                    "percentage": 20
+                },
+                {
+                    "stage": "Material Procurement",
+                    "type": "percentage",
+                    "percentage": 30
+                },
+                {
+                    "stage": "Installation Start",
+                    "type": "percentage",
+                    "percentage": 30
+                },
+                {
+                    "stage": "Final Payment",
+                    "type": "remaining"
+                }
+            ]
+            
+            success, _ = self.run_test("Add Custom Payment Stages", "PUT", 
+                                     f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                     data={"custom_payment_schedule": custom_schedule},
+                                     auth_token=self.admin_token)
+            
+            if success:
+                # Verify custom schedule is saved and calculated
+                success, financials_data = self.run_test("Verify Custom Payment Stages", "GET", 
+                                                       f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                                       auth_token=self.admin_token)
+                if success:
+                    custom_schedule_saved = financials_data.get('custom_payment_schedule', [])
+                    payment_schedule = financials_data.get('payment_schedule', [])
+                    
+                    has_5_custom_stages = len(custom_schedule_saved) == 5
+                    has_5_calculated_stages = len(payment_schedule) == 5
+                    
+                    print(f"   Custom schedule saved: {has_5_custom_stages} (found: {len(custom_schedule_saved)})")
+                    print(f"   Payment schedule calculated: {has_5_calculated_stages} (found: {len(payment_schedule)})")
+                    
+                    if has_5_calculated_stages:
+                        # Check calculations for project_value = 1,000,000
+                        advance_amount = payment_schedule[0].get('amount', 0)  # ₹50,000
+                        design_amount = payment_schedule[1].get('amount', 0)   # ₹200,000 (20%)
+                        material_amount = payment_schedule[2].get('amount', 0) # ₹300,000 (30%)
+                        installation_amount = payment_schedule[3].get('amount', 0) # ₹300,000 (30%)
+                        final_amount = payment_schedule[4].get('amount', 0)    # ₹150,000 (remaining)
+                        
+                        advance_correct = advance_amount == 50000
+                        design_correct = design_amount == 200000
+                        material_correct = material_amount == 300000
+                        installation_correct = installation_amount == 300000
+                        final_correct = final_amount == 150000
+                        
+                        print(f"   Advance Payment: ₹{advance_amount:,.0f} (expected: ₹50,000)")
+                        print(f"   Design Approval: ₹{design_amount:,.0f} (expected: ₹200,000)")
+                        print(f"   Material Procurement: ₹{material_amount:,.0f} (expected: ₹300,000)")
+                        print(f"   Installation Start: ₹{installation_amount:,.0f} (expected: ₹300,000)")
+                        print(f"   Final Payment: ₹{final_amount:,.0f} (expected: ₹150,000)")
+                        
+                        all_amounts_correct = (advance_correct and design_correct and 
+                                             material_correct and installation_correct and final_correct)
+                        
+                        return (success and has_5_custom_stages and has_5_calculated_stages and 
+                               all_amounts_correct), financials_data
+                    
+                    return success and has_5_custom_stages and has_5_calculated_stages, financials_data
+                return success, financials_data
+            return success, {}
+        else:
+            print("⚠️  No test project available for custom stages test")
+            return False, {}
+
+    def test_payment_schedule_validation(self):
+        """Test payment schedule validation rules"""
+        if hasattr(self, 'test_project_id_financials'):
+            # Test 1: Multiple remaining stages (should fail)
+            invalid_schedule_1 = [
+                {"stage": "Stage 1", "type": "remaining"},
+                {"stage": "Stage 2", "type": "remaining"}
+            ]
+            
+            success1, _ = self.run_test("Validation: Multiple Remaining Stages (Should Fail)", "PUT", 
+                                      f"api/projects/{self.test_project_id_financials}/financials", 400,
+                                      data={"custom_payment_schedule": invalid_schedule_1},
+                                      auth_token=self.admin_token)
+            
+            # Test 2: Percentage over 100% (should fail)
+            invalid_schedule_2 = [
+                {"stage": "Stage 1", "type": "percentage", "percentage": 60},
+                {"stage": "Stage 2", "type": "percentage", "percentage": 50}
+            ]
+            
+            success2, _ = self.run_test("Validation: Percentage Over 100% (Should Fail)", "PUT", 
+                                      f"api/projects/{self.test_project_id_financials}/financials", 400,
+                                      data={"custom_payment_schedule": invalid_schedule_2},
+                                      auth_token=self.admin_token)
+            
+            # Test 3: Missing stage name (should fail)
+            invalid_schedule_3 = [
+                {"type": "percentage", "percentage": 50}
+            ]
+            
+            success3, _ = self.run_test("Validation: Missing Stage Name (Should Fail)", "PUT", 
+                                      f"api/projects/{self.test_project_id_financials}/financials", 400,
+                                      data={"custom_payment_schedule": invalid_schedule_3},
+                                      auth_token=self.admin_token)
+            
+            print(f"   Multiple remaining validation: {success1}")
+            print(f"   Percentage over 100% validation: {success2}")
+            print(f"   Missing stage name validation: {success3}")
+            
+            return success1 and success2 and success3, {}
+        else:
+            print("⚠️  No test project available for validation test")
+            return False, {}
+
+    def test_seed_projects_with_new_schedule(self):
+        """Test POST /api/projects/seed creates projects with new 3-stage schedule format"""
+        success, seed_data = self.run_test("Seed Projects with New Schedule Format", "POST", "api/projects/seed", 200,
+                                         auth_token=self.admin_token)
+        
+        if success:
+            # Get a seeded project to verify structure
+            success, projects_data = self.run_test("Get Seeded Projects", "GET", "api/projects", 200,
+                                                  auth_token=self.admin_token)
+            
+            if success and projects_data and len(projects_data) > 0:
+                # Get financials for first project
+                project_id = projects_data[0]['project_id']
+                success, financials_data = self.run_test("Get Seeded Project Financials", "GET", 
+                                                       f"api/projects/{project_id}/financials", 200,
+                                                       auth_token=self.admin_token)
+                
+                if success:
+                    # Verify seeded project has required fields
+                    has_custom_enabled = 'custom_payment_schedule_enabled' in financials_data
+                    has_custom_schedule = 'custom_payment_schedule' in financials_data
+                    has_default_schedule = 'default_payment_schedule' in financials_data
+                    
+                    custom_enabled = financials_data.get('custom_payment_schedule_enabled', None)
+                    custom_schedule = financials_data.get('custom_payment_schedule', [])
+                    default_schedule = financials_data.get('default_payment_schedule', [])
+                    
+                    # Check default schedule has 3 stages
+                    has_3_default_stages = len(default_schedule) == 3
+                    
+                    print(f"   Has custom_payment_schedule_enabled: {has_custom_enabled}")
+                    print(f"   Has custom_payment_schedule: {has_custom_schedule}")
+                    print(f"   Has default_payment_schedule: {has_default_schedule}")
+                    print(f"   Custom enabled value: {custom_enabled}")
+                    print(f"   Custom schedule length: {len(custom_schedule)}")
+                    print(f"   Default schedule has 3 stages: {has_3_default_stages}")
+                    
+                    return (success and has_custom_enabled and has_custom_schedule and 
+                           has_default_schedule and has_3_default_stages), financials_data
+                return success, financials_data
+            return success, projects_data
+        return success, seed_data
+
+    def test_designer_financial_access(self):
+        """Test Designer can only view assigned projects with limited permissions"""
+        if hasattr(self, 'test_project_id_financials'):
+            # Test Designer access to financials
+            success, financials_data = self.run_test("Designer Financial Access", "GET", 
+                                                   f"api/projects/{self.test_project_id_financials}/financials", 200,
+                                                   auth_token=self.designer_token)
+            
+            if success:
+                # Check permissions
+                can_edit = financials_data.get('can_edit', True)
+                can_delete_payments = financials_data.get('can_delete_payments', True)
+                
+                # Designer should have limited permissions
+                designer_permissions_correct = not can_edit and not can_delete_payments
+                
+                print(f"   Designer can_edit: {can_edit} (should be False)")
+                print(f"   Designer can_delete_payments: {can_delete_payments} (should be False)")
+                print(f"   Designer permissions correct: {designer_permissions_correct}")
+                
+                return success and designer_permissions_correct, financials_data
+            return success, financials_data
+        else:
+            print("⚠️  No test project available for designer access test")
+            return False, {}
+
+    def test_presales_financial_access_denied(self):
+        """Test PreSales user cannot access financial endpoints"""
+        # Create a PreSales user for testing
+        presales_user_id = f"test-presales-{uuid.uuid4().hex[:8]}"
+        presales_session_token = f"test_presales_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{presales_user_id}",
+  email: "presales.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test PreSales",
+  picture: "https://via.placeholder.com/150",
+  role: "PreSales",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{presales_user_id}",
+  session_token: "{presales_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0 and hasattr(self, 'test_project_id_financials'):
+                # Test PreSales access to financials (should be denied)
+                success, _ = self.run_test("PreSales Financial Access (Should Fail)", "GET", 
+                                         f"api/projects/{self.test_project_id_financials}/financials", 403,
+                                         auth_token=presales_session_token)
+                return success, {}
+            else:
+                print(f"❌ Failed to create PreSales user: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing PreSales financial access: {str(e)}")
+            return False, {}
+
+    # ============ DASHBOARD TESTS ============
+
     def test_dashboard_admin(self):
         """Test GET /api/dashboard for Admin role - should return all KPIs and data"""
         success, dashboard_data = self.run_test("Dashboard (Admin)", "GET", "api/dashboard", 200,
