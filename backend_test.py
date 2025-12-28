@@ -1247,6 +1247,17 @@ def main():
         tester.test_get_available_users()
         tester.test_get_available_users_designer()
         
+        # TAT System Tests
+        print("\n⏰ Testing TAT (Time-to-Action) System...")
+        tester.test_seed_leads_admin()
+        tester.test_seed_leads_designer()
+        tester.test_list_leads_admin()
+        tester.test_get_single_lead_with_tat_timeline()
+        tester.test_lead_stage_update_with_tat()
+        tester.test_get_single_project_with_tat_timeline()
+        tester.test_project_stage_update_with_tat()
+        tester.test_tat_calculation_verification()
+        
         # Logout test (do this last as it invalidates session)
         tester.test_logout()
         
