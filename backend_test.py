@@ -3017,9 +3017,13 @@ db.user_sessions.insertOne({{
                         color = first_meeting.get('color', '')
                         expected_colors = {
                             'Scheduled': '#9333EA',  # Purple
+                            'scheduled': '#9333EA',  # Purple (lowercase)
                             'Completed': '#22C55E',  # Green
+                            'completed': '#22C55E',  # Green (lowercase)
                             'Missed': '#EF4444',     # Red
-                            'Cancelled': '#6B7280'   # Gray
+                            'missed': '#EF4444',     # Red (lowercase)
+                            'Cancelled': '#6B7280',  # Gray
+                            'cancelled': '#6B7280'   # Gray (lowercase)
                         }
                         color_correct = color == expected_colors.get(status, '')
                         
