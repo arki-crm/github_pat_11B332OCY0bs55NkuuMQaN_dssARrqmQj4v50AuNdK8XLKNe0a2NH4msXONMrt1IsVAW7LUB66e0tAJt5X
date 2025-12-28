@@ -714,7 +714,7 @@ async def seed_projects(request: Request):
             "project_name": "Modern Minimalist Apartment",
             "client_name": "Rahul Sharma",
             "client_phone": "9876543210",
-            "stage": "Pre 10%",
+            "stage": "Design Finalization",
             "collaborators": user_ids[:2] if len(user_ids) >= 2 else user_ids,
             "summary": "Complete interior design for a 3BHK apartment with minimalist aesthetics",
             "timeline": generate_timeline("Design Finalization", (now - timedelta(days=5)).isoformat()),
