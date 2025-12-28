@@ -2613,6 +2613,449 @@ db.user_sessions.insertOne({{
         return False, {}
 
     # ============ EMAIL TEMPLATES TESTS ============
+
+    def test_get_email_templates_admin(self):
+        """Test GET /api/settings/email-templates (Admin only)"""
+        success, templates_data = self.run_test("Get Email Templates (Admin)", "GET", 
+                                               "api/settings/email-templates", 200,
+                                               auth_token=self.admin_token)
+        if success:
+            is_array = isinstance(templates_data, list)
+            print(f"   Templates is array: {is_array}")
+            print(f"   Templates count: {len(templates_data) if is_array else 'N/A'}")
+            
+            # Check template structure
+            if is_array and len(templates_data) > 0:
+                first_template = templates_data[0]
+                has_required_fields = all(field in first_template for field in ['id', 'name', 'subject', 'body', 'variables'])
+                print(f"   Template structure valid: {has_required_fields}")
+                
+                # Store template ID for other tests
+                self.test_template_id = first_template.get('id')
+                
+                return success and is_array and has_required_fields, templates_data
+            
+            return success and is_array, templates_data
+        return success, templates_data
+
+    def test_get_email_templates_designer_denied(self):
+        """Test GET /api/settings/email-templates with Designer token (should fail)"""
+        return self.run_test("Get Email Templates (Designer - Should Fail)", "GET", 
+                           "api/settings/email-templates", 403,
+                           auth_token=self.pure_designer_token)
+
+    def test_get_single_email_template(self):
+        """Test GET /api/settings/email-templates/:id"""
+        if hasattr(self, 'test_template_id'):
+            return self.run_test("Get Single Email Template", "GET", 
+                               f"api/settings/email-templates/{self.test_template_id}", 200,
+                               auth_token=self.admin_token)
+        else:
+            # Use a known template ID
+            return self.run_test("Get Single Email Template", "GET", 
+                               "api/settings/email-templates/template_stage_change", 200,
+                               auth_token=self.admin_token)
+
+    def test_update_email_template(self):
+        """Test PUT /api/settings/email-templates/:id"""
+        template_id = getattr(self, 'test_template_id', 'template_stage_change')
+        
+        update_data = {
+            "subject": "Updated Test Subject - {{projectName}}",
+            "body": "Updated test body content with {{userName}} variable."
+        }
+        
+        success, response_data = self.run_test("Update Email Template", "PUT", 
+                                             f"api/settings/email-templates/{template_id}", 200,
+                                             data=update_data,
+                                             auth_token=self.admin_token)
+        if success:
+            has_message = 'message' in response_data
+            has_template = 'template' in response_data
+            print(f"   Update message present: {has_message}")
+            print(f"   Updated template present: {has_template}")
+            
+            if has_template:
+                template = response_data['template']
+                subject_updated = template.get('subject') == update_data['subject']
+                body_updated = template.get('body') == update_data['body']
+                print(f"   Subject updated correctly: {subject_updated}")
+                print(f"   Body updated correctly: {body_updated}")
+                
+                return success and has_message and has_template and subject_updated and body_updated, response_data
+            
+            return success and has_message and has_template, response_data
+        return success, response_data
+
+    def test_reset_email_template(self):
+        """Test POST /api/settings/email-templates/:id/reset"""
+        template_id = getattr(self, 'test_template_id', 'template_stage_change')
+        
+        success, response_data = self.run_test("Reset Email Template", "POST", 
+                                             f"api/settings/email-templates/{template_id}/reset", 200,
+                                             auth_token=self.admin_token)
+        if success:
+            has_message = 'message' in response_data
+            has_template = 'template' in response_data
+            print(f"   Reset message present: {has_message}")
+            print(f"   Reset template present: {has_template}")
+            
+            return success and has_message and has_template, response_data
+        return success, response_data
+
+    # ============ MEETING SYSTEM TESTS ============
+
+    def test_create_meeting_admin(self):
+        """Test POST /api/meetings - Create meeting (Admin)"""
+        # First get a project and designer for the meeting
+        success, projects_data = self.run_test("Get Projects for Meeting Test", "GET", "api/projects", 200,
+                                              auth_token=self.admin_token)
+        if success and projects_data and len(projects_data) > 0:
+            project_id = projects_data[0]['project_id']
+            
+            # Create meeting data
+            meeting_data = {
+                "title": "Test Project Meeting",
+                "description": "This is a test meeting for API testing",
+                "project_id": project_id,
+                "scheduled_for": self.designer_user_id,
+                "date": "2024-12-20",
+                "start_time": "10:00",
+                "end_time": "11:00",
+                "location": "Conference Room A"
+            }
+            
+            success, meeting_response = self.run_test("Create Meeting (Admin)", "POST", 
+                                                    "api/meetings", 200,
+                                                    data=meeting_data,
+                                                    auth_token=self.admin_token)
+            if success:
+                # Verify meeting response structure
+                has_message = 'message' in meeting_response
+                has_meeting = 'meeting' in meeting_response
+                print(f"   Success message present: {has_message}")
+                print(f"   Meeting data present: {has_meeting}")
+                
+                if has_meeting:
+                    meeting = meeting_response['meeting']
+                    has_id = 'id' in meeting
+                    title_correct = meeting.get('title') == meeting_data['title']
+                    status_correct = meeting.get('status') == 'Scheduled'
+                    print(f"   Meeting ID present: {has_id}")
+                    print(f"   Title correct: {title_correct}")
+                    print(f"   Status set to Scheduled: {status_correct}")
+                    
+                    # Store meeting ID for other tests
+                    if has_id:
+                        self.test_meeting_id = meeting['id']
+                        self.test_meeting_project_id = project_id
+                    
+                    return success and has_message and has_meeting and has_id and title_correct and status_correct, meeting_response
+                
+                return success and has_message and has_meeting, meeting_response
+            return success, meeting_response
+        else:
+            print("⚠️  No projects found for meeting creation test")
+            return False, {}
+
+    def test_create_meeting_designer(self):
+        """Test POST /api/meetings - Create meeting (Designer - should work for own meetings)"""
+        # Create a simple meeting as designer
+        meeting_data = {
+            "title": "Designer Test Meeting",
+            "description": "Designer created meeting",
+            "scheduled_for": self.designer_user_id,
+            "date": "2024-12-21",
+            "start_time": "14:00",
+            "end_time": "15:00",
+            "location": "Online"
+        }
+        
+        return self.run_test("Create Meeting (Designer)", "POST", 
+                           "api/meetings", 200,
+                           data=meeting_data,
+                           auth_token=self.designer_token)
+
+    def test_list_meetings_admin(self):
+        """Test GET /api/meetings - List meetings (Admin sees all)"""
+        success, meetings_data = self.run_test("List Meetings (Admin)", "GET", "api/meetings", 200,
+                                             auth_token=self.admin_token)
+        if success:
+            is_array = isinstance(meetings_data, list)
+            print(f"   Meetings is array: {is_array}")
+            print(f"   Meetings count: {len(meetings_data) if is_array else 'N/A'}")
+            
+            # Check meeting structure
+            if is_array and len(meetings_data) > 0:
+                first_meeting = meetings_data[0]
+                required_fields = ['id', 'title', 'date', 'start_time', 'end_time', 'status', 'scheduled_for']
+                has_required_fields = all(field in first_meeting for field in required_fields)
+                print(f"   Meeting structure valid: {has_required_fields}")
+                
+                return success and is_array and has_required_fields, meetings_data
+            
+            return success and is_array, meetings_data
+        return success, meetings_data
+
+    def test_list_meetings_with_filters(self):
+        """Test GET /api/meetings with various filters"""
+        # Test project filter
+        if hasattr(self, 'test_meeting_project_id'):
+            success1, _ = self.run_test("List Meetings (Project Filter)", "GET", 
+                                      f"api/meetings?project_id={self.test_meeting_project_id}", 200,
+                                      auth_token=self.admin_token)
+        else:
+            success1 = True  # Skip if no test project
+        
+        # Test status filter
+        success2, _ = self.run_test("List Meetings (Status Filter)", "GET", 
+                                  "api/meetings?status=Scheduled", 200,
+                                  auth_token=self.admin_token)
+        
+        # Test filter_type
+        success3, _ = self.run_test("List Meetings (Filter Type - Today)", "GET", 
+                                  "api/meetings?filter_type=today", 200,
+                                  auth_token=self.admin_token)
+        
+        success4, _ = self.run_test("List Meetings (Filter Type - Upcoming)", "GET", 
+                                  "api/meetings?filter_type=upcoming", 200,
+                                  auth_token=self.admin_token)
+        
+        return success1 and success2 and success3 and success4, {}
+
+    def test_get_single_meeting(self):
+        """Test GET /api/meetings/:id - Get single meeting"""
+        if hasattr(self, 'test_meeting_id'):
+            success, meeting_data = self.run_test("Get Single Meeting", "GET", 
+                                                f"api/meetings/{self.test_meeting_id}", 200,
+                                                auth_token=self.admin_token)
+            if success:
+                # Verify meeting details
+                has_title = 'title' in meeting_data
+                has_project = 'project' in meeting_data  # Should include project details
+                has_scheduled_user = 'scheduled_for_user' in meeting_data  # Should include user details
+                print(f"   Meeting title present: {has_title}")
+                print(f"   Project details present: {has_project}")
+                print(f"   Scheduled user details present: {has_scheduled_user}")
+                
+                return success and has_title, meeting_data
+            return success, meeting_data
+        else:
+            print("⚠️  No test meeting available for single meeting test")
+            return True, {}
+
+    def test_update_meeting(self):
+        """Test PUT /api/meetings/:id - Update meeting"""
+        if hasattr(self, 'test_meeting_id'):
+            update_data = {
+                "title": "Updated Test Meeting",
+                "status": "Completed",
+                "location": "Updated Location"
+            }
+            
+            success, response_data = self.run_test("Update Meeting", "PUT", 
+                                                 f"api/meetings/{self.test_meeting_id}", 200,
+                                                 data=update_data,
+                                                 auth_token=self.admin_token)
+            if success:
+                has_message = 'message' in response_data
+                has_meeting = 'meeting' in response_data
+                print(f"   Update message present: {has_message}")
+                print(f"   Updated meeting present: {has_meeting}")
+                
+                if has_meeting:
+                    meeting = response_data['meeting']
+                    title_updated = meeting.get('title') == update_data['title']
+                    status_updated = meeting.get('status') == update_data['status']
+                    location_updated = meeting.get('location') == update_data['location']
+                    print(f"   Title updated: {title_updated}")
+                    print(f"   Status updated: {status_updated}")
+                    print(f"   Location updated: {location_updated}")
+                    
+                    return success and has_message and has_meeting and title_updated and status_updated, response_data
+                
+                return success and has_message and has_meeting, response_data
+            return success, response_data
+        else:
+            print("⚠️  No test meeting available for update test")
+            return True, {}
+
+    def test_delete_meeting(self):
+        """Test DELETE /api/meetings/:id - Delete meeting"""
+        # Create a meeting specifically for deletion
+        meeting_data = {
+            "title": "Meeting to Delete",
+            "scheduled_for": self.designer_user_id,
+            "date": "2024-12-22",
+            "start_time": "16:00",
+            "end_time": "17:00"
+        }
+        
+        success, create_response = self.run_test("Create Meeting for Deletion", "POST", 
+                                                "api/meetings", 200,
+                                                data=meeting_data,
+                                                auth_token=self.admin_token)
+        
+        if success and 'meeting' in create_response and 'id' in create_response['meeting']:
+            meeting_id = create_response['meeting']['id']
+            
+            return self.run_test("Delete Meeting", "DELETE", 
+                               f"api/meetings/{meeting_id}", 200,
+                               auth_token=self.admin_token)
+        else:
+            print("⚠️  Failed to create meeting for deletion test")
+            return False, {}
+
+    def test_project_meetings(self):
+        """Test GET /api/projects/:id/meetings - Get meetings for specific project"""
+        if hasattr(self, 'test_meeting_project_id'):
+            success, meetings_data = self.run_test("Get Project Meetings", "GET", 
+                                                 f"api/projects/{self.test_meeting_project_id}/meetings", 200,
+                                                 auth_token=self.admin_token)
+            if success:
+                is_array = isinstance(meetings_data, list)
+                print(f"   Project meetings is array: {is_array}")
+                print(f"   Project meetings count: {len(meetings_data) if is_array else 'N/A'}")
+                
+                return success and is_array, meetings_data
+            return success, meetings_data
+        else:
+            print("⚠️  No test project available for project meetings test")
+            return True, {}
+
+    def test_lead_meetings(self):
+        """Test GET /api/leads/:id/meetings - Get meetings for specific lead"""
+        # First get a lead
+        success, leads_data = self.run_test("Get Leads for Meeting Test", "GET", "api/leads", 200,
+                                          auth_token=self.admin_token)
+        if success and leads_data and len(leads_data) > 0:
+            lead_id = leads_data[0]['lead_id']
+            
+            # Create a meeting for this lead first
+            meeting_data = {
+                "title": "Lead Test Meeting",
+                "lead_id": lead_id,
+                "scheduled_for": self.designer_user_id,
+                "date": "2024-12-23",
+                "start_time": "09:00",
+                "end_time": "10:00"
+            }
+            
+            create_success, _ = self.run_test("Create Lead Meeting", "POST", 
+                                            "api/meetings", 200,
+                                            data=meeting_data,
+                                            auth_token=self.admin_token)
+            
+            if create_success:
+                # Now get lead meetings
+                success, meetings_data = self.run_test("Get Lead Meetings", "GET", 
+                                                     f"api/leads/{lead_id}/meetings", 200,
+                                                     auth_token=self.admin_token)
+                if success:
+                    is_array = isinstance(meetings_data, list)
+                    print(f"   Lead meetings is array: {is_array}")
+                    print(f"   Lead meetings count: {len(meetings_data) if is_array else 'N/A'}")
+                    
+                    return success and is_array, meetings_data
+                return success, meetings_data
+            else:
+                print("⚠️  Failed to create lead meeting for test")
+                return False, {}
+        else:
+            print("⚠️  No leads found for lead meetings test")
+            return False, {}
+
+    def test_check_missed_meetings(self):
+        """Test POST /api/meetings/check-missed - Check and mark missed meetings"""
+        success, response_data = self.run_test("Check Missed Meetings", "POST", 
+                                             "api/meetings/check-missed", 200,
+                                             auth_token=self.admin_token)
+        if success:
+            has_message = 'message' in response_data
+            has_count = 'missed_count' in response_data
+            print(f"   Check message present: {has_message}")
+            print(f"   Missed count present: {has_count}")
+            
+            if has_count:
+                missed_count = response_data.get('missed_count', 0)
+                print(f"   Meetings marked as missed: {missed_count}")
+            
+            return success and has_message and has_count, response_data
+        return success, response_data
+
+    def test_calendar_events_with_meetings(self):
+        """Test GET /api/calendar-events with meeting filter"""
+        # Test calendar events with meeting filter
+        success, events_data = self.run_test("Calendar Events (Meeting Filter)", "GET", 
+                                           "api/calendar-events?event_type=meeting", 200,
+                                           auth_token=self.admin_token)
+        if success:
+            is_array = isinstance(events_data, list)
+            print(f"   Calendar events is array: {is_array}")
+            print(f"   Meeting events count: {len(events_data) if is_array else 'N/A'}")
+            
+            # Check meeting event structure and colors
+            if is_array and len(events_data) > 0:
+                meeting_events = [e for e in events_data if e.get('type') == 'meeting']
+                print(f"   Actual meeting events: {len(meeting_events)}")
+                
+                if meeting_events:
+                    first_meeting = meeting_events[0]
+                    required_fields = ['id', 'title', 'start', 'end', 'type', 'status', 'color']
+                    has_required_fields = all(field in first_meeting for field in required_fields)
+                    
+                    # Check color coding
+                    status = first_meeting.get('status', '')
+                    color = first_meeting.get('color', '')
+                    expected_colors = {
+                        'Scheduled': '#9333EA',  # Purple
+                        'Completed': '#22C55E',  # Green
+                        'Missed': '#EF4444',     # Red
+                        'Cancelled': '#6B7280'   # Gray
+                    }
+                    color_correct = color == expected_colors.get(status, '')
+                    
+                    print(f"   Meeting event structure valid: {has_required_fields}")
+                    print(f"   Meeting status: {status}")
+                    print(f"   Meeting color: {color}")
+                    print(f"   Color coding correct: {color_correct}")
+                    
+                    return success and is_array and has_required_fields and color_correct, events_data
+                
+                return success and is_array, events_data
+            
+            return success and is_array, events_data
+        return success, events_data
+
+    def test_meeting_role_based_access(self):
+        """Test meeting role-based access permissions"""
+        # Test Designer can only see their own meetings
+        success1, designer_meetings = self.run_test("List Meetings (Designer - Own Only)", "GET", 
+                                                   "api/meetings", 200,
+                                                   auth_token=self.designer_token)
+        
+        # Test PreSales access (if we have a PreSales user)
+        # For now, just test that Designer access works
+        if success1:
+            is_array = isinstance(designer_meetings, list)
+            print(f"   Designer meetings is array: {is_array}")
+            print(f"   Designer meetings count: {len(designer_meetings) if is_array else 'N/A'}")
+            
+            # Verify all meetings are for this designer
+            if is_array and len(designer_meetings) > 0:
+                all_for_designer = all(
+                    meeting.get('scheduled_for') == self.designer_user_id 
+                    for meeting in designer_meetings
+                )
+                print(f"   All meetings for designer: {all_for_designer}")
+                
+                return success1 and is_array and all_for_designer, designer_meetings
+            
+            return success1 and is_array, designer_meetings
+        
+        return success1, designer_meetings
+
+    # ============ EMAIL TEMPLATES TESTS ============
     
     def test_get_email_templates_admin(self):
         """Test GET /api/settings/email-templates (Admin access)"""
