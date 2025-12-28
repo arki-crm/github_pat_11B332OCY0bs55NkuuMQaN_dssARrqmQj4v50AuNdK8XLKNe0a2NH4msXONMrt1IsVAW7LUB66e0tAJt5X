@@ -1063,6 +1063,11 @@ const ProjectDetails = () => {
   const [files, setFiles] = useState([]);
   const [notes, setNotes] = useState([]);
   const [collaborators, setCollaborators] = useState([]);
+  
+  // Meetings state
+  const [meetings, setMeetings] = useState([]);
+  const [loadingMeetings, setLoadingMeetings] = useState(false);
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
 
   // PreSales redirect
   useEffect(() => {
