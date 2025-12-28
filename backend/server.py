@@ -577,10 +577,115 @@ async def seed_projects(request: Request):
         raise HTTPException(status_code=403, detail="Admin or Manager access required")
     
     # Get all users to use as collaborators
-    users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1}).to_list(100)
+    users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "role": 1}).to_list(100)
     user_ids = [u["user_id"] for u in users]
+    users_map = {u["user_id"]: u for u in users}
     
-    # Sample projects data
+    def generate_timeline(stage, created_date):
+        """Generate timeline based on project stage"""
+        base_date = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
+        if base_date.tzinfo is None:
+            base_date = base_date.replace(tzinfo=timezone.utc)
+        
+        stage_index = STAGE_ORDER.index(stage) if stage in STAGE_ORDER else 0
+        
+        timeline = [
+            {
+                "id": f"tl_{uuid.uuid4().hex[:6]}",
+                "title": "Lead Created",
+                "date": base_date.isoformat(),
+                "status": "completed" if stage_index >= 0 else "pending",
+                "stage_ref": "Pre 10%"
+            },
+            {
+                "id": f"tl_{uuid.uuid4().hex[:6]}",
+                "title": "Site Visit Scheduled",
+                "date": (base_date + timedelta(days=3)).isoformat(),
+                "status": "completed" if stage_index >= 0 else "pending",
+                "stage_ref": "Pre 10%"
+            },
+            {
+                "id": f"tl_{uuid.uuid4().hex[:6]}",
+                "title": "Design Started",
+                "date": (base_date + timedelta(days=7)).isoformat(),
+                "status": "completed" if stage_index >= 1 else "pending",
+                "stage_ref": "10-50%"
+            },
+            {
+                "id": f"tl_{uuid.uuid4().hex[:6]}",
+                "title": "Initial Concepts Shared",
+                "date": (base_date + timedelta(days=14)).isoformat(),
+                "status": "completed" if stage_index >= 1 else "pending",
+                "stage_ref": "10-50%"
+            },
+            {
+                "id": f"tl_{uuid.uuid4().hex[:6]}",
+                "title": "Client Approval",
+                "date": (base_date + timedelta(days=21)).isoformat(),
+                "status": "completed" if stage_index >= 2 else "pending",
+                "stage_ref": "50-100%"
+            },
+            {
+                "id": f"tl_{uuid.uuid4().hex[:6]}",
+                "title": "Execution Phase",
+                "date": (base_date + timedelta(days=30)).isoformat(),
+                "status": "completed" if stage_index >= 2 else "pending",
+                "stage_ref": "50-100%"
+            },
+            {
+                "id": f"tl_{uuid.uuid4().hex[:6]}",
+                "title": "Project Handover",
+                "date": (base_date + timedelta(days=45)).isoformat(),
+                "status": "completed" if stage_index >= 3 else "pending",
+                "stage_ref": "Completed"
+            }
+        ]
+        return timeline
+    
+    def generate_comments(collaborator_ids, created_date):
+        """Generate sample comments"""
+        base_date = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
+        if base_date.tzinfo is None:
+            base_date = base_date.replace(tzinfo=timezone.utc)
+        
+        comments = [
+            {
+                "id": f"comment_{uuid.uuid4().hex[:8]}",
+                "user_id": "system",
+                "user_name": "System",
+                "role": "System",
+                "message": "Project created",
+                "is_system": True,
+                "created_at": base_date.isoformat()
+            }
+        ]
+        
+        # Add sample comments from collaborators
+        sample_messages = [
+            "Initial site visit completed. Client has clear requirements for minimalist design.",
+            "Mood board prepared and shared with client for feedback.",
+            "Client approved the color palette. Moving forward with 3D renders.",
+            "Vendor quotes received for custom furniture.",
+            "Final design presentation scheduled for next week."
+        ]
+        
+        for i, msg in enumerate(sample_messages[:min(3, len(collaborator_ids))]):
+            collab_id = collaborator_ids[i % len(collaborator_ids)]
+            collab_info = users_map.get(collab_id, {"name": "Unknown", "role": "Designer"})
+            comments.append({
+                "id": f"comment_{uuid.uuid4().hex[:8]}",
+                "user_id": collab_id,
+                "user_name": collab_info.get("name", "Unknown"),
+                "role": collab_info.get("role", "Designer"),
+                "message": msg,
+                "is_system": False,
+                "created_at": (base_date + timedelta(days=i+1, hours=i*2)).isoformat()
+            })
+        
+        return comments
+    
+    # Sample projects data with timeline and comments
+    now = datetime.now(timezone.utc)
     sample_projects = [
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -590,8 +695,10 @@ async def seed_projects(request: Request):
             "stage": "Pre 10%",
             "collaborators": user_ids[:2] if len(user_ids) >= 2 else user_ids,
             "summary": "Complete interior design for a 3BHK apartment with minimalist aesthetics",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+            "timeline": generate_timeline("Pre 10%", (now - timedelta(days=5)).isoformat()),
+            "comments": generate_comments(user_ids[:2] if len(user_ids) >= 2 else user_ids, (now - timedelta(days=5)).isoformat()),
+            "updated_at": now.isoformat(),
+            "created_at": (now - timedelta(days=5)).isoformat()
         },
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -601,8 +708,10 @@ async def seed_projects(request: Request):
             "stage": "10-50%",
             "collaborators": user_ids[:3] if len(user_ids) >= 3 else user_ids,
             "summary": "High-end villa interior design with custom furniture and lighting",
-            "updated_at": (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat(),
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
+            "timeline": generate_timeline("10-50%", (now - timedelta(days=15)).isoformat()),
+            "comments": generate_comments(user_ids[:3] if len(user_ids) >= 3 else user_ids, (now - timedelta(days=15)).isoformat()),
+            "updated_at": (now - timedelta(hours=6)).isoformat(),
+            "created_at": (now - timedelta(days=15)).isoformat()
         },
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -612,8 +721,10 @@ async def seed_projects(request: Request):
             "stage": "50-100%",
             "collaborators": user_ids[:2] if len(user_ids) >= 2 else user_ids,
             "summary": "Modern workspace design for 50+ employees with collaborative zones",
-            "updated_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+            "timeline": generate_timeline("50-100%", (now - timedelta(days=30)).isoformat()),
+            "comments": generate_comments(user_ids[:2] if len(user_ids) >= 2 else user_ids, (now - timedelta(days=30)).isoformat()),
+            "updated_at": (now - timedelta(days=1)).isoformat(),
+            "created_at": (now - timedelta(days=30)).isoformat()
         },
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -623,8 +734,10 @@ async def seed_projects(request: Request):
             "stage": "Completed",
             "collaborators": user_ids[:1] if len(user_ids) >= 1 else user_ids,
             "summary": "Elegant lobby design with Indian contemporary theme",
-            "updated_at": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+            "timeline": generate_timeline("Completed", (now - timedelta(days=60)).isoformat()),
+            "comments": generate_comments(user_ids[:1] if len(user_ids) >= 1 else user_ids, (now - timedelta(days=60)).isoformat()),
+            "updated_at": (now - timedelta(days=2)).isoformat(),
+            "created_at": (now - timedelta(days=60)).isoformat()
         },
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -634,8 +747,10 @@ async def seed_projects(request: Request):
             "stage": "10-50%",
             "collaborators": user_ids,
             "summary": "Luxury penthouse complete interior renovation with terrace garden",
-            "updated_at": (datetime.now(timezone.utc) - timedelta(hours=12)).isoformat(),
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+            "timeline": generate_timeline("10-50%", (now - timedelta(days=10)).isoformat()),
+            "comments": generate_comments(user_ids, (now - timedelta(days=10)).isoformat()),
+            "updated_at": (now - timedelta(hours=12)).isoformat(),
+            "created_at": (now - timedelta(days=10)).isoformat()
         },
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -645,8 +760,10 @@ async def seed_projects(request: Request):
             "stage": "Pre 10%",
             "collaborators": user_ids[:1] if len(user_ids) >= 1 else user_ids,
             "summary": "Fine dining restaurant with fusion Indian-European theme",
-            "updated_at": (datetime.now(timezone.utc) - timedelta(days=3)).isoformat(),
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+            "timeline": generate_timeline("Pre 10%", (now - timedelta(days=3)).isoformat()),
+            "comments": generate_comments(user_ids[:1] if len(user_ids) >= 1 else user_ids, (now - timedelta(days=3)).isoformat()),
+            "updated_at": (now - timedelta(days=3)).isoformat(),
+            "created_at": (now - timedelta(days=3)).isoformat()
         },
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -656,8 +773,10 @@ async def seed_projects(request: Request):
             "stage": "50-100%",
             "collaborators": user_ids[:2] if len(user_ids) >= 2 else user_ids,
             "summary": "4BHK smart home with automated lighting and climate control",
-            "updated_at": (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat(),
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=20)).isoformat()
+            "timeline": generate_timeline("50-100%", (now - timedelta(days=20)).isoformat()),
+            "comments": generate_comments(user_ids[:2] if len(user_ids) >= 2 else user_ids, (now - timedelta(days=20)).isoformat()),
+            "updated_at": (now - timedelta(hours=3)).isoformat(),
+            "created_at": (now - timedelta(days=20)).isoformat()
         },
         {
             "project_id": f"proj_{uuid.uuid4().hex[:8]}",
@@ -667,8 +786,10 @@ async def seed_projects(request: Request):
             "stage": "Completed",
             "collaborators": user_ids,
             "summary": "Colorful and safe play area design for preschool children",
-            "updated_at": (datetime.now(timezone.utc) - timedelta(days=7)).isoformat(),
-            "created_at": (datetime.now(timezone.utc) - timedelta(days=45)).isoformat()
+            "timeline": generate_timeline("Completed", (now - timedelta(days=45)).isoformat()),
+            "comments": generate_comments(user_ids, (now - timedelta(days=45)).isoformat()),
+            "updated_at": (now - timedelta(days=7)).isoformat(),
+            "created_at": (now - timedelta(days=45)).isoformat()
         }
     ]
     
