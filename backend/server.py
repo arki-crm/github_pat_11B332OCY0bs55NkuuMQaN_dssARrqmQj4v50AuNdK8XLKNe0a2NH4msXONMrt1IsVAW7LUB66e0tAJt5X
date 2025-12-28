@@ -2067,7 +2067,7 @@ async def seed_projects(request: Request):
             "stage": "Installation",
             "collaborators": user_ids[:2] if len(user_ids) >= 2 else user_ids,
             "summary": "4BHK smart home with automated lighting and climate control",
-            "timeline": generate_timeline("Installation", (now - timedelta(days=20)).isoformat()),
+            "timeline": generate_project_timeline("Installation", (now - timedelta(days=20)).isoformat()),
             "comments": generate_comments(user_ids[:2] if len(user_ids) >= 2 else user_ids, (now - timedelta(days=20)).isoformat()),
             "updated_at": (now - timedelta(hours=3)).isoformat(),
             "created_at": (now - timedelta(days=20)).isoformat()
