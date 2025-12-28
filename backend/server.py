@@ -2062,11 +2062,24 @@ async def convert_to_project(lead_id: str, request: Request):
         "notes": [],
         "project_value": 0,
         "payment_schedule": [
-            {"stage": "Booking", "percentage": 10},
-            {"stage": "Design Finalization", "percentage": 40},
-            {"stage": "Production", "percentage": 40},
-            {"stage": "Handover", "percentage": 10}
+            {
+                "stage": "Design Booking",
+                "type": "fixed",
+                "fixedAmount": 25000,
+                "percentage": 10
+            },
+            {
+                "stage": "Production Start",
+                "type": "percentage",
+                "percentage": 50
+            },
+            {
+                "stage": "Before Installation",
+                "type": "remaining"
+            }
         ],
+        "custom_payment_schedule_enabled": False,
+        "custom_payment_schedule": [],
         "payments": [],
         "updated_at": now.isoformat(),
         "created_at": now.isoformat()
