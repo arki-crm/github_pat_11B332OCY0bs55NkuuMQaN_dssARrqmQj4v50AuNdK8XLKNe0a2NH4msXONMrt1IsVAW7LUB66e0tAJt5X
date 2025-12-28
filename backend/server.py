@@ -147,6 +147,58 @@ class NoteItem(BaseModel):
 class CollaboratorAdd(BaseModel):
     user_id: str
 
+# ============ LEAD MODELS ============
+
+class Lead(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    lead_id: str
+    customer_name: str
+    customer_phone: str
+    source: str  # "Meta", "Walk-in", "Referral", "Others"
+    status: str  # "New", "Contacted", "Waiting", "Qualified", "Dropped"
+    stage: str  # Lead stages
+    assigned_to: Optional[str] = None  # Pre-sales user ID
+    designer_id: Optional[str] = None  # Designer user ID
+    is_converted: bool = False
+    project_id: Optional[str] = None  # If converted to project
+    timeline: List[dict] = []
+    comments: List[dict] = []
+    updated_at: datetime
+    created_at: datetime
+
+class LeadCreate(BaseModel):
+    customer_name: str
+    customer_phone: str
+    source: str = "Others"
+    status: str = "New"
+
+class LeadStageUpdate(BaseModel):
+    stage: str
+
+class LeadAssignDesigner(BaseModel):
+    designer_id: str
+
+# Lead stages
+LEAD_STAGES = [
+    "BC Call Done",
+    "BOQ Shared",
+    "Site Meeting",
+    "Revised BOQ Shared",
+    "Waiting for Booking",
+    "Booking Completed"
+]
+
+# Lead milestones for timeline
+LEAD_MILESTONES = [
+    {"title": "Lead Created", "stage_ref": "BC Call Done"},
+    {"title": "BC Call Completed", "stage_ref": "BC Call Done"},
+    {"title": "BOQ Shared", "stage_ref": "BOQ Shared"},
+    {"title": "Site Meeting", "stage_ref": "Site Meeting"},
+    {"title": "Revised BOQ Shared", "stage_ref": "Revised BOQ Shared"},
+    {"title": "Waiting for Booking", "stage_ref": "Waiting for Booking"},
+    {"title": "Booking Completed", "stage_ref": "Booking Completed"}
+]
+
 # Stage order for timeline logic - 6 main stages
 STAGE_ORDER = [
     "Design Finalization",
