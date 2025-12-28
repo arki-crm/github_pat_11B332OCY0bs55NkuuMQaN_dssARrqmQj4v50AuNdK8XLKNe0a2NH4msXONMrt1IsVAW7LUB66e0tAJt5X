@@ -410,75 +410,594 @@ const StagesPanel = ({ currentStage, onStageChange, canChangeStage, isUpdating }
   );
 };
 
-// ============ PLACEHOLDER TABS ============
-const FilesTab = () => (
-  <div className="flex flex-col items-center justify-center py-16 text-center" data-testid="files-tab">
-    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-      <FileText className="w-8 h-8 text-slate-400" />
-    </div>
-    <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Manrope, sans-serif' }}>
-      Files module will be added in the next phase
-    </h3>
-    <p className="text-sm text-slate-500 mt-1">Upload and manage project documents, drawings, and images.</p>
-  </div>
-);
+// ============ FILES TAB ============
+const FilesTab = ({ projectId, files, onFilesChange, userRole }) => {
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const fileInputRef = useRef(null);
 
-const NotesTab = () => (
-  <div className="flex flex-col items-center justify-center py-16 text-center" data-testid="notes-tab">
-    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-      <StickyNote className="w-8 h-8 text-slate-400" />
-    </div>
-    <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Manrope, sans-serif' }}>
-      Notes module coming soon
-    </h3>
-    <p className="text-sm text-slate-500 mt-1">Create and organize project notes and documentation.</p>
-  </div>
-);
+  const canUpload = ['Admin', 'Manager', 'Designer'].includes(userRole);
+  const canDelete = userRole === 'Admin';
 
-const CollaboratorsTab = ({ collaborators }) => (
-  <div data-testid="collaborators-tab">
-    <div className="max-w-lg mx-auto">
-      <h3 className="text-lg font-semibold text-slate-900 mb-4" style={{ fontFamily: 'Manrope, sans-serif' }}>
-        Project Collaborators
-      </h3>
+  const getFileIcon = (fileType) => {
+    switch (fileType) {
+      case 'image':
+        return '🖼️';
+      case 'pdf':
+        return '📄';
+      case 'doc':
+        return '📝';
+      default:
+        return '📎';
+    }
+  };
+
+  const getFileType = (fileName) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'image';
+    if (ext === 'pdf') return 'pdf';
+    if (['doc', 'docx'].includes(ext)) return 'doc';
+    return 'other';
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
       
-      <div className="space-y-3">
-        {collaborators?.map((collab) => (
-          <div 
-            key={collab.user_id}
-            className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white"
-          >
-            <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white",
-              getAvatarColor(collab.name)
-            )}>
-              {collab.picture ? (
-                <img src={collab.picture} alt={collab.name} className="w-full h-full rounded-full object-cover" />
-              ) : (
-                getInitials(collab.name)
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-slate-900">{collab.name}</p>
-              <p className="text-xs text-slate-500">{collab.user_id}</p>
-            </div>
-            <Button variant="outline" size="sm" disabled className="text-xs">
-              Remove
+      // Convert to base64 for storage (in production, use cloud storage)
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const fileUrl = reader.result;
+        const fileType = getFileType(file.name);
+        
+        const response = await axios.post(`${API}/projects/${projectId}/files`, {
+          file_name: file.name,
+          file_url: fileUrl,
+          file_type: fileType
+        }, { withCredentials: true });
+        
+        onFilesChange([...files, response.data]);
+        toast.success('File uploaded successfully');
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error('Failed to upload file');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDelete = async (fileId) => {
+    try {
+      setDeleting(fileId);
+      await axios.delete(`${API}/projects/${projectId}/files/${fileId}`, {
+        withCredentials: true
+      });
+      onFilesChange(files.filter(f => f.id !== fileId));
+      toast.success('File deleted');
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Failed to delete file');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleDownload = (file) => {
+    const link = document.createElement('a');
+    link.href = file.file_url;
+    link.download = file.file_name;
+    link.click();
+  };
+
+  return (
+    <div data-testid="files-tab">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Manrope, sans-serif' }}>
+          Project Files
+        </h3>
+        {canUpload && (
+          <div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx"
+            />
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="upload-file-btn"
+            >
+              {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+              Upload File
             </Button>
           </div>
-        ))}
+        )}
       </div>
-      
-      <Button variant="outline" className="w-full mt-4" disabled>
-        + Add Collaborator
-      </Button>
-      
-      <p className="text-xs text-slate-500 mt-4 text-center">
-        Collaborator management will be enabled in a future update.
-      </p>
+
+      {files.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+            <FileText className="w-8 h-8 text-slate-400" />
+          </div>
+          <h4 className="text-base font-medium text-slate-900">No files uploaded yet</h4>
+          <p className="text-sm text-slate-500 mt-1">Upload documents, drawings, and images for this project.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {files.map((file) => (
+            <div
+              key={file.id}
+              className="p-4 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-colors"
+              data-testid={`file-item-${file.id}`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">{getFileIcon(file.file_type)}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">{file.file_name}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    by {file.uploaded_by_name} • {formatRelativeTime(file.uploaded_at)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => handleDownload(file)}
+                  data-testid={`download-${file.id}`}
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  Download
+                </Button>
+                {canDelete && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleDelete(file.id)}
+                    disabled={deleting === file.id}
+                    data-testid={`delete-${file.id}`}
+                  >
+                    {deleting === file.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
+
+// ============ NOTES TAB ============
+const NotesTab = ({ projectId, notes, onNotesChange, userRole, currentUserId }) => {
+  const [selectedNote, setSelectedNote] = useState(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const saveTimeoutRef = useRef(null);
+
+  const canCreate = ['Admin', 'Manager', 'Designer'].includes(userRole);
+
+  const canEdit = (note) => {
+    return note.created_by === currentUserId || userRole === 'Admin';
+  };
+
+  // Auto-save on content change
+  useEffect(() => {
+    if (!selectedNote || !canEdit(selectedNote)) return;
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      if (editTitle !== selectedNote.title || editContent !== selectedNote.content) {
+        try {
+          setSaving(true);
+          const response = await axios.put(
+            `${API}/projects/${projectId}/notes/${selectedNote.id}`,
+            { title: editTitle, content: editContent },
+            { withCredentials: true }
+          );
+          
+          onNotesChange(notes.map(n => n.id === selectedNote.id ? response.data : n));
+          setSelectedNote(response.data);
+        } catch (err) {
+          console.error('Save error:', err);
+          toast.error('Failed to save note');
+        } finally {
+          setSaving(false);
+        }
+      }
+    }, 1000);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [editTitle, editContent]);
+
+  const handleCreateNote = async () => {
+    try {
+      setIsCreating(true);
+      const response = await axios.post(`${API}/projects/${projectId}/notes`, {
+        title: 'Untitled Note',
+        content: ''
+      }, { withCredentials: true });
+      
+      onNotesChange([...notes, response.data]);
+      setSelectedNote(response.data);
+      setEditTitle(response.data.title);
+      setEditContent(response.data.content);
+      toast.success('Note created');
+    } catch (err) {
+      console.error('Create error:', err);
+      toast.error('Failed to create note');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleSelectNote = (note) => {
+    setSelectedNote(note);
+    setEditTitle(note.title);
+    setEditContent(note.content);
+  };
+
+  return (
+    <div className="flex gap-6 min-h-[500px]" data-testid="notes-tab">
+      {/* Notes List (Left) */}
+      <div className="w-64 flex-shrink-0 border-r border-slate-200 pr-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-900">Notes</h3>
+          {canCreate && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCreateNote}
+              disabled={isCreating}
+              className="h-8 px-2"
+              data-testid="create-note-btn"
+            >
+              {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            </Button>
+          )}
+        </div>
+        
+        {notes.length === 0 ? (
+          <div className="text-center py-8">
+            <StickyNote className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs text-slate-500">No notes yet</p>
+            {canCreate && (
+              <p className="text-xs text-slate-400 mt-1">Create the first note</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {notes.map((note) => (
+              <button
+                key={note.id}
+                onClick={() => handleSelectNote(note)}
+                className={cn(
+                  "w-full text-left p-3 rounded-lg transition-colors",
+                  selectedNote?.id === note.id 
+                    ? "bg-blue-50 border border-blue-200" 
+                    : "bg-white border border-slate-200 hover:border-slate-300"
+                )}
+                data-testid={`note-item-${note.id}`}
+              >
+                <p className="text-sm font-medium text-slate-900 truncate">{note.title}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {note.created_by_name} • {formatRelativeTime(note.updated_at)}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Note Editor (Right) */}
+      <div className="flex-1">
+        {selectedNote ? (
+          <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                {canEdit(selectedNote) ? (
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="text-lg font-semibold border-none shadow-none px-0 focus-visible:ring-0"
+                    placeholder="Note title"
+                    data-testid="note-title-input"
+                  />
+                ) : (
+                  <h3 className="text-lg font-semibold text-slate-900">{selectedNote.title}</h3>
+                )}
+                {saving && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+              </div>
+              {!canEdit(selectedNote) && (
+                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Read-only</span>
+              )}
+            </div>
+            
+            <p className="text-xs text-slate-500 mb-4">
+              Created by {selectedNote.created_by_name} • Updated {formatRelativeTime(selectedNote.updated_at)}
+            </p>
+            
+            {canEdit(selectedNote) ? (
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="flex-1 w-full p-3 rounded-lg border border-slate-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                placeholder="Start writing..."
+                data-testid="note-content-input"
+              />
+            ) : (
+              <div className="flex-1 w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-sm whitespace-pre-wrap overflow-auto">
+                {selectedNote.content || 'No content'}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <StickyNote className="w-12 h-12 text-slate-300 mb-4" />
+            <p className="text-sm text-slate-500">Select a note to view or edit</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============ COLLABORATORS TAB ============
+const CollaboratorsTabFull = ({ projectId, collaborators, onCollaboratorsChange, userRole }) => {
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const canAdd = ['Admin', 'Manager'].includes(userRole);
+  const canRemove = userRole === 'Admin';
+
+  const fetchAvailableUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API}/users/available`, { withCredentials: true });
+      // Filter out already added collaborators
+      const collaboratorIds = collaborators.map(c => c.user_id);
+      setAvailableUsers(response.data.filter(u => !collaboratorIds.includes(u.user_id)));
+    } catch (err) {
+      console.error('Fetch users error:', err);
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddCollaborator = async (userId) => {
+    try {
+      setAdding(true);
+      await axios.post(`${API}/projects/${projectId}/collaborators`, {
+        user_id: userId
+      }, { withCredentials: true });
+      
+      // Refetch collaborators
+      const response = await axios.get(`${API}/projects/${projectId}/collaborators`, {
+        withCredentials: true
+      });
+      onCollaboratorsChange(response.data);
+      setShowAddDialog(false);
+      setSearchQuery('');
+      toast.success('Collaborator added');
+    } catch (err) {
+      console.error('Add error:', err);
+      toast.error(err.response?.data?.detail || 'Failed to add collaborator');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemoveCollaborator = async (userId) => {
+    try {
+      setRemoving(userId);
+      await axios.delete(`${API}/projects/${projectId}/collaborators/${userId}`, {
+        withCredentials: true
+      });
+      onCollaboratorsChange(collaborators.filter(c => c.user_id !== userId));
+      toast.success('Collaborator removed');
+    } catch (err) {
+      console.error('Remove error:', err);
+      toast.error('Failed to remove collaborator');
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  const filteredUsers = availableUsers.filter(u => 
+    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div data-testid="collaborators-tab">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Manrope, sans-serif' }}>
+            Project Collaborators
+          </h3>
+          {canAdd && (
+            <Button
+              onClick={() => {
+                setShowAddDialog(true);
+                fetchAvailableUsers();
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="add-collaborator-btn"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Collaborator
+            </Button>
+          )}
+        </div>
+
+        {collaborators.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+              <Users className="w-8 h-8 text-slate-400" />
+            </div>
+            <h4 className="text-base font-medium text-slate-900">No collaborators added yet</h4>
+            <p className="text-sm text-slate-500 mt-1">Add team members to this project.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {collaborators.map((collab) => (
+              <div
+                key={collab.user_id}
+                className="flex items-center gap-4 p-4 rounded-lg border border-slate-200 bg-white"
+                data-testid={`collaborator-${collab.user_id}`}
+              >
+                <div className={cn(
+                  "w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium text-white",
+                  getAvatarColor(collab.name)
+                )}>
+                  {collab.picture ? (
+                    <img src={collab.picture} alt={collab.name} className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    getInitials(collab.name)
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-900">{collab.name}</p>
+                  <p className="text-xs text-slate-500">{collab.email}</p>
+                </div>
+                <span className={cn(
+                  "text-xs px-2.5 py-1 rounded-full font-medium",
+                  ROLE_BADGE_STYLES[collab.role] || 'bg-slate-100 text-slate-600'
+                )}>
+                  {collab.role}
+                </span>
+                {canRemove && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveCollaborator(collab.user_id)}
+                    disabled={removing === collab.user_id}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    data-testid={`remove-${collab.user_id}`}
+                  >
+                    {removing === collab.user_id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <X className="w-4 h-4" />
+                    )}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add Collaborator Dialog */}
+        {showAddDialog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddDialog(false)}>
+            <div 
+              className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-slate-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-lg font-semibold text-slate-900">Add Collaborator</h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAddDialog(false)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="mt-3">
+                  <Input
+                    placeholder="Search by name or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full"
+                    data-testid="search-users-input"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-auto p-4">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  </div>
+                ) : filteredUsers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-slate-500">No users available to add</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredUsers.map((user) => (
+                      <button
+                        key={user.user_id}
+                        onClick={() => handleAddCollaborator(user.user_id)}
+                        disabled={adding}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+                        data-testid={`add-user-${user.user_id}`}
+                      >
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white",
+                          getAvatarColor(user.name)
+                        )}>
+                          {user.picture ? (
+                            <img src={user.picture} alt={user.name} className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            getInitials(user.name)
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                          <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                        </div>
+                        <span className={cn(
+                          "text-xs px-2 py-0.5 rounded-full",
+                          ROLE_BADGE_STYLES[user.role] || 'bg-slate-100 text-slate-600'
+                        )}>
+                          {user.role}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 // ============ MAIN COMPONENT ============
 const ProjectDetails = () => {
