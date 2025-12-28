@@ -822,6 +822,204 @@ const SystemLogs = () => {
   );
 };
 
+// ============ EMAIL TEMPLATES ============
+const EmailTemplates = () => {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [editedTemplate, setEditedTemplate] = useState({ subject: '', body: '' });
+
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
+
+  const fetchTemplates = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/settings/email-templates`, { withCredentials: true });
+      setTemplates(response.data);
+      if (response.data.length > 0 && !selectedTemplate) {
+        setSelectedTemplate(response.data[0]);
+        setEditedTemplate({ subject: response.data[0].subject, body: response.data[0].body });
+      }
+    } catch (err) {
+      console.error('Error fetching email templates:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectTemplate = (template) => {
+    setSelectedTemplate(template);
+    setEditedTemplate({ subject: template.subject, body: template.body });
+  };
+
+  const handleSave = async () => {
+    if (!selectedTemplate) return;
+    
+    try {
+      setSaving(true);
+      await axios.put(`${API_URL}/api/settings/email-templates/${selectedTemplate.id}`, editedTemplate, { 
+        withCredentials: true 
+      });
+      toast.success('Template saved');
+      
+      // Update local state
+      setTemplates(prev => prev.map(t => 
+        t.id === selectedTemplate.id 
+          ? { ...t, ...editedTemplate, updated_at: new Date().toISOString() } 
+          : t
+      ));
+      setSelectedTemplate(prev => ({ ...prev, ...editedTemplate }));
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save template');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!selectedTemplate) return;
+    
+    try {
+      setSaving(true);
+      const response = await axios.post(`${API_URL}/api/settings/email-templates/${selectedTemplate.id}/reset`, {}, { 
+        withCredentials: true 
+      });
+      toast.success('Template reset to default');
+      
+      // Update local state with reset template
+      const resetTemplate = response.data.template;
+      setTemplates(prev => prev.map(t => t.id === selectedTemplate.id ? resetTemplate : t));
+      setSelectedTemplate(resetTemplate);
+      setEditedTemplate({ subject: resetTemplate.subject, body: resetTemplate.body });
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to reset template');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900">Email Templates</h2>
+        <p className="text-sm text-slate-500">Customize email templates for notifications (templates are stored for future email integration)</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Template List */}
+        <div className="space-y-2">
+          <Label className="text-xs text-slate-500 uppercase">Templates</Label>
+          {templates.map((template) => (
+            <button
+              key={template.id}
+              onClick={() => handleSelectTemplate(template)}
+              className={cn(
+                "w-full text-left p-3 rounded-lg border transition-colors",
+                selectedTemplate?.id === template.id
+                  ? "bg-blue-50 border-blue-200"
+                  : "bg-white border-slate-200 hover:bg-slate-50"
+              )}
+            >
+              <p className={cn(
+                "text-sm font-medium",
+                selectedTemplate?.id === template.id ? "text-blue-700" : "text-slate-700"
+              )}>
+                {template.name}
+              </p>
+              {template.updated_at && (
+                <p className="text-xs text-slate-400 mt-1">
+                  Modified: {new Date(template.updated_at).toLocaleDateString()}
+                </p>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Template Editor */}
+        <div className="md:col-span-2 space-y-4">
+          {selectedTemplate ? (
+            <>
+              <div className="space-y-2">
+                <Label>Subject Line</Label>
+                <Input
+                  value={editedTemplate.subject}
+                  onChange={(e) => setEditedTemplate(prev => ({ ...prev, subject: e.target.value }))}
+                  placeholder="Email subject..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Email Body (HTML)</Label>
+                <Textarea
+                  value={editedTemplate.body}
+                  onChange={(e) => setEditedTemplate(prev => ({ ...prev, body: e.target.value }))}
+                  placeholder="Email body content..."
+                  className="min-h-[250px] font-mono text-sm"
+                />
+              </div>
+
+              {/* Variables Reference */}
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <Label className="text-xs text-slate-500 uppercase">Available Variables</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedTemplate.variables?.map((variable) => (
+                    <Badge key={variable} variant="outline" className="text-xs">
+                      {`{{${variable}}}`}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div className="space-y-2">
+                <Label className="text-xs text-slate-500 uppercase">Preview</Label>
+                <div 
+                  className="p-4 bg-white border border-slate-200 rounded-lg text-sm prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: editedTemplate.body }}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? 'Saving...' : 'Save Template'}
+                </Button>
+                <Button variant="outline" onClick={handleReset} disabled={saving}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Reset to Default
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12 text-slate-500">
+              <Mail className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+              <p>Select a template to edit</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Info Banner */}
+      <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
+        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-blue-900">Email Integration Coming Soon</p>
+          <p className="text-sm text-blue-700 mt-1">
+            These templates are saved and will be used when email notifications are enabled in a future update.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ============ MAIN SETTINGS COMPONENT ============
 const Settings = () => {
   const { user } = useAuth();
@@ -863,6 +1061,7 @@ const Settings = () => {
               {activeTab === 'branding' && <BrandingSettings canEdit={canEdit} />}
               {activeTab === 'tat' && <TATSettings canEdit={canEdit} />}
               {activeTab === 'stages' && <StagesSettings canEdit={canEdit} />}
+              {activeTab === 'emails' && <EmailTemplates />}
               {activeTab === 'logs' && <SystemLogs />}
             </CardContent>
           </Card>
