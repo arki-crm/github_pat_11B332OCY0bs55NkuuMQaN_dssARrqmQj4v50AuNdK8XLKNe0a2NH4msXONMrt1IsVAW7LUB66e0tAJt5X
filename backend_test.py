@@ -825,9 +825,9 @@ db.user_sessions.insertOne({{
         if success and projects_data and len(projects_data) > 0:
             project_id = projects_data[0]['project_id']
             
-            # Add admin as collaborator first
-            collaborator_data = {"user_id": self.admin_user_id}
-            success, _ = self.run_test("Add Collaborator for Designer Remove Test", "POST", 
+            # Add pure designer as collaborator first
+            collaborator_data = {"user_id": self.pure_designer_user_id}
+            success, _ = self.run_test("Add Pure Designer for Remove Test", "POST", 
                                      f"api/projects/{project_id}/collaborators", 200,
                                      data=collaborator_data,
                                      auth_token=self.admin_token)
@@ -835,8 +835,8 @@ db.user_sessions.insertOne({{
             if success:
                 # Try to remove as designer (should fail)
                 return self.run_test("Remove Collaborator (Designer - Should Fail)", "DELETE", 
-                                   f"api/projects/{project_id}/collaborators/{self.admin_user_id}", 403,
-                                   auth_token=self.designer_token)
+                                   f"api/projects/{project_id}/collaborators/{self.pure_designer_user_id}", 403,
+                                   auth_token=self.pure_designer_token)
             else:
                 print("⚠️  Failed to add collaborator for designer remove test")
                 return False, {}
