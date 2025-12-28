@@ -1561,6 +1561,15 @@ def main():
         tester.test_project_stage_update_with_tat()
         tester.test_tat_calculation_verification()
         
+        # Dashboard Tests
+        print("\n📊 Testing Dashboard Endpoints...")
+        tester.test_dashboard_no_auth()
+        tester.test_dashboard_admin()
+        tester.test_dashboard_manager()
+        tester.test_dashboard_presales()
+        tester.test_dashboard_designer()
+        tester.test_dashboard_data_structure_validation()
+        
         # Logout test (do this last as it invalidates session)
         tester.test_logout()
         
