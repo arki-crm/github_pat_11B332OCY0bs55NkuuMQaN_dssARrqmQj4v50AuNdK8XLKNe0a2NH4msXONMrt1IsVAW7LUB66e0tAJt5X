@@ -361,6 +361,111 @@ frontend:
         agent: "testing"
         comment: "✅ VERIFIED: Inactive user login block working correctly. Session creation checks user status and returns 403 'Your account is inactive' for inactive users. Created test inactive user and verified status=Inactive in database."
 
+  - task: "Settings Module - Company Settings API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/settings/company and PUT /api/settings/company endpoints for company profile management (name, address, phone, GST, website, support email). Admin can edit, Manager can view, Designer denied."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Company Settings API working perfectly. GET endpoint returns company data for Admin/Manager, PUT endpoint allows Admin to update all fields (name, address, phone, GST, website, support_email). Role-based access enforced: Manager can view, Designer denied (403). Settings persistence working correctly."
+
+  - task: "Settings Module - Branding Settings API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/settings/branding and PUT /api/settings/branding endpoints for branding customization (logo_url, primary_color, secondary_color, theme, favicon_url, sidebar_default_collapsed). Admin only for updates."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Branding Settings API working perfectly. GET endpoint returns branding configuration, PUT endpoint allows Admin to update colors, theme, logo URLs. Settings updated correctly with proper response structure (message + settings). Role-based access enforced."
+
+  - task: "Settings Module - TAT Settings API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET/PUT /api/settings/tat/lead and GET/PUT /api/settings/tat/project endpoints for TAT rule management. Lead TAT: bc_call_done, boq_shared, site_meeting, revised_boq_shared. Project TAT: stage-based timing rules."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: TAT Settings API working perfectly. Lead TAT endpoint manages 4 timing rules (bc_call_done, boq_shared, site_meeting, revised_boq_shared). Project TAT endpoint manages 6 stage-based timing configurations (design_finalization, production_preparation, production, delivery, installation, handover). Updates working correctly with proper validation."
+
+  - task: "Settings Module - Stages Settings API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET/PUT /api/settings/stages and GET/PUT /api/settings/stages/lead endpoints for stage configuration management. Each stage has name, order, enabled fields. Admin can enable/disable stages."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Stages Settings API working perfectly. Project stages endpoint manages 6 stages (Design Finalization, Production Preparation, Production, Delivery, Installation, Handover). Lead stages endpoint manages 6 lead stages (BC Call Done, BOQ Shared, Site Meeting, etc.). Enable/disable functionality working correctly."
+
+  - task: "Settings Module - Milestones Settings API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/settings/milestones and PUT /api/settings/milestones endpoints for milestone configuration. Organized by stages with name, enabled, order fields for each milestone."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Milestones Settings API working perfectly. Returns stage-based milestone configuration (Design Finalization: 7 milestones, Production Preparation: 4 milestones, etc.). Enable/disable functionality working for individual milestones. Proper structure validation with name, enabled, order fields."
+
+  - task: "Settings Module - System Logs API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/settings/logs endpoint for system activity logging (Admin only). Includes pagination with limit/offset. Logs all settings changes with user info and timestamps."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: System Logs API working perfectly. Admin-only access enforced (Designer denied 403). Returns paginated logs with proper structure (logs array, total, limit, offset). Log entries have required fields (id, action, user_id, user_name, timestamp). Settings changes properly logged."
+
+  - task: "Settings Module - All Settings API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/settings/all endpoint for frontend initialization. Returns all settings (company, branding, lead_tat, project_tat) with can_edit flag based on user role."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: All Settings API working perfectly. Returns complete settings configuration in single request (company, branding, lead_tat, project_tat). Role-based can_edit flag working correctly: Admin=true, Manager=false. Designer access denied (403). Efficient frontend initialization endpoint."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
