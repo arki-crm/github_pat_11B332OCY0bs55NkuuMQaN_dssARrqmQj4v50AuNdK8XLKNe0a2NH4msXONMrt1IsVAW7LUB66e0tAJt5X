@@ -1139,6 +1139,22 @@ async def update_stage(project_id: str, stage_update: StageUpdate, request: Requ
         }
     )
     
+    # Send notifications to relevant users
+    try:
+        relevant_users = await get_relevant_users_for_project(project)
+        # Remove the user who made the change
+        relevant_users = [uid for uid in relevant_users if uid != user.user_id]
+        
+        await notify_users(
+            relevant_users,
+            "Stage Updated",
+            f"{user.name} moved project '{project.get('project_name', 'Unknown')}' to stage '{new_stage}'",
+            "stage-change",
+            f"/projects/{project_id}"
+        )
+    except Exception as e:
+        print(f"Error sending notifications: {e}")
+    
     return {
         "message": "Stage updated successfully",
         "stage": new_stage,
