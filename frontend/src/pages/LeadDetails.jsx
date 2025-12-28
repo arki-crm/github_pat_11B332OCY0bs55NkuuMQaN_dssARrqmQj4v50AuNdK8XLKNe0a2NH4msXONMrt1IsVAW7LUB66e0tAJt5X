@@ -385,7 +385,7 @@ const LeadStagesPanel = ({
 
       {!canChangeStage && (
         <p className="text-xs text-slate-500 text-center mb-4">
-          You don't have permission to change the stage
+          You don&apos;t have permission to change the stage
         </p>
       )}
 
