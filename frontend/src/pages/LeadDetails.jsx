@@ -806,8 +806,60 @@ const LeadDetails = () => {
               />
             </CardContent>
           </Card>
+
+          {/* Meetings Section - Below Stages */}
+          <Card className="border-slate-200 lg:col-span-1 mt-4 lg:mt-0">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-purple-600" />
+                  Meetings
+                </h3>
+                <Button 
+                  size="sm"
+                  onClick={() => setShowMeetingModal(true)}
+                  className="bg-purple-600 hover:bg-purple-700 h-7 text-xs"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Schedule
+                </Button>
+              </div>
+              
+              {loadingMeetings ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
+                </div>
+              ) : meetings.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No meetings scheduled</p>
+              ) : (
+                <div className="space-y-2">
+                  {meetings.slice(0, 3).map(meeting => (
+                    <MeetingCard
+                      key={meeting.id}
+                      meeting={meeting}
+                      compact
+                      showLead={false}
+                      onMarkCompleted={(meetingId) => handleMeetingStatusUpdate(meetingId, 'Completed')}
+                      onCancel={(meetingId) => handleMeetingStatusUpdate(meetingId, 'Cancelled')}
+                    />
+                  ))}
+                  {meetings.length > 3 && (
+                    <p className="text-xs text-center text-slate-500">+{meetings.length - 3} more meetings</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
+
+      {/* Meeting Modal */}
+      <MeetingModal
+        open={showMeetingModal}
+        onOpenChange={setShowMeetingModal}
+        onSuccess={fetchMeetings}
+        initialLeadId={id}
+      />
 
       {/* Assign Designer Dialog */}
       {showDesignerDialog && (
