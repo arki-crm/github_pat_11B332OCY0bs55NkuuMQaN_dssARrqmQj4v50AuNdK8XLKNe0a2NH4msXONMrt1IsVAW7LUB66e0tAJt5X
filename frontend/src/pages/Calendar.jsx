@@ -134,11 +134,6 @@ const CalendarLegend = () => (
     </div>
   </div>
 );
-      <div className="w-3 h-3 rounded" style={{ backgroundColor: COLORS.task.inProgress }} />
-      <span>Task (In Progress)</span>
-    </div>
-  </div>
-);
 
 // Toolbar component - defined outside main component
 const CalendarToolbar = ({ 
