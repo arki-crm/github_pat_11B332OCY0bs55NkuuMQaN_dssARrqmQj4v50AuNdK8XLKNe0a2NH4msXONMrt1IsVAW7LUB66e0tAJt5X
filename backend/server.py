@@ -3795,6 +3795,9 @@ async def create_task(task_data: TaskCreate, request: Request):
     
     await db.tasks.insert_one(new_task)
     
+    # Remove MongoDB _id from response
+    new_task.pop("_id", None)
+    
     # Create notification for assignee if different from creator
     if task_data.assigned_to != user.user_id:
         project_name = ""
