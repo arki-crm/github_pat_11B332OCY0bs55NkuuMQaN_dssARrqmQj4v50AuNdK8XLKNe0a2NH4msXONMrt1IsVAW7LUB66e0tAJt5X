@@ -83,7 +83,6 @@ const DelayReport = () => {
     );
   }
 
-  const summary = data?.summary || {};
   const maxDelayCount = Math.max(...(data?.stage_analysis?.map(s => s.delay_count) || [1]));
 
   return (
