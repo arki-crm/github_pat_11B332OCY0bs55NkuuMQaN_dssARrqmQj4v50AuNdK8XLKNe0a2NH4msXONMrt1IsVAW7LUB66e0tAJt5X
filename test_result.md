@@ -1064,3 +1064,60 @@ agent_communication:
 - POST /api/presales/create
 - PUT /api/presales/{lead_id}/status (forward-only validation)
 - POST /api/presales/{lead_id}/convert-to-lead
+
+# PID System + Stage Control + Collaborator Implementation - Dec 29, 2025
+
+## Backend Changes
+
+### 1. PID Generation System (server.py)
+- Added `generate_pid()` async function using MongoDB counter collection
+- PID format: `ARKI-PID-XXXXX` (e.g., ARKI-PID-00001)
+- PID generated only at Pre-Sales → Lead conversion
+- PID persists through entire lifecycle: Lead → Project
+
+### 2. Lead Model Updates
+- Added `pid: Optional[str]` field
+- Added `files: List[dict]` field  
+- Added `collaborators: List[dict]` field
+
+### 3. Forward-Only Stage Validation
+- `/api/leads/{lead_id}/stage` - Now validates forward-only (400 error on backward)
+- `/api/projects/{project_id}/stage` - Now validates forward-only (400 error on backward)
+- Only Admin can rollback stages
+
+### 4. Collaborator Endpoints (NEW)
+- `GET /api/leads/{lead_id}/collaborators` - List collaborators
+- `POST /api/leads/{lead_id}/collaborators` - Add collaborator (requires user_id)
+- `DELETE /api/leads/{lead_id}/collaborators/{user_id}` - Remove collaborator
+
+### 5. Timeline Carry Forward
+- `convert_to_project` now copies: comments, files, collaborators, lead_timeline
+
+## Frontend Changes
+
+### 1. PID Display
+- LeadDetails.jsx: PID badge in header
+- ProjectDetails.jsx: PID badge in header
+- Leads.jsx: PID in list rows
+- Projects.jsx: PID in list rows
+
+### 2. Forward-Only Stages with Confirmation
+- LeadStagesPanel: Confirmation dialog before stage change
+- StagesPanel (project): Confirmation dialog before stage change
+- Past stages shown with strikethrough and disabled
+- Only future stages clickable
+
+### 3. Collapsible Customer Details
+- CustomerDetailsSection: Default collapsed
+- Shows Name + PID when collapsed
+- Click to expand full details
+
+## Test Plan
+1. Convert Pre-Sales lead → verify PID generated (ARKI-PID-XXXXX)
+2. Verify PID visible in Lead list and detail
+3. Test forward-only stage (try going backward - should fail)
+4. Test Admin can rollback stage
+5. Convert Lead to Project → verify PID carried forward
+6. Verify timeline/comments carried to Project
+7. Test collaborator add/remove
+8. Test collapsible customer details panel
