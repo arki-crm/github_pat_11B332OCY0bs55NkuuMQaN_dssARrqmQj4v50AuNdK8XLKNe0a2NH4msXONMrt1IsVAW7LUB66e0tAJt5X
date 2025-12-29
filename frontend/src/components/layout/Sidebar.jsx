@@ -61,6 +61,7 @@ const getRoleNavItems = (role, hasSeniorManagerView = false) => {
         { path: '/warranty', label: 'Warranty', icon: Shield },
         { path: '/service-requests', label: 'Service Requests', icon: Wrench },
         { path: '/technicians', label: 'Technicians', icon: HardHat },
+        { path: '/academy', label: 'Academy', icon: GraduationCap },
         { path: '/sales-manager', label: 'Sales Manager', icon: Target },
         { path: '/design-board', label: 'Design Board', icon: Palette },
         { path: '/design-manager', label: 'Design Manager', icon: ClipboardCheck },
