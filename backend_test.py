@@ -4336,8 +4336,8 @@ db.user_sessions.insertOne({{
     # ============ PHASE 15A DESIGN WORKFLOW TESTS ============
 
     def test_seed_design_workflow(self):
-        """Test POST /api/seed/design-workflow - Create test data for design workflow"""
-        return self.run_test("Seed Design Workflow Data", "POST", "api/seed/design-workflow", 200,
+        """Test POST /api/design-workflow/seed - Create test data for design workflow"""
+        return self.run_test("Seed Design Workflow Data", "POST", "api/design-workflow/seed", 200,
                            auth_token=self.admin_token)
 
     def test_design_manager_dashboard_admin(self):
