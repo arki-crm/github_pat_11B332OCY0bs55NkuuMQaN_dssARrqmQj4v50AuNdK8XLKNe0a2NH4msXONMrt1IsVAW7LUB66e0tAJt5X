@@ -15,7 +15,10 @@ import {
   User,
   Calendar,
   CalendarDays,
-  BarChart3
+  BarChart3,
+  Palette,
+  ClipboardCheck,
+  Crown
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 

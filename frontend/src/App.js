@@ -82,6 +82,12 @@ const AppRouter = () => {
         <Route path="/reports/leads" element={<LeadReport />} />
         <Route path="/reports/designers" element={<DesignerReport />} />
         <Route path="/reports/delays" element={<DelayReport />} />
+        
+        {/* Phase 15 - Design Workflow Routes */}
+        <Route path="/design-board" element={<DesignBoard />} />
+        <Route path="/design-manager" element={<DesignManagerDashboard />} />
+        <Route path="/validation-pipeline" element={<ValidationPipeline />} />
+        <Route path="/ceo-dashboard" element={<CEODashboard />} />
       </Route>
 
       {/* Redirect root to dashboard */}
