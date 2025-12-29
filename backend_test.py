@@ -1148,6 +1148,438 @@ db.user_sessions.insertOne({{
             print("⚠️  No leads found for TAT calculation test")
             return False, {}
 
+    # ============ PRE-SALES MODULE TESTS ============
+
+    def test_create_presales_lead_admin(self):
+        """Test POST /api/presales/create - Create a new pre-sales lead (Admin)"""
+        lead_data = {
+            "customer_name": "John Smith",
+            "customer_phone": "+1-555-0123",
+            "customer_email": "john.smith@example.com",
+            "customer_address": "123 Main St, City, State",
+            "customer_requirements": "Modern kitchen design with island",
+            "source": "Meta",
+            "budget": 50000
+        }
+        
+        success, response = self.run_test("Create Pre-Sales Lead (Admin)", "POST", "api/presales/create", 200,
+                                         data=lead_data, auth_token=self.admin_token)
+        if success:
+            # Verify response structure
+            has_lead_id = 'lead_id' in response
+            has_status_new = response.get('status') == 'New'
+            has_customer_name = response.get('customer_name') == lead_data['customer_name']
+            has_customer_phone = response.get('customer_phone') == lead_data['customer_phone']
+            has_assigned_to = 'assigned_to' in response
+            has_is_converted = response.get('is_converted') == False
+            
+            print(f"   Lead ID present: {has_lead_id}")
+            print(f"   Status is New: {has_status_new}")
+            print(f"   Customer name correct: {has_customer_name}")
+            print(f"   Customer phone correct: {has_customer_phone}")
+            print(f"   Assigned to present: {has_assigned_to}")
+            print(f"   Is converted false: {has_is_converted}")
+            
+            # Store lead ID for further tests
+            if has_lead_id:
+                self.test_presales_lead_id = response['lead_id']
+            
+            return (success and has_lead_id and has_status_new and has_customer_name and 
+                   has_customer_phone and has_assigned_to and has_is_converted), response
+        return success, response
+
+    def test_create_presales_lead_validation(self):
+        """Test POST /api/presales/create - Validation (missing required fields)"""
+        # Test missing customer_name
+        lead_data = {
+            "customer_phone": "+1-555-0123",
+            "customer_email": "test@example.com"
+        }
+        
+        success1, _ = self.run_test("Create Pre-Sales Lead (Missing Name)", "POST", "api/presales/create", 400,
+                                   data=lead_data, auth_token=self.admin_token)
+        
+        # Test missing customer_phone
+        lead_data2 = {
+            "customer_name": "John Smith",
+            "customer_email": "test@example.com"
+        }
+        
+        success2, _ = self.run_test("Create Pre-Sales Lead (Missing Phone)", "POST", "api/presales/create", 400,
+                                   data=lead_data2, auth_token=self.admin_token)
+        
+        return success1 and success2, {}
+
+    def test_create_presales_lead_designer_denied(self):
+        """Test POST /api/presales/create - Designer access denied"""
+        lead_data = {
+            "customer_name": "John Smith",
+            "customer_phone": "+1-555-0123"
+        }
+        
+        return self.run_test("Create Pre-Sales Lead (Designer - Should Fail)", "POST", "api/presales/create", 403,
+                           data=lead_data, auth_token=self.pure_designer_token)
+
+    def test_get_presales_detail_admin(self):
+        """Test GET /api/presales/{lead_id} - Get lead details (Admin)"""
+        if hasattr(self, 'test_presales_lead_id'):
+            success, response = self.run_test("Get Pre-Sales Detail (Admin)", "GET", 
+                                            f"api/presales/{self.test_presales_lead_id}", 200,
+                                            auth_token=self.admin_token)
+            if success:
+                # Verify response structure
+                has_lead_id = 'lead_id' in response
+                has_customer_details = all(field in response for field in ['customer_name', 'customer_phone'])
+                has_status = 'status' in response
+                has_comments = 'comments' in response and isinstance(response['comments'], list)
+                has_files = 'files' in response and isinstance(response['files'], list)
+                
+                print(f"   Lead ID present: {has_lead_id}")
+                print(f"   Customer details present: {has_customer_details}")
+                print(f"   Status present: {has_status}")
+                print(f"   Comments array present: {has_comments}")
+                print(f"   Files array present: {has_files}")
+                
+                return (success and has_lead_id and has_customer_details and 
+                       has_status and has_comments and has_files), response
+            return success, response
+        else:
+            print("⚠️  No test pre-sales lead available")
+            return True, {}
+
+    def test_update_presales_status_forward_progression(self):
+        """Test PUT /api/presales/{lead_id}/status - Forward-only status updates"""
+        if hasattr(self, 'test_presales_lead_id'):
+            # Test New → Contacted (should succeed)
+            success1, response1 = self.run_test("Update Status (New → Contacted)", "PUT", 
+                                              f"api/presales/{self.test_presales_lead_id}/status", 200,
+                                              data={"status": "Contacted"}, auth_token=self.admin_token)
+            
+            if success1:
+                status_updated = response1.get('status') == 'Contacted'
+                print(f"   Status updated to Contacted: {status_updated}")
+                
+                # Test Contacted → Waiting (should succeed)
+                success2, response2 = self.run_test("Update Status (Contacted → Waiting)", "PUT", 
+                                                  f"api/presales/{self.test_presales_lead_id}/status", 200,
+                                                  data={"status": "Waiting"}, auth_token=self.admin_token)
+                
+                if success2:
+                    status_updated2 = response2.get('status') == 'Waiting'
+                    print(f"   Status updated to Waiting: {status_updated2}")
+                    
+                    # Test Waiting → Qualified (should succeed)
+                    success3, response3 = self.run_test("Update Status (Waiting → Qualified)", "PUT", 
+                                                      f"api/presales/{self.test_presales_lead_id}/status", 200,
+                                                      data={"status": "Qualified"}, auth_token=self.admin_token)
+                    
+                    if success3:
+                        status_updated3 = response3.get('status') == 'Qualified'
+                        print(f"   Status updated to Qualified: {status_updated3}")
+                        return success1 and success2 and success3 and status_updated and status_updated2 and status_updated3, response3
+                    
+                    return success1 and success2 and success3, response3
+                return success1 and success2, response2
+            return success1, response1
+        else:
+            print("⚠️  No test pre-sales lead available")
+            return True, {}
+
+    def test_update_presales_status_backward_denied(self):
+        """Test PUT /api/presales/{lead_id}/status - Cannot move backward"""
+        # Create a new lead for this test
+        lead_data = {
+            "customer_name": "Jane Doe",
+            "customer_phone": "+1-555-0456"
+        }
+        
+        success, create_response = self.run_test("Create Lead for Backward Test", "POST", "api/presales/create", 200,
+                                                data=lead_data, auth_token=self.admin_token)
+        
+        if success and 'lead_id' in create_response:
+            lead_id = create_response['lead_id']
+            
+            # Move to Contacted first
+            success1, _ = self.run_test("Move to Contacted", "PUT", f"api/presales/{lead_id}/status", 200,
+                                      data={"status": "Contacted"}, auth_token=self.admin_token)
+            
+            if success1:
+                # Try to move back to New (should fail)
+                success2, _ = self.run_test("Try Backward Move (Contacted → New - Should Fail)", "PUT", 
+                                          f"api/presales/{lead_id}/status", 400,
+                                          data={"status": "New"}, auth_token=self.admin_token)
+                
+                return success1 and success2, {}
+            return success1, {}
+        else:
+            print("⚠️  Failed to create test lead for backward test")
+            return False, {}
+
+    def test_update_presales_status_dropped_from_any(self):
+        """Test PUT /api/presales/{lead_id}/status - Can set Dropped from any status"""
+        # Create a new lead for this test
+        lead_data = {
+            "customer_name": "Bob Wilson",
+            "customer_phone": "+1-555-0789"
+        }
+        
+        success, create_response = self.run_test("Create Lead for Dropped Test", "POST", "api/presales/create", 200,
+                                                data=lead_data, auth_token=self.admin_token)
+        
+        if success and 'lead_id' in create_response:
+            lead_id = create_response['lead_id']
+            
+            # Move to Contacted first
+            success1, _ = self.run_test("Move to Contacted", "PUT", f"api/presales/{lead_id}/status", 200,
+                                      data={"status": "Contacted"}, auth_token=self.admin_token)
+            
+            if success1:
+                # Set to Dropped (should succeed)
+                success2, response2 = self.run_test("Set to Dropped", "PUT", f"api/presales/{lead_id}/status", 200,
+                                                  data={"status": "Dropped"}, auth_token=self.admin_token)
+                
+                if success2:
+                    status_dropped = response2.get('status') == 'Dropped'
+                    print(f"   Status set to Dropped: {status_dropped}")
+                    return success1 and success2 and status_dropped, response2
+                
+                return success1 and success2, response2
+            return success1, {}
+        else:
+            print("⚠️  Failed to create test lead for dropped test")
+            return False, {}
+
+    def test_update_presales_status_admin_skip_stages(self):
+        """Test PUT /api/presales/{lead_id}/status - Admin can skip stages"""
+        # Create a new lead for this test
+        lead_data = {
+            "customer_name": "Alice Johnson",
+            "customer_phone": "+1-555-0321"
+        }
+        
+        success, create_response = self.run_test("Create Lead for Skip Test", "POST", "api/presales/create", 200,
+                                                data=lead_data, auth_token=self.admin_token)
+        
+        if success and 'lead_id' in create_response:
+            lead_id = create_response['lead_id']
+            
+            # Admin skips from New directly to Qualified (should succeed)
+            success1, response1 = self.run_test("Admin Skip Stages (New → Qualified)", "PUT", 
+                                              f"api/presales/{lead_id}/status", 200,
+                                              data={"status": "Qualified"}, auth_token=self.admin_token)
+            
+            if success1:
+                status_qualified = response1.get('status') == 'Qualified'
+                print(f"   Admin skipped to Qualified: {status_qualified}")
+                return success1 and status_qualified, response1
+            
+            return success1, response1
+        else:
+            print("⚠️  Failed to create test lead for skip test")
+            return False, {}
+
+    def test_update_presales_status_presales_cannot_skip(self):
+        """Test PUT /api/presales/{lead_id}/status - PreSales cannot skip stages"""
+        # Create a PreSales user for testing
+        presales_user_id = f"test-presales-{uuid.uuid4().hex[:8]}"
+        presales_session_token = f"test_presales_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{presales_user_id}",
+  email: "presales.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test PreSales User",
+  picture: "https://via.placeholder.com/150",
+  role: "PreSales",
+  status: "Active",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{presales_user_id}",
+  session_token: "{presales_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                # Create a lead as PreSales user
+                lead_data = {
+                    "customer_name": "Charlie Brown",
+                    "customer_phone": "+1-555-0654"
+                }
+                
+                success, create_response = self.run_test("Create Lead as PreSales", "POST", "api/presales/create", 200,
+                                                        data=lead_data, auth_token=presales_session_token)
+                
+                if success and 'lead_id' in create_response:
+                    lead_id = create_response['lead_id']
+                    
+                    # Try to skip from New to Qualified (should fail)
+                    success1, _ = self.run_test("PreSales Skip Stages (New → Qualified - Should Fail)", "PUT", 
+                                              f"api/presales/{lead_id}/status", 400,
+                                              data={"status": "Qualified"}, auth_token=presales_session_token)
+                    
+                    return success and success1, {}
+                else:
+                    print("⚠️  Failed to create lead as PreSales user")
+                    return False, {}
+            else:
+                print(f"❌ Failed to create PreSales user: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing PreSales skip stages: {str(e)}")
+            return False, {}
+
+    def test_convert_presales_to_lead_qualified_only(self):
+        """Test POST /api/presales/{lead_id}/convert-to-lead - Only qualified leads can be converted"""
+        if hasattr(self, 'test_presales_lead_id'):
+            # First ensure the lead is qualified (from previous test)
+            success1, response1 = self.run_test("Convert Qualified Lead", "POST", 
+                                              f"api/presales/{self.test_presales_lead_id}/convert-to-lead", 200,
+                                              auth_token=self.admin_token)
+            
+            if success1:
+                has_success = response1.get('success') == True
+                has_lead_id = 'lead_id' in response1
+                print(f"   Conversion success: {has_success}")
+                print(f"   Lead ID returned: {has_lead_id}")
+                
+                # Verify the lead is now converted
+                success2, lead_detail = self.run_test("Check Converted Lead", "GET", 
+                                                    f"api/presales/{self.test_presales_lead_id}", 200,
+                                                    auth_token=self.admin_token)
+                
+                if success2:
+                    is_converted = lead_detail.get('is_converted') == True
+                    stage_updated = lead_detail.get('stage') == 'BC Call Done'
+                    print(f"   Is converted: {is_converted}")
+                    print(f"   Stage updated to BC Call Done: {stage_updated}")
+                    
+                    return success1 and success2 and has_success and has_lead_id and is_converted and stage_updated, response1
+                
+                return success1 and success2 and has_success and has_lead_id, response1
+            return success1, response1
+        else:
+            print("⚠️  No qualified test pre-sales lead available")
+            return True, {}
+
+    def test_convert_presales_to_lead_not_qualified_denied(self):
+        """Test POST /api/presales/{lead_id}/convert-to-lead - Non-qualified leads cannot be converted"""
+        # Create a new lead that's not qualified
+        lead_data = {
+            "customer_name": "David Miller",
+            "customer_phone": "+1-555-0987"
+        }
+        
+        success, create_response = self.run_test("Create Lead for Convert Test", "POST", "api/presales/create", 200,
+                                                data=lead_data, auth_token=self.admin_token)
+        
+        if success and 'lead_id' in create_response:
+            lead_id = create_response['lead_id']
+            
+            # Try to convert without qualifying (should fail)
+            success1, _ = self.run_test("Convert Non-Qualified Lead (Should Fail)", "POST", 
+                                      f"api/presales/{lead_id}/convert-to-lead", 400,
+                                      auth_token=self.admin_token)
+            
+            return success and success1, {}
+        else:
+            print("⚠️  Failed to create test lead for convert test")
+            return False, {}
+
+    def test_presales_role_based_access(self):
+        """Test role-based access control for pre-sales endpoints"""
+        # Create a PreSales user for testing
+        presales_user_id = f"test-presales-access-{uuid.uuid4().hex[:8]}"
+        presales_session_token = f"test_presales_access_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{presales_user_id}",
+  email: "presales.access.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test PreSales Access",
+  picture: "https://via.placeholder.com/150",
+  role: "PreSales",
+  status: "Active",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{presales_user_id}",
+  session_token: "{presales_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                # Create a lead as Admin
+                lead_data = {
+                    "customer_name": "Eva Green",
+                    "customer_phone": "+1-555-0111"
+                }
+                
+                success, create_response = self.run_test("Create Lead as Admin for Access Test", "POST", "api/presales/create", 200,
+                                                        data=lead_data, auth_token=self.admin_token)
+                
+                if success and 'lead_id' in create_response:
+                    admin_lead_id = create_response['lead_id']
+                    
+                    # PreSales user tries to access Admin's lead (should fail)
+                    success1, _ = self.run_test("PreSales Access Admin Lead (Should Fail)", "GET", 
+                                              f"api/presales/{admin_lead_id}", 403,
+                                              auth_token=presales_session_token)
+                    
+                    # PreSales user tries to update Admin's lead status (should fail)
+                    success2, _ = self.run_test("PreSales Update Admin Lead Status (Should Fail)", "PUT", 
+                                              f"api/presales/{admin_lead_id}/status", 403,
+                                              data={"status": "Contacted"}, auth_token=presales_session_token)
+                    
+                    # Create a lead as PreSales user
+                    success3, presales_create_response = self.run_test("Create Lead as PreSales", "POST", "api/presales/create", 200,
+                                                                      data={"customer_name": "Frank White", "customer_phone": "+1-555-0222"},
+                                                                      auth_token=presales_session_token)
+                    
+                    if success3 and 'lead_id' in presales_create_response:
+                        presales_lead_id = presales_create_response['lead_id']
+                        
+                        # PreSales user can access their own lead (should succeed)
+                        success4, _ = self.run_test("PreSales Access Own Lead", "GET", 
+                                                  f"api/presales/{presales_lead_id}", 200,
+                                                  auth_token=presales_session_token)
+                        
+                        # PreSales user can update their own lead status (should succeed)
+                        success5, _ = self.run_test("PreSales Update Own Lead Status", "PUT", 
+                                                  f"api/presales/{presales_lead_id}/status", 200,
+                                                  data={"status": "Contacted"}, auth_token=presales_session_token)
+                        
+                        return success and success1 and success2 and success3 and success4 and success5, {}
+                    
+                    return success and success1 and success2 and success3, {}
+                else:
+                    print("⚠️  Failed to create admin lead for access test")
+                    return False, {}
+            else:
+                print(f"❌ Failed to create PreSales user for access test: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing PreSales role-based access: {str(e)}")
+            return False, {}
+
     # ============ USER MANAGEMENT ENDPOINTS TESTS ============
 
     def test_list_users_new_endpoint(self):
