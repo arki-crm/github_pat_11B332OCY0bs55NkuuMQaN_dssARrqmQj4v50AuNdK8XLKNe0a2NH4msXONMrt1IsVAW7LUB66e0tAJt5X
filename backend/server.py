@@ -180,9 +180,15 @@ class CollaboratorAdd(BaseModel):
 class Lead(BaseModel):
     model_config = ConfigDict(extra="ignore")
     lead_id: str
+    # Customer Details (persistent across all stages)
     customer_name: str
     customer_phone: str
+    customer_email: Optional[str] = None
+    customer_address: Optional[str] = None
+    customer_requirements: Optional[str] = None  # Brief/Requirements
     source: str  # "Meta", "Walk-in", "Referral", "Others"
+    budget: Optional[float] = None  # Customer budget
+    # Lead Status & Stage
     status: str  # "New", "Contacted", "Waiting", "Qualified", "Dropped"
     stage: str  # Lead stages
     assigned_to: Optional[str] = None  # Pre-sales user ID
@@ -197,8 +203,22 @@ class Lead(BaseModel):
 class LeadCreate(BaseModel):
     customer_name: str
     customer_phone: str
+    customer_email: Optional[str] = None
+    customer_address: Optional[str] = None
+    customer_requirements: Optional[str] = None
     source: str = "Others"
+    budget: Optional[float] = None
     status: str = "New"
+
+class LeadUpdate(BaseModel):
+    """For updating customer details - respects role-based permissions"""
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_address: Optional[str] = None
+    customer_requirements: Optional[str] = None
+    source: Optional[str] = None
+    budget: Optional[float] = None
 
 class LeadStageUpdate(BaseModel):
     stage: str
