@@ -297,7 +297,7 @@ const ProjectDetails = () => {
     }
   };
 
-  // Update stage
+  // Update stage (legacy - kept for backward compatibility)
   const handleStageChange = async (newStage) => {
     if (newStage === project?.stage) return;
     
@@ -314,6 +314,39 @@ const ProjectDetails = () => {
     } catch (err) {
       console.error('Failed to update stage:', err);
       toast.error(err.response?.data?.detail || 'Failed to update stage');
+    } finally {
+      setIsUpdatingStage(false);
+    }
+  };
+
+  // Complete a sub-stage (new sub-stage progression system)
+  const handleSubStageComplete = async (substageId, substageName, groupName) => {
+    try {
+      setIsUpdatingStage(true);
+      const response = await axios.post(`${API}/projects/${id}/substage/complete`,
+        { 
+          substage_id: substageId,
+          substage_name: substageName,
+          group_name: groupName
+        },
+        { withCredentials: true }
+      );
+      
+      // Update local state
+      setCompletedSubStages(response.data.completed_substages);
+      
+      // Show success message
+      if (response.data.group_complete) {
+        toast.success(`🎉 Milestone "${groupName}" completed!`);
+      } else {
+        toast.success(`✅ "${substageName}" completed`);
+      }
+      
+      // Refetch to get updated comments
+      await fetchProject();
+    } catch (err) {
+      console.error('Failed to complete sub-stage:', err);
+      toast.error(err.response?.data?.detail || 'Failed to complete step');
     } finally {
       setIsUpdatingStage(false);
     }
