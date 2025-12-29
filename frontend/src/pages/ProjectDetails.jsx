@@ -49,7 +49,9 @@ import {
   Pause,
   Play,
   Power,
-  ChevronDown
+  ChevronDown,
+  Shield,
+  Wrench
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
