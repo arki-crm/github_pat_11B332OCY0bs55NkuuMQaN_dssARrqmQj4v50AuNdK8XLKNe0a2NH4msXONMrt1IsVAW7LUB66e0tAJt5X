@@ -126,13 +126,32 @@ export const StagesPanel = ({
         Project Milestones
       </h3>
       
+      {/* Hold status warning */}
+      {isProgressionBlocked && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4">
+          <p className="text-sm text-amber-700 font-medium flex items-center gap-2">
+            <Lock className="w-4 h-4" />
+            {holdStatus === 'Hold' 
+              ? 'Project is on HOLD - Milestone progression is paused'
+              : 'Project is DEACTIVATED - Milestone progression is disabled'}
+          </p>
+          <p className="text-xs text-amber-600 mt-1">
+            {holdStatus === 'Hold' 
+              ? 'Reactivate the project to continue milestone updates.'
+              : 'This project has been deactivated.'}
+          </p>
+        </div>
+      )}
+      
       {/* Forward-only notice */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-4">
-        <p className="text-xs text-blue-600 flex items-center gap-1">
-          <ChevronRight className="w-3 h-3" />
-          Forward-only • Complete each step in order
-        </p>
-      </div>
+      {!isProgressionBlocked && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-4">
+          <p className="text-xs text-blue-600 flex items-center gap-1">
+            <ChevronRight className="w-3 h-3" />
+            Forward-only • Complete each step in order
+          </p>
+        </div>
+      )}
       
       <div className="space-y-2">
         {MILESTONE_GROUPS.map((group, groupIndex) => {
