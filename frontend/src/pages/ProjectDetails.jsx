@@ -1382,4 +1382,151 @@ const ProjectDetails = () => {
   );
 };
 
+// Warranty & Service Tab Component
+const WarrantyServiceTab = ({ projectId, pid }) => {
+  const navigate = useNavigate();
+  const [warranty, setWarranty] = useState(null);
+  const [serviceRequests, setServiceRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+  }, [projectId]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [warrantyRes, srRes] = await Promise.all([
+        axios.get(`${API}/warranties/by-project/${projectId}`, { withCredentials: true }).catch(() => ({ data: null })),
+        axios.get(`${API}/service-requests/by-project/${projectId}`, { withCredentials: true }).catch(() => ({ data: [] }))
+      ]);
+      setWarranty(warrantyRes.data);
+      setServiceRequests(srRes.data || []);
+    } catch (err) {
+      console.error('Failed to fetch warranty data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div>;
+  }
+
+  return (
+    <div className="space-y-6" data-testid="warranty-service-tab">
+      {/* Warranty Card */}
+      <Card className="border-slate-200">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="h-5 w-5 text-green-600" />
+            Warranty Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {warranty ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-slate-500">Warranty ID</p>
+                  <p className="font-medium">{warranty.warranty_id}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Status</p>
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                    warranty.warranty_status === 'Active' && 'bg-green-100 text-green-700',
+                    warranty.warranty_status === 'Expired' && 'bg-red-100 text-red-700'
+                  )}>
+                    {warranty.warranty_status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Start Date</p>
+                  <p className="font-medium">{formatDate(warranty.warranty_start_date)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">End Date (10 Years)</p>
+                  <p className="font-medium">{formatDate(warranty.warranty_end_date)}</p>
+                </div>
+              </div>
+              {warranty.notes && (
+                <div>
+                  <p className="text-xs text-slate-500">Notes</p>
+                  <p className="text-sm text-slate-700">{warranty.notes}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-500">
+              <Shield className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+              <p>Warranty will be auto-generated when project reaches "Closed" status</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Service Requests */}
+      <Card className="border-slate-200">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Wrench className="h-5 w-5 text-amber-600" />
+              Service Requests
+            </CardTitle>
+            <Button
+              size="sm"
+              onClick={() => navigate('/service-requests')}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              New Request
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {serviceRequests.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <Wrench className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+              <p>No service requests for this project</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {serviceRequests.map((sr) => (
+                <div
+                  key={sr.service_request_id}
+                  onClick={() => navigate(`/service-requests/${sr.service_request_id}`)}
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer"
+                >
+                  <div>
+                    <p className="font-medium text-slate-900">{sr.service_request_id}</p>
+                    <p className="text-sm text-slate-500">{sr.issue_category} • {sr.issue_description?.substring(0, 50)}...</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                      sr.stage === 'New' && 'bg-blue-100 text-blue-700',
+                      sr.stage === 'Completed' && 'bg-green-100 text-green-700',
+                      sr.stage === 'Closed' && 'bg-slate-100 text-slate-700',
+                      !['New', 'Completed', 'Closed'].includes(sr.stage) && 'bg-amber-100 text-amber-700'
+                    )}>
+                      {sr.stage}
+                    </span>
+                    <p className="text-xs text-slate-400 mt-1">{formatDate(sr.created_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 export default ProjectDetails;
