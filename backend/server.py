@@ -180,6 +180,7 @@ class CollaboratorAdd(BaseModel):
 class Lead(BaseModel):
     model_config = ConfigDict(extra="ignore")
     lead_id: str
+    pid: Optional[str] = None  # Project ID (ARKI-PID-XXXXX) - generated when converted from Pre-Sales
     # Customer Details (persistent across all stages)
     customer_name: str
     customer_phone: str
@@ -197,6 +198,8 @@ class Lead(BaseModel):
     project_id: Optional[str] = None  # If converted to project
     timeline: List[dict] = []
     comments: List[dict] = []
+    files: List[dict] = []  # Files attached to lead
+    collaborators: List[dict] = []  # Collaborators with details
     updated_at: datetime
     created_at: datetime
 
