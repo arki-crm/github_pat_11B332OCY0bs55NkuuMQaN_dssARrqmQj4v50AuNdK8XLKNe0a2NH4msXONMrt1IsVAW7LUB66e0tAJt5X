@@ -202,12 +202,12 @@ const DelayReport = () => {
                     <span className="text-sm font-medium text-slate-700">{month.month}</span>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="text-lg font-bold text-red-600">{month.count}</p>
+                        <p className="text-lg font-bold text-red-600">{month.delay_count}</p>
                         <p className="text-xs text-slate-500">delays</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-slate-700">{month.total_days}</p>
-                        <p className="text-xs text-slate-500">total days</p>
+                        <p className="text-lg font-bold text-slate-700">{month.avg_delay_days}</p>
+                        <p className="text-xs text-slate-500">avg days</p>
                       </div>
                     </div>
                   </div>
