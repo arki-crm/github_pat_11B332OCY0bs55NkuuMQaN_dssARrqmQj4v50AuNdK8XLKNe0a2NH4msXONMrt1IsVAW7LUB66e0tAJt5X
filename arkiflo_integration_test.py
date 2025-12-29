@@ -229,7 +229,7 @@ print("Technician session token: {technician_session_token}");
         presales_id = presales_response.get('lead_id')
         
         # 2. Update stages (forward-only progression)
-        stages = ["Contacted", "Qualified", "Meeting Scheduled", "Proposal Sent", "Negotiation"]
+        stages = ["Contacted", "Waiting", "Qualified"]
         for stage in stages:
             success, _ = self.run_test(f"Update Pre-Sales to {stage}", "PUT", 
                                      f"api/presales/{presales_id}/status", 200,
