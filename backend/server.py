@@ -507,7 +507,19 @@ async def logout(request: Request, response: Response):
 
 # ============ USER MANAGEMENT ============
 
-VALID_ROLES = ["Admin", "Manager", "Designer", "PreSales", "Trainee"]
+# Core roles + Design-specific roles
+VALID_ROLES = [
+    "Admin", "Manager", "Designer", "PreSales", "Trainee",
+    # Design-specific roles (Phase 15)
+    "HybridDesigner",      # Designer + Sales (handles BC calls, BOQ, site visits, booking, full design)
+    "DesignManager",       # Arya - monitors all design projects, approvals, reviews
+    "ProductionManager"    # Sharon - validation pipeline, drawings, kick-off, production handover
+]
+
+# Role categories for permission checks
+DESIGN_ROLES = ["Designer", "HybridDesigner", "DesignManager"]
+SALES_CAPABLE_ROLES = ["Admin", "Manager", "PreSales", "HybridDesigner"]
+MANAGER_ROLES = ["Admin", "Manager", "DesignManager", "ProductionManager"]
 
 def format_user_response(user_doc):
     """Format user document for API response"""
