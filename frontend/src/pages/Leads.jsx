@@ -216,19 +216,33 @@ const Leads = () => {
           )}
         </div>
 
-        {/* Seed button */}
-        {(user?.role === 'Admin' || user?.role === 'Manager') && leads.length === 0 && !loading && (
-          <Button 
-            onClick={handleSeedData}
-            disabled={seeding}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-            data-testid="seed-leads-btn"
-          >
-            {seeding ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating...
-              </>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          {/* Create Lead Button */}
+          {['Admin', 'SalesManager', 'PreSales'].includes(user?.role) && (
+            <Button 
+              onClick={() => navigate('/leads/create')}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="create-lead-btn"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Lead
+            </Button>
+          )}
+          
+          {/* Seed button */}
+          {(user?.role === 'Admin' || user?.role === 'SalesManager') && leads.length === 0 && !loading && (
+            <Button 
+              onClick={handleSeedData}
+              disabled={seeding}
+              variant="outline"
+              data-testid="seed-leads-btn"
+            >
+              {seeding ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
             ) : (
               '+ Add Sample Leads'
             )}
