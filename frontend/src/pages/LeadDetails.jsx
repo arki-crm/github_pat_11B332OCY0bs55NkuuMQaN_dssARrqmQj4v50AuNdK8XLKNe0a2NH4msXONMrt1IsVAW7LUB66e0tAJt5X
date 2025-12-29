@@ -1017,9 +1017,10 @@ const LeadDetails = () => {
             </CardContent>
           </Card>
 
-          {/* Right Column - Stages (25%) */}
+          {/* Right Column - Stages + Actions (25%) */}
           <Card className="border-slate-200 lg:col-span-1">
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-4">
+              {/* 1. Stages Panel */}
               <LeadStagesPanel 
                 currentStage={lead?.stage}
                 onStageChange={handleStageChange}
@@ -1035,69 +1036,112 @@ const LeadDetails = () => {
                 canConvert={canConvert()}
                 userRole={user?.role}
               />
-            </CardContent>
-          </Card>
 
-          {/* Meetings Section - Below Stages */}
-          <Card className="border-slate-200 lg:col-span-1 mt-4 lg:mt-0">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4 text-purple-600" />
-                  Meetings
-                </h3>
-                <Button 
-                  size="sm"
-                  onClick={() => setShowMeetingModal(true)}
-                  className="bg-purple-600 hover:bg-purple-700 h-7 text-xs"
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Schedule
-                </Button>
-              </div>
-              
-              {loadingMeetings ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
-                </div>
-              ) : meetings.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-4">No meetings scheduled</p>
-              ) : (
-                <div className="space-y-2">
-                  {meetings.slice(0, 3).map(meeting => (
-                    <MeetingCard
-                      key={meeting.id}
-                      meeting={meeting}
-                      compact
-                      showLead={false}
-                      onMarkCompleted={(meetingId) => handleMeetingStatusUpdate(meetingId, 'Completed')}
-                      onCancel={(meetingId) => handleMeetingStatusUpdate(meetingId, 'Cancelled')}
-                    />
-                  ))}
-                  {meetings.length > 3 && (
-                    <p className="text-xs text-center text-slate-500">+{meetings.length - 3} more meetings</p>
+              {/* 2. Collaborators Section - Compact */}
+              <div className="border-t border-slate-200 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    Collaborators ({collaborators.length})
+                  </h4>
+                  {canAddCollaborator() && (
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowCollaboratorModal(true);
+                        fetchAllUsers();
+                      }}
+                      className="h-6 text-xs px-2"
+                      data-testid="add-collaborator-btn"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add
+                    </Button>
                   )}
                 </div>
-              )}
+                
+                {collaborators.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-2">No collaborators</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {collaborators.slice(0, 5).map((collab, idx) => (
+                      <div 
+                        key={collab.user_id || idx}
+                        className="group relative"
+                        title={`${collab.name || 'Unknown'} (${collab.role || 'Collaborator'})`}
+                      >
+                        <div className={cn(
+                          "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium text-white border-2 border-white shadow-sm",
+                          getAvatarColor(collab.name || 'U')
+                        )}>
+                          {getInitials(collab.name || 'U')}
+                        </div>
+                        {canAddCollaborator() && (
+                          <button
+                            onClick={() => handleRemoveCollaborator(collab.user_id)}
+                            className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white rounded-full items-center justify-center text-[8px] hidden group-hover:flex"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {collaborators.length > 5 && (
+                      <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-600 border-2 border-white">
+                        +{collaborators.length - 5}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Meetings Section - Compact */}
+              <div className="border-t border-slate-200 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    Meetings ({meetings.length})
+                  </h4>
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMeetingModal(true)}
+                    className="h-6 text-xs px-2"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Schedule
+                  </Button>
+                </div>
+                
+                {loadingMeetings ? (
+                  <div className="flex items-center justify-center py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                  </div>
+                ) : meetings.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-2">No meetings</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {meetings.slice(0, 2).map(meeting => (
+                      <MeetingCard
+                        key={meeting.id}
+                        meeting={meeting}
+                        compact
+                        showLead={false}
+                        onMarkCompleted={(meetingId) => handleMeetingStatusUpdate(meetingId, 'Completed')}
+                        onCancel={(meetingId) => handleMeetingStatusUpdate(meetingId, 'Cancelled')}
+                      />
+                    ))}
+                    {meetings.length > 2 && (
+                      <p className="text-[10px] text-center text-slate-400">+{meetings.length - 2} more</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
-
-          {/* Collaborators Section */}
-          <Card className="border-slate-200 lg:col-span-1 mt-4">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-blue-600" />
-                  Collaborators
-                </h3>
-                {canAddCollaborator() && (
-                  <Button 
-                    size="sm"
-                    onClick={() => {
-                      setShowCollaboratorModal(true);
-                      fetchAllUsers();
-                    }}
-                    className="bg-blue-600 hover:bg-blue-700 h-7 text-xs"
+        </div>
+      )}
                     data-testid="add-collaborator-btn"
                   >
                     <Plus className="w-3 h-3 mr-1" />
