@@ -5690,6 +5690,489 @@ db.user_sessions.insertOne({{
             return success and is_array, projects_data
         return success, projects_data
 
+    # ============ PRODUCTION MILESTONE + PERCENTAGE SYSTEM TESTS ============
+
+    def test_production_milestone_structure(self):
+        """Test that Production milestone has 11 sub-stages with correct structure"""
+        # First get a project
+        success, projects_data = self.run_test("Get Projects for Production Structure Test", "GET", "api/projects", 200,
+                                              auth_token=self.admin_token)
+        if success and projects_data and len(projects_data) > 0:
+            project_id = projects_data[0]['project_id']
+            success, substages_data = self.run_test("Get Project Sub-stages for Production Test", "GET", 
+                                                   f"api/projects/{project_id}/substages", 200,
+                                                   auth_token=self.admin_token)
+            if success:
+                group_progress = substages_data.get('group_progress', [])
+                
+                # Find Production group
+                production_group = next((g for g in group_progress if g.get('id') == 'production'), None)
+                
+                if production_group:
+                    substages = production_group.get('subStages', [])
+                    has_11_substages = len(substages) == 11
+                    
+                    # Check for specific sub-stages
+                    expected_substages = [
+                        'vendor_mapping', 'factory_slot_allocation', 'jit_delivery_plan',
+                        'non_modular_dependency', 'raw_material_procurement', 'production_kickstart',
+                        'modular_production_complete', 'quality_check_inspection', 
+                        'full_order_confirmation_45', 'piv_site_readiness', 'ready_for_dispatch'
+                    ]
+                    
+                    found_substages = [s.get('id') for s in substages]
+                    all_substages_present = all(substage in found_substages for substage in expected_substages)
+                    
+                    # Check for percentage-type sub-stage
+                    non_modular = next((s for s in substages if s.get('id') == 'non_modular_dependency'), None)
+                    has_percentage_type = non_modular and non_modular.get('type') == 'percentage'
+                    
+                    print(f"   Production group found: {production_group is not None}")
+                    print(f"   Has 11 sub-stages: {has_11_substages} (found: {len(substages)})")
+                    print(f"   All expected sub-stages present: {all_substages_present}")
+                    print(f"   Non-modular dependency has percentage type: {has_percentage_type}")
+                    
+                    # Store project ID for further tests
+                    self.test_production_project_id = project_id
+                    
+                    return (success and production_group is not None and has_11_substages and 
+                           all_substages_present and has_percentage_type), substages_data
+                else:
+                    print("   Production group not found")
+                    return False, substages_data
+            return success, substages_data
+        else:
+            print("⚠️  No projects found for production structure test")
+            return False, {}
+
+    def test_complete_design_finalization_substages(self):
+        """Test completing Design Finalization sub-stages to unlock Production"""
+        if hasattr(self, 'test_production_project_id'):
+            project_id = self.test_production_project_id
+            
+            # Complete all Design Finalization sub-stages
+            design_substages = [
+                'site_measurement', 'design_meeting_1', 'design_meeting_2', 'design_meeting_3',
+                'final_design_presentation', 'material_selection', 'payment_collection_50',
+                'production_drawing_prep', 'validation_internal', 'kws_signoff', 'kickoff_meeting'
+            ]
+            
+            completed_count = 0
+            for substage in design_substages:
+                success, _ = self.run_test(f"Complete Design Sub-stage: {substage}", "POST", 
+                                         f"api/projects/{project_id}/substage/complete", 200,
+                                         data={"substage_id": substage},
+                                         auth_token=self.admin_token)
+                if success:
+                    completed_count += 1
+                else:
+                    break
+            
+            all_design_completed = completed_count == len(design_substages)
+            print(f"   Design Finalization sub-stages completed: {completed_count}/{len(design_substages)}")
+            print(f"   All Design Finalization completed: {all_design_completed}")
+            
+            return all_design_completed, {}
+        else:
+            print("⚠️  No test project available for design completion")
+            return False, {}
+
+    def test_complete_production_substages_sequence(self):
+        """Test completing first 3 Production sub-stages in sequence"""
+        if hasattr(self, 'test_production_project_id'):
+            project_id = self.test_production_project_id
+            
+            # Complete first 3 Production sub-stages
+            production_substages = ['vendor_mapping', 'factory_slot_allocation', 'jit_delivery_plan']
+            
+            completed_count = 0
+            for substage in production_substages:
+                success, complete_response = self.run_test(f"Complete Production Sub-stage: {substage}", "POST", 
+                                                         f"api/projects/{project_id}/substage/complete", 200,
+                                                         data={"substage_id": substage},
+                                                         auth_token=self.admin_token)
+                if success:
+                    completed_count += 1
+                    completed_substages = complete_response.get('completed_substages', [])
+                    print(f"   {substage} completed. Total completed: {len(completed_substages)}")
+                else:
+                    break
+            
+            all_production_prep_completed = completed_count == len(production_substages)
+            print(f"   Production preparation sub-stages completed: {completed_count}/{len(production_substages)}")
+            print(f"   Ready for percentage testing: {all_production_prep_completed}")
+            
+            return all_production_prep_completed, {}
+        else:
+            print("⚠️  No test project available for production sequence")
+            return False, {}
+
+    def test_percentage_endpoint_basic_functionality(self):
+        """Test POST /api/projects/{project_id}/substage/percentage basic functionality"""
+        if hasattr(self, 'test_production_project_id'):
+            project_id = self.test_production_project_id
+            
+            # Test updating percentage to 30%
+            success, percentage_response = self.run_test("Update Percentage to 30%", "POST", 
+                                                       f"api/projects/{project_id}/substage/percentage", 200,
+                                                       data={
+                                                           "substage_id": "non_modular_dependency",
+                                                           "percentage": 30,
+                                                           "comment": "Initial progress update"
+                                                       },
+                                                       auth_token=self.admin_token)
+            if success:
+                # Verify response structure
+                has_success = percentage_response.get('success') == True
+                has_substage_id = percentage_response.get('substage_id') == 'non_modular_dependency'
+                has_percentage = percentage_response.get('percentage') == 30
+                has_auto_completed = 'auto_completed' in percentage_response
+                has_percentage_substages = 'percentage_substages' in percentage_response
+                
+                auto_completed = percentage_response.get('auto_completed', True)  # Should be False at 30%
+                percentage_substages = percentage_response.get('percentage_substages', {})
+                
+                print(f"   Success flag: {has_success}")
+                print(f"   Substage ID correct: {has_substage_id}")
+                print(f"   Percentage correct: {has_percentage}")
+                print(f"   Has auto_completed field: {has_auto_completed}")
+                print(f"   Has percentage_substages: {has_percentage_substages}")
+                print(f"   Auto completed (should be False): {auto_completed}")
+                print(f"   Percentage substages: {percentage_substages}")
+                
+                return (success and has_success and has_substage_id and has_percentage and 
+                       has_auto_completed and has_percentage_substages and not auto_completed), percentage_response
+            return success, percentage_response
+        else:
+            print("⚠️  No test project available for percentage basic test")
+            return False, {}
+
+    def test_percentage_endpoint_forward_only_validation(self):
+        """Test percentage endpoint forward-only validation (cannot decrease)"""
+        if hasattr(self, 'test_production_project_id'):
+            project_id = self.test_production_project_id
+            
+            # First update to 60%
+            success1, _ = self.run_test("Update Percentage to 60%", "POST", 
+                                      f"api/projects/{project_id}/substage/percentage", 200,
+                                      data={
+                                          "substage_id": "non_modular_dependency",
+                                          "percentage": 60,
+                                          "comment": "Progress update to 60%"
+                                      },
+                                      auth_token=self.admin_token)
+            
+            if success1:
+                # Try to decrease to 40% (should fail)
+                success2, error_response = self.run_test("Try to Decrease Percentage to 40% (Should Fail)", "POST", 
+                                                       f"api/projects/{project_id}/substage/percentage", 400,
+                                                       data={
+                                                           "substage_id": "non_modular_dependency",
+                                                           "percentage": 40,
+                                                           "comment": "Trying to decrease"
+                                                       },
+                                                       auth_token=self.admin_token)
+                
+                if success2:
+                    # Verify error message mentions forward-only
+                    error_detail = error_response.get('detail', '')
+                    mentions_forward_only = ('forward-only' in error_detail.lower() or 
+                                           'cannot decrease' in error_detail.lower() or
+                                           'decrease progress' in error_detail.lower())
+                    
+                    print(f"   60% update successful: {success1}")
+                    print(f"   40% decrease properly rejected: {success2}")
+                    print(f"   Error detail: {error_detail}")
+                    print(f"   Mentions forward-only: {mentions_forward_only}")
+                    
+                    return success1 and success2 and mentions_forward_only, error_response
+                return success1 and success2, error_response
+            return success1, {}
+        else:
+            print("⚠️  No test project available for forward-only validation test")
+            return False, {}
+
+    def test_percentage_endpoint_auto_completion(self):
+        """Test percentage endpoint auto-completion at 100%"""
+        if hasattr(self, 'test_production_project_id'):
+            project_id = self.test_production_project_id
+            
+            # Update to 100% (should auto-complete)
+            success, completion_response = self.run_test("Update Percentage to 100% (Auto-complete)", "POST", 
+                                                       f"api/projects/{project_id}/substage/percentage", 200,
+                                                       data={
+                                                           "substage_id": "non_modular_dependency",
+                                                           "percentage": 100,
+                                                           "comment": "Final completion"
+                                                       },
+                                                       auth_token=self.admin_token)
+            if success:
+                # Verify auto-completion
+                auto_completed = completion_response.get('auto_completed', False)
+                completed_substages = completion_response.get('completed_substages', [])
+                non_modular_completed = 'non_modular_dependency' in completed_substages
+                
+                print(f"   Auto completed flag: {auto_completed}")
+                print(f"   Non-modular dependency in completed list: {non_modular_completed}")
+                print(f"   Total completed substages: {len(completed_substages)}")
+                
+                # Verify next sub-stage is now available
+                # Try to complete raw_material_procurement (should succeed now)
+                success2, next_response = self.run_test("Complete Next Sub-stage After Auto-completion", "POST", 
+                                                      f"api/projects/{project_id}/substage/complete", 200,
+                                                      data={"substage_id": "raw_material_procurement"},
+                                                      auth_token=self.admin_token)
+                
+                print(f"   Next sub-stage completion successful: {success2}")
+                
+                return (success and auto_completed and non_modular_completed and success2), completion_response
+            return success, completion_response
+        else:
+            print("⚠️  No test project available for auto-completion test")
+            return False, {}
+
+    def test_percentage_endpoint_activity_logging(self):
+        """Test percentage endpoint creates proper activity log entries"""
+        if hasattr(self, 'test_production_project_id'):
+            project_id = self.test_production_project_id
+            
+            # Get project comments to check activity logging
+            success, project_data = self.run_test("Get Project for Activity Log Check", "GET", 
+                                                 f"api/projects/{project_id}", 200,
+                                                 auth_token=self.admin_token)
+            if success:
+                comments = project_data.get('comments', [])
+                
+                # Look for percentage-related activity logs
+                percentage_comments = [c for c in comments if c.get('is_system', False) and 
+                                     ('📊' in c.get('message', '') or 
+                                      'Non-Modular Dependency Works' in c.get('message', '') or
+                                      'progress updated' in c.get('message', '').lower())]
+                
+                auto_completion_comments = [c for c in comments if c.get('is_system', False) and 
+                                          ('auto-completed at 100%' in c.get('message', '') or
+                                           '✅' in c.get('message', ''))]
+                
+                has_percentage_activity = len(percentage_comments) > 0
+                has_auto_completion_activity = len(auto_completion_comments) > 0
+                
+                print(f"   Total comments: {len(comments)}")
+                print(f"   Percentage-related comments: {len(percentage_comments)}")
+                print(f"   Auto-completion comments: {len(auto_completion_comments)}")
+                print(f"   Has percentage activity: {has_percentage_activity}")
+                print(f"   Has auto-completion activity: {has_auto_completion_activity}")
+                
+                if percentage_comments:
+                    for comment in percentage_comments[:2]:  # Show first 2
+                        print(f"   Percentage activity: {comment.get('message', '')}")
+                
+                if auto_completion_comments:
+                    for comment in auto_completion_comments[:1]:  # Show first 1
+                        print(f"   Auto-completion activity: {comment.get('message', '')}")
+                
+                return success and has_percentage_activity and has_auto_completion_activity, project_data
+            return success, project_data
+        else:
+            print("⚠️  No test project available for activity logging check")
+            return False, {}
+
+    def test_percentage_endpoint_validation(self):
+        """Test percentage endpoint validation rules"""
+        if hasattr(self, 'test_production_project_id'):
+            project_id = self.test_production_project_id
+            
+            # Test 1: Missing substage_id (should fail)
+            success1, _ = self.run_test("Validation: Missing substage_id (Should Fail)", "POST", 
+                                      f"api/projects/{project_id}/substage/percentage", 400,
+                                      data={"percentage": 50},
+                                      auth_token=self.admin_token)
+            
+            # Test 2: Invalid percentage > 100 (should fail)
+            success2, _ = self.run_test("Validation: Percentage > 100 (Should Fail)", "POST", 
+                                      f"api/projects/{project_id}/substage/percentage", 400,
+                                      data={
+                                          "substage_id": "non_modular_dependency",
+                                          "percentage": 150
+                                      },
+                                      auth_token=self.admin_token)
+            
+            # Test 3: Invalid percentage < 0 (should fail)
+            success3, _ = self.run_test("Validation: Percentage < 0 (Should Fail)", "POST", 
+                                      f"api/projects/{project_id}/substage/percentage", 400,
+                                      data={
+                                          "substage_id": "non_modular_dependency",
+                                          "percentage": -10
+                                      },
+                                      auth_token=self.admin_token)
+            
+            # Test 4: Invalid substage_id (should fail)
+            success4, _ = self.run_test("Validation: Invalid substage_id (Should Fail)", "POST", 
+                                      f"api/projects/{project_id}/substage/percentage", 400,
+                                      data={
+                                          "substage_id": "invalid_substage",
+                                          "percentage": 50
+                                      },
+                                      auth_token=self.admin_token)
+            
+            print(f"   Missing substage_id validation: {success1}")
+            print(f"   Percentage > 100 validation: {success2}")
+            print(f"   Percentage < 0 validation: {success3}")
+            print(f"   Invalid substage_id validation: {success4}")
+            
+            return success1 and success2 and success3 and success4, {}
+        else:
+            print("⚠️  No test project available for validation test")
+            return False, {}
+
+    def test_percentage_endpoint_access_control(self):
+        """Test percentage endpoint access control (PreSales denied, Designer allowed)"""
+        if hasattr(self, 'test_production_project_id'):
+            project_id = self.test_production_project_id
+            
+            # Create PreSales user for testing
+            presales_user_id = f"test-presales-percentage-{uuid.uuid4().hex[:8]}"
+            presales_session_token = f"test_presales_percentage_session_{uuid.uuid4().hex[:16]}"
+            
+            mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{presales_user_id}",
+  email: "presales.percentage.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test PreSales Percentage",
+  picture: "https://via.placeholder.com/150",
+  role: "PreSales",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{presales_user_id}",
+  session_token: "{presales_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+            
+            try:
+                import subprocess
+                result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                      capture_output=True, text=True, timeout=30)
+                
+                if result.returncode == 0:
+                    # Test PreSales access (should be denied)
+                    success1, _ = self.run_test("PreSales Percentage Access (Should Fail)", "POST", 
+                                              f"api/projects/{project_id}/substage/percentage", 403,
+                                              data={
+                                                  "substage_id": "non_modular_dependency",
+                                                  "percentage": 25
+                                              },
+                                              auth_token=presales_session_token)
+                    
+                    print(f"   PreSales access denied: {success1}")
+                    return success1, {}
+                else:
+                    print(f"❌ Failed to create PreSales user: {result.stderr}")
+                    return False, {}
+                    
+            except Exception as e:
+                print(f"❌ Error testing percentage access control: {str(e)}")
+                return False, {}
+        else:
+            print("⚠️  No test project available for access control test")
+            return False, {}
+
+    def test_production_milestone_full_flow(self):
+        """Test complete Production milestone flow with percentage system"""
+        # Create a fresh project for full flow test
+        success, create_response = self.run_test("Create Project for Full Production Flow", "POST", 
+                                                "api/projects", 200,
+                                                data={
+                                                    "project_name": "Full Production Flow Test",
+                                                    "client_name": "Flow Test Client",
+                                                    "client_phone": "+1-555-0999",
+                                                    "collaborators": [self.admin_user_id]
+                                                },
+                                                auth_token=self.admin_token)
+        
+        if success and 'project_id' in create_response:
+            flow_project_id = create_response['project_id']
+            
+            # Step 1: Complete all Design Finalization sub-stages
+            design_substages = [
+                'site_measurement', 'design_meeting_1', 'design_meeting_2', 'design_meeting_3',
+                'final_design_presentation', 'material_selection', 'payment_collection_50',
+                'production_drawing_prep', 'validation_internal', 'kws_signoff', 'kickoff_meeting'
+            ]
+            
+            design_completed = 0
+            for substage in design_substages:
+                success_design, _ = self.run_test(f"Flow: Complete {substage}", "POST", 
+                                                f"api/projects/{flow_project_id}/substage/complete", 200,
+                                                data={"substage_id": substage},
+                                                auth_token=self.admin_token)
+                if success_design:
+                    design_completed += 1
+            
+            # Step 2: Complete first 3 Production sub-stages
+            production_prep = ['vendor_mapping', 'factory_slot_allocation', 'jit_delivery_plan']
+            
+            production_prep_completed = 0
+            for substage in production_prep:
+                success_prod, _ = self.run_test(f"Flow: Complete {substage}", "POST", 
+                                              f"api/projects/{flow_project_id}/substage/complete", 200,
+                                              data={"substage_id": substage},
+                                              auth_token=self.admin_token)
+                if success_prod:
+                    production_prep_completed += 1
+            
+            # Step 3: Test percentage progression
+            percentage_tests = [
+                (25, "First quarter progress"),
+                (50, "Half way through"),
+                (75, "Three quarters done"),
+                (100, "Final completion")
+            ]
+            
+            percentage_success_count = 0
+            for percentage, comment in percentage_tests:
+                success_pct, pct_response = self.run_test(f"Flow: Update to {percentage}%", "POST", 
+                                                        f"api/projects/{flow_project_id}/substage/percentage", 200,
+                                                        data={
+                                                            "substage_id": "non_modular_dependency",
+                                                            "percentage": percentage,
+                                                            "comment": comment
+                                                        },
+                                                        auth_token=self.admin_token)
+                if success_pct:
+                    percentage_success_count += 1
+                    if percentage == 100:
+                        auto_completed = pct_response.get('auto_completed', False)
+                        print(f"   100% auto-completion: {auto_completed}")
+            
+            # Step 4: Verify next sub-stage is unlocked after 100%
+            success_next, _ = self.run_test("Flow: Complete Next After 100%", "POST", 
+                                          f"api/projects/{flow_project_id}/substage/complete", 200,
+                                          data={"substage_id": "raw_material_procurement"},
+                                          auth_token=self.admin_token)
+            
+            # Summary
+            all_design_completed = design_completed == len(design_substages)
+            all_production_prep_completed = production_prep_completed == len(production_prep)
+            all_percentage_tests_passed = percentage_success_count == len(percentage_tests)
+            
+            print(f"   Design Finalization completed: {design_completed}/{len(design_substages)}")
+            print(f"   Production preparation completed: {production_prep_completed}/{len(production_prep)}")
+            print(f"   Percentage tests passed: {percentage_success_count}/{len(percentage_tests)}")
+            print(f"   Next sub-stage unlocked: {success_next}")
+            
+            full_flow_success = (all_design_completed and all_production_prep_completed and 
+                               all_percentage_tests_passed and success_next)
+            
+            print(f"   Full Production flow successful: {full_flow_success}")
+            
+            return full_flow_success, create_response
+        else:
+            print("⚠️  Failed to create project for full flow test")
+            return False, {}
+
     def cleanup_test_data(self):
         """Clean up test data from MongoDB"""
         print("\n🧹 Cleaning up test data...")
