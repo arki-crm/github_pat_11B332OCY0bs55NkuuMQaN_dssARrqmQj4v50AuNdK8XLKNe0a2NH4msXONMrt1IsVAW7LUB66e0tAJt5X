@@ -232,8 +232,8 @@ print("Technician session token: {technician_session_token}");
         stages = ["Contacted", "Qualified", "Meeting Scheduled", "Proposal Sent", "Negotiation"]
         for stage in stages:
             success, _ = self.run_test(f"Update Pre-Sales to {stage}", "PUT", 
-                                     f"api/presales/{presales_id}/stage", 200,
-                                     data={"stage": stage}, auth_token=self.admin_token)
+                                     f"api/presales/{presales_id}/status", 200,
+                                     data={"status": stage}, auth_token=self.admin_token)
             if not success:
                 return False, {}
         
