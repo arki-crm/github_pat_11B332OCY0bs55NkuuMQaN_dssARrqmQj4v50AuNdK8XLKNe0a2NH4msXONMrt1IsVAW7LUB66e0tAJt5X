@@ -23,7 +23,8 @@ import {
   FileText,
   Shield,
   Wrench,
-  HardHat
+  HardHat,
+  GraduationCap
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
