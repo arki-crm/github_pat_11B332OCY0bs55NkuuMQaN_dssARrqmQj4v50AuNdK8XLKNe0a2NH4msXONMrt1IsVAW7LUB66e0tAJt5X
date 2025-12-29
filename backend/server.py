@@ -774,7 +774,8 @@ VALID_ROLES = [
     "SalesManager",           # All leads not booked, funnel view, reassign leads, sales pipeline
     "Designer",               # Assigned leads/projects, sales stages, design Kanban, meetings, files
     "DesignManager",          # All designers' tasks, delays, drawings, meetings, bottlenecks
-    "ProductionOpsManager"    # Validation, kick-off, production, delivery, installation, handover
+    "ProductionOpsManager",   # Validation, kick-off, production, delivery, installation, handover
+    "Technician"              # Service requests, visit completion, SLA tracking
 ]
 
 # Role categories for permission checks
