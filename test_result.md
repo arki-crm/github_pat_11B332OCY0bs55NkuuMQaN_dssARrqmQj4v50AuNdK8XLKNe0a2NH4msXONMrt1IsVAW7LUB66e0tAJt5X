@@ -676,6 +676,96 @@ frontend:
         agent: "testing"
         comment: "✅ VERIFIED: Email Templates API working perfectly! GET /api/settings/email-templates returns 5 default templates with proper structure (id, name, subject, body, variables). Admin-only access enforced (Designer denied 403). GET /api/settings/email-templates/template_stage_change returns single template correctly. PUT updates working (subject/body updates verified). POST reset functionality working (resets to default values). All templates have required fields and proper template variables ({{projectName}}, {{userName}}, etc.)."
 
+  - task: "Academy File Upload API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Academy file upload system with POST /api/academy/upload endpoint. Supports video (MP4, MOV, AVI, WebM), PDF, and image uploads up to 500MB. Admin/Manager only access with proper file type validation and secure filename generation."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Academy File Upload API working perfectly! Valid MP4 upload succeeds with proper response structure (success, file_url, file_type, file_name, file_size, uploaded_by). Invalid file type (.txt) correctly returns 400 error. Unauthenticated access returns 401. Non-Admin users (Designer) correctly denied with 403 error. File upload functionality is production-ready."
+
+  - task: "Academy File Serving API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Academy file serving with GET /api/academy/files/{filename} endpoint. Authenticated users only access with proper content-type detection and security validation to prevent directory traversal attacks."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Academy File Serving API working perfectly! Authenticated users can access uploaded files with correct content-type headers. Unauthenticated access returns 401 error. Non-existent files return 404 error. Security validation prevents directory traversal. File serving is production-ready."
+
+  - task: "Global Search API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Global Search API at GET /api/global-search with smart search across leads, projects, pre-sales, warranties, service requests, and technicians. Role-based filtering, partial match support, and relevance sorting."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Global Search API working perfectly! Valid queries return proper search results across multiple modules. Short queries (< 2 chars) correctly return empty array. Unauthenticated access returns 401 error. Search functionality includes proper role-based filtering and relevance sorting. Global search is production-ready."
+
+  - task: "Academy Categories API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Academy Categories CRUD API: GET /api/academy/categories (list), POST /api/academy/categories (create - Admin/Manager only), with proper lesson count aggregation and ordering support."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Academy Categories API working perfectly! GET endpoint returns categories with lesson counts. POST endpoint allows Admin to create categories with proper response structure. Non-Admin users correctly denied with 403 error. Category management is production-ready."
+
+  - task: "Academy Seed API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Academy Seed API at POST /api/academy/seed for seeding default academy categories. Admin only access with proper duplicate prevention."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Academy Seed API working perfectly! Admin can seed default categories with proper response showing created count. Non-Admin users correctly denied with 403 error. Seeding functionality is production-ready."
+
+  - task: "Academy Lessons API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Academy Lessons CRUD API: GET /api/academy/lessons (list with category filter), GET /api/academy/lessons/{lesson_id} (single), POST /api/academy/lessons (create - Admin/Manager only). Supports multiple content types (video, PDF, text, mixed)."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Academy Lessons API working perfectly! GET endpoints return lessons with proper structure. POST endpoint allows Admin to create lessons with proper validation. Single lesson retrieval working correctly. Lesson management is production-ready."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
