@@ -30,6 +30,12 @@ import LeadReport from './pages/LeadReport';
 import DesignerReport from './pages/DesignerReport';
 import DelayReport from './pages/DelayReport';
 
+// Phase 15 - Design Workflow Pages
+import DesignBoard from './pages/DesignBoard';
+import DesignManagerDashboard from './pages/DesignManagerDashboard';
+import ValidationPipeline from './pages/ValidationPipeline';
+import CEODashboard from './pages/CEODashboard';
+
 import './App.css';
 
 // Router component that handles session_id detection synchronously
