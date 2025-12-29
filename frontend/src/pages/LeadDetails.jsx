@@ -1214,6 +1214,96 @@ const LeadDetails = () => {
           </div>
         </div>
       )}
+
+      {/* Add Collaborator Modal */}
+      {showCollaboratorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCollaboratorModal(false)}>
+          <div 
+            className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-slate-900">Add Collaborator</h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCollaboratorModal(false)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-auto p-4 space-y-4">
+              {loadingUsers ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Select User</label>
+                    <select
+                      value={selectedCollaborator}
+                      onChange={(e) => setSelectedCollaborator(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Select a user --</option>
+                      {allUsers
+                        .filter(u => 
+                          u.user_id !== user?.user_id && 
+                          u.user_id !== lead?.assigned_to &&
+                          u.user_id !== lead?.designer_id &&
+                          !collaborators.some(c => c.user_id === u.user_id)
+                        )
+                        .map(u => (
+                          <option key={u.user_id} value={u.user_id}>
+                            {u.name} ({u.role})
+                          </option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Reason (optional)</label>
+                    <Input
+                      value={collaboratorReason}
+                      onChange={(e) => setCollaboratorReason(e.target.value)}
+                      placeholder="e.g., Design review assistance"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-slate-200 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowCollaboratorModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddCollaborator}
+                disabled={!selectedCollaborator || addingCollaborator}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {addingCollaborator ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  'Add Collaborator'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
