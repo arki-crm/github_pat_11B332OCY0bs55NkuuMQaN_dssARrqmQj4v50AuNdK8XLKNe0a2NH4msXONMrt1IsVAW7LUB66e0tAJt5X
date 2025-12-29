@@ -622,7 +622,12 @@ const Academy = () => {
                         title={selectedLesson.title}
                       />
                     ) : (
-                      <video controls className="w-full h-full" src={selectedLesson.video_url}>
+                      <video 
+                        controls 
+                        className="w-full h-full" 
+                        src={getFileUrl(selectedLesson.video_url)}
+                        controlsList="nodownload"
+                      >
                         Your browser does not support the video tag.
                       </video>
                     )}
@@ -643,7 +648,7 @@ const Academy = () => {
                             <p className="text-sm text-slate-500">Click to view or download</p>
                           </div>
                         </div>
-                        <Button variant="outline" onClick={() => window.open(selectedLesson.pdf_url, '_blank')}>
+                        <Button variant="outline" onClick={() => window.open(getFileUrl(selectedLesson.pdf_url), '_blank')}>
                           <ExternalLink className="w-4 h-4 mr-2" />Open PDF
                         </Button>
                       </div>
