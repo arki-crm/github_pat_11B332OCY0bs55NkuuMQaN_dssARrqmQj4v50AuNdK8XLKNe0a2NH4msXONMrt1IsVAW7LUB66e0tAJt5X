@@ -86,12 +86,13 @@ const AppRouter = () => {
         <Route path="/reports/designers" element={<DesignerReport />} />
         <Route path="/reports/delays" element={<DelayReport />} />
         
-        {/* Phase 15 - Design Workflow Routes */}
+        {/* V1 Simplified Role-Based Routes */}
         <Route path="/design-board" element={<DesignBoard />} />
         <Route path="/design-manager" element={<DesignManagerDashboard />} />
         <Route path="/validation-pipeline" element={<ValidationPipeline />} />
         <Route path="/operations" element={<OperationsDashboard />} />
         <Route path="/sales-manager" element={<SalesManagerDashboard />} />
+        <Route path="/production-ops" element={<ProductionOpsDashboard />} />
         <Route path="/ceo-dashboard" element={<CEODashboard />} />
       </Route>
 
