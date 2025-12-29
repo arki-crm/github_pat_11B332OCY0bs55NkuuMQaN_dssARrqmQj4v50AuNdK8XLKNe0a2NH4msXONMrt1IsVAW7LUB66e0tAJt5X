@@ -279,29 +279,29 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Role-based dashboard redirect - each specialized role goes to their dashboard
+  // V1 Role-based dashboard redirect - 6 core roles
   useEffect(() => {
-    if (user?.role === 'DesignManager') {
-      navigate('/design-manager', { replace: true });
-      return;
-    }
-    if (user?.role === 'ProductionManager') {
-      navigate('/validation-pipeline', { replace: true });
-      return;
-    }
-    if (user?.role === 'OperationsLead') {
-      navigate('/operations', { replace: true });
-      return;
-    }
+    // SalesManager -> Sales Dashboard
     if (user?.role === 'SalesManager') {
       navigate('/sales-manager', { replace: true });
       return;
     }
+    // DesignManager -> Design Manager Dashboard
+    if (user?.role === 'DesignManager') {
+      navigate('/design-manager', { replace: true });
+      return;
+    }
+    // ProductionOpsManager -> Production/Ops Dashboard
+    if (user?.role === 'ProductionOpsManager') {
+      navigate('/production-ops', { replace: true });
+      return;
+    }
+    // Admin, PreSales, Designer -> General Dashboard (no redirect)
   }, [user, navigate]);
   
   useEffect(() => {
     // Don't fetch if redirecting to role-specific dashboard
-    if (['DesignManager', 'ProductionManager', 'OperationsLead', 'SalesManager'].includes(user?.role)) return;
+    if (['SalesManager', 'DesignManager', 'ProductionOpsManager'].includes(user?.role)) return;
     fetchDashboardData();
   }, [user]);
   
