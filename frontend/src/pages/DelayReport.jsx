@@ -287,7 +287,7 @@ const DelayReport = () => {
           <CardTitle className="text-lg">Projects with Delays</CardTitle>
         </CardHeader>
         <CardContent>
-          {data?.projects_with_delays?.length > 0 ? (
+          {data?.top_delayed_projects?.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -300,7 +300,7 @@ const DelayReport = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.projects_with_delays.map((project) => (
+                  {data.top_delayed_projects.map((project) => (
                     <tr 
                       key={project.project_id} 
                       className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
