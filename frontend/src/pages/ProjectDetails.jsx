@@ -566,12 +566,13 @@ const ProjectDetails = () => {
             </CardContent>
           </Card>
 
-          {/* Right Column - Stages (25%) */}
+          {/* Right Column - Milestones (25%) */}
           <Card className="border-slate-200 lg:col-span-1">
             <CardContent className="p-4">
               <StagesPanel 
                 currentStage={project?.stage}
-                onStageChange={handleStageChange}
+                completedSubStages={completedSubStages}
+                onSubStageComplete={handleSubStageComplete}
                 canChangeStage={canChangeStage()}
                 isUpdating={isUpdatingStage}
                 userRole={user?.role}
