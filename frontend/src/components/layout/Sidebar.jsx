@@ -18,11 +18,115 @@ import {
   BarChart3,
   Palette,
   ClipboardCheck,
-  Crown
+  Crown,
+  Truck
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 const SIDEBAR_STATE_KEY = 'arkiflo_sidebar_collapsed';
+
+// Strict role-based navigation - each role sees ONLY their relevant items
+const getRoleNavItems = (role) => {
+  const commonItems = [
+    { path: '/calendar', label: 'Calendar', icon: Calendar },
+    { path: '/meetings', label: 'Meetings', icon: CalendarDays },
+    { path: '/profile', label: 'My Profile', icon: User }
+  ];
+
+  switch (role) {
+    case 'Admin':
+      return [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
+        { path: '/leads', label: 'Leads', icon: Users },
+        { path: '/projects', label: 'Projects', icon: FolderKanban },
+        { path: '/design-board', label: 'Design Board', icon: Palette },
+        { path: '/design-manager', label: 'Design Manager', icon: ClipboardCheck },
+        { path: '/validation-pipeline', label: 'Validation', icon: ClipboardCheck },
+        { path: '/operations', label: 'Operations', icon: Truck },
+        { path: '/ceo-dashboard', label: 'CEO View', icon: Crown },
+        { path: '/reports', label: 'Reports', icon: BarChart3 },
+        { path: '/users', label: 'Users', icon: UserCog },
+        { path: '/academy', label: 'Academy', icon: GraduationCap },
+        { path: '/settings', label: 'Settings', icon: Settings }
+      ];
+
+    case 'Manager':
+      return [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
+        { path: '/leads', label: 'Leads', icon: Users },
+        { path: '/projects', label: 'Projects', icon: FolderKanban },
+        { path: '/design-board', label: 'Design Board', icon: Palette },
+        { path: '/design-manager', label: 'Design Manager', icon: ClipboardCheck },
+        { path: '/validation-pipeline', label: 'Validation', icon: ClipboardCheck },
+        { path: '/operations', label: 'Operations', icon: Truck },
+        { path: '/reports', label: 'Reports', icon: BarChart3 },
+        { path: '/users', label: 'Users', icon: UserCog }
+      ];
+
+    case 'DesignManager':
+      // Design Manager lands on their dashboard - NO access to general dashboard
+      return [
+        { path: '/design-manager', label: 'My Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/projects', label: 'Projects', icon: FolderKanban },
+        { path: '/design-board', label: 'Design Board', icon: Palette },
+        { path: '/validation-pipeline', label: 'Validation', icon: ClipboardCheck },
+        { path: '/reports', label: 'Reports', icon: BarChart3 }
+      ];
+
+    case 'ProductionManager':
+      // Production Manager lands on validation pipeline - NO access to design areas
+      return [
+        { path: '/validation-pipeline', label: 'My Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/projects', label: 'Projects', icon: FolderKanban },
+        { path: '/operations', label: 'Operations', icon: Truck }
+      ];
+
+    case 'OperationsLead':
+      // Operations Lead lands on operations dashboard - NO access to design/validation
+      return [
+        { path: '/operations', label: 'My Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/projects', label: 'Projects', icon: FolderKanban }
+      ];
+
+    case 'Designer':
+    case 'HybridDesigner':
+      return [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/projects', label: 'Projects', icon: FolderKanban },
+        { path: '/design-board', label: 'Design Board', icon: Palette },
+        { path: '/reports', label: 'Reports', icon: BarChart3 },
+        ...(role === 'HybridDesigner' ? [{ path: '/presales', label: 'Pre-Sales', icon: UserPlus }] : [])
+      ];
+
+    case 'PreSales':
+      return [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
+        { path: '/reports', label: 'Reports', icon: BarChart3 }
+      ];
+
+    case 'Trainee':
+      return [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        ...commonItems
+      ];
+
+    default:
+      return [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        ...commonItems
+      ];
+  }
+};
 
 const Sidebar = () => {
   const { user } = useAuth();
@@ -36,8 +140,8 @@ const Sidebar = () => {
     localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify(isCollapsed));
   }, [isCollapsed]);
 
-  const navItems = [
-    { 
+  // Get role-specific navigation items
+  const navItems = getRoleNavItems(user?.role); 
       path: '/dashboard', 
       label: 'Dashboard', 
       icon: LayoutDashboard,
