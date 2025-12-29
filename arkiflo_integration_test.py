@@ -565,9 +565,15 @@ print("Technician session token: {technician_session_token}");
                                  auth_token=self.technician_token)
         
         # Test technician cannot create service requests
+        service_data_minimal = {
+            "customer_name": "Test",
+            "customer_phone": "+1-555-0000",
+            "issue_category": "Test Issue",
+            "issue_description": "Test description"
+        }
         success2, _ = self.run_test("Technician Create Service Request (Should Fail)", "POST", 
                                   "api/service-requests", 403,
-                                  data={"customer_name": "Test"}, 
+                                  data=service_data_minimal, 
                                   auth_token=self.technician_token)
         
         # Test technician cannot access warranty list
