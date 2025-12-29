@@ -4949,6 +4949,27 @@ def main():
         tester.test_delays_report_admin()
         tester.test_delays_report_designer_denied()
         
+        # Phase 15A Design Workflow Tests
+        print("\n🎨 Testing Phase 15A Design Workflow API...")
+        tester.test_seed_design_workflow()
+        tester.test_design_manager_dashboard_admin()
+        tester.test_design_manager_dashboard_designer_denied()
+        tester.test_validation_pipeline_admin()
+        tester.test_validation_pipeline_designer_denied()
+        tester.test_validate_design_project()
+        tester.test_validate_design_project_needs_revision()
+        tester.test_validate_design_project_designer_denied()
+        tester.test_send_to_production()
+        tester.test_send_to_production_designer_denied()
+        tester.test_ceo_dashboard_admin()
+        tester.test_ceo_dashboard_manager_denied()
+        tester.test_get_design_tasks_admin()
+        tester.test_get_design_tasks_designer()
+        tester.test_update_design_task_status()
+        tester.test_update_design_task_invalid_status()
+        tester.test_get_design_projects_admin()
+        tester.test_get_design_projects_designer()
+        
         # Logout test (do this last as it invalidates session)
         tester.test_logout()
         
