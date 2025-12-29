@@ -315,6 +315,264 @@ MILESTONE_GROUPS = {
     ]
 }
 
+# ============ DESIGN WORKFLOW SYSTEM (Phase 15) ============
+
+# 9-Step Design Workflow Stages (after booking)
+DESIGN_WORKFLOW_STAGES = [
+    "Measurement Required",
+    "Floor Plan Creation", 
+    "Floor Plan Meeting",
+    "First Design Presentation",
+    "Corrections & Second Presentation",
+    "Material Selection Meeting",
+    "Final Design Lock",
+    "Production Drawings Preparation",
+    "Validation & Kickoff"
+]
+
+# Design workflow stage metadata
+DESIGN_STAGE_CONFIG = {
+    "Measurement Required": {
+        "order": 0,
+        "expected_days": 2,
+        "auto_tasks": ["Request Site Measurement", "Upload Measurement Files"],
+        "notify_roles": ["DesignManager"],
+        "required_uploads": ["measurement_file"],
+        "next_stage_trigger": "upload_complete"
+    },
+    "Floor Plan Creation": {
+        "order": 1,
+        "expected_days": 3,
+        "auto_tasks": ["Create Floor Plan", "Review Floor Plan"],
+        "notify_roles": ["DesignManager"],
+        "required_uploads": ["floor_plan"],
+        "next_stage_trigger": "manual"
+    },
+    "Floor Plan Meeting": {
+        "order": 2,
+        "expected_days": 2,
+        "auto_tasks": ["Schedule Floor Plan Meeting", "Conduct Meeting", "Upload Meeting Notes"],
+        "notify_roles": ["DesignManager"],
+        "requires_meeting": True,
+        "next_stage_trigger": "meeting_complete"
+    },
+    "First Design Presentation": {
+        "order": 3,
+        "expected_days": 5,
+        "auto_tasks": ["Create 3D/2D Design", "Prepare Presentation", "Schedule Presentation Meeting"],
+        "notify_roles": ["DesignManager"],
+        "required_uploads": ["design_presentation"],
+        "requires_meeting": True,
+        "next_stage_trigger": "meeting_complete"
+    },
+    "Corrections & Second Presentation": {
+        "order": 4,
+        "expected_days": 4,
+        "auto_tasks": ["Apply Client Corrections", "Create Second Version", "Schedule Review Meeting"],
+        "notify_roles": ["DesignManager"],
+        "required_uploads": ["corrected_design"],
+        "requires_meeting": True,
+        "next_stage_trigger": "meeting_complete"
+    },
+    "Material Selection Meeting": {
+        "order": 5,
+        "expected_days": 2,
+        "auto_tasks": ["Prepare Material Options", "Schedule Material Meeting", "Document Material Selection"],
+        "notify_roles": ["DesignManager"],
+        "requires_meeting": True,
+        "next_stage_trigger": "meeting_complete"
+    },
+    "Final Design Lock": {
+        "order": 6,
+        "expected_days": 2,
+        "auto_tasks": ["Finalize Design", "Get Client Sign-off", "Lock Design Version"],
+        "notify_roles": ["DesignManager", "ProductionManager"],
+        "required_uploads": ["final_design", "sign_off_document"],
+        "next_stage_trigger": "upload_complete"
+    },
+    "Production Drawings Preparation": {
+        "order": 7,
+        "expected_days": 5,
+        "auto_tasks": ["Create Production Drawings", "Create Cutting List", "Prepare Technical Documents"],
+        "notify_roles": ["ProductionManager"],
+        "required_uploads": ["production_drawings", "cutting_list"],
+        "next_stage_trigger": "upload_complete"
+    },
+    "Validation & Kickoff": {
+        "order": 8,
+        "expected_days": 3,
+        "auto_tasks": ["Validate Drawings", "Site Validation", "Conduct Kickoff Meeting", "Send to Production"],
+        "notify_roles": ["ProductionManager"],
+        "requires_validation": True,
+        "next_stage_trigger": "validation_complete"
+    }
+}
+
+# Task templates for auto-task engine
+DESIGN_TASK_TEMPLATES = {
+    "Request Site Measurement": {
+        "description": "Request measurement team to visit site and take measurements",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Upload Measurement Files": {
+        "description": "Upload site measurement files after completion",
+        "priority": "High", 
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Create Floor Plan": {
+        "description": "Create floor plan based on site measurements",
+        "priority": "Medium",
+        "duration_days": 2,
+        "assigned_to_role": "Designer"
+    },
+    "Review Floor Plan": {
+        "description": "Review floor plan for accuracy",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "DesignManager"
+    },
+    "Schedule Floor Plan Meeting": {
+        "description": "Schedule meeting with client to discuss floor plan",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "Designer",
+        "creates_meeting": True
+    },
+    "Conduct Meeting": {
+        "description": "Conduct the scheduled meeting",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Upload Meeting Notes": {
+        "description": "Upload meeting notes and action items",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Create 3D/2D Design": {
+        "description": "Create 3D visualization and 2D drawings for presentation",
+        "priority": "High",
+        "duration_days": 4,
+        "assigned_to_role": "Designer"
+    },
+    "Prepare Presentation": {
+        "description": "Prepare design presentation for client",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Schedule Presentation Meeting": {
+        "description": "Schedule design presentation meeting with client",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "Designer",
+        "creates_meeting": True
+    },
+    "Apply Client Corrections": {
+        "description": "Apply corrections based on client feedback",
+        "priority": "High",
+        "duration_days": 2,
+        "assigned_to_role": "Designer"
+    },
+    "Create Second Version": {
+        "description": "Create second version of design with corrections",
+        "priority": "High",
+        "duration_days": 2,
+        "assigned_to_role": "Designer"
+    },
+    "Schedule Review Meeting": {
+        "description": "Schedule review meeting with client",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "Designer",
+        "creates_meeting": True
+    },
+    "Prepare Material Options": {
+        "description": "Prepare material options and samples for client",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Schedule Material Meeting": {
+        "description": "Schedule material selection meeting with client",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "Designer",
+        "creates_meeting": True
+    },
+    "Document Material Selection": {
+        "description": "Document final material selections",
+        "priority": "Medium",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Finalize Design": {
+        "description": "Finalize design with all corrections and material selections",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Get Client Sign-off": {
+        "description": "Get client sign-off on final design",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Lock Design Version": {
+        "description": "Lock design version and prepare for production",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "DesignManager"
+    },
+    "Create Production Drawings": {
+        "description": "Create detailed production drawings",
+        "priority": "High",
+        "duration_days": 3,
+        "assigned_to_role": "Designer"
+    },
+    "Create Cutting List": {
+        "description": "Create cutting list for production",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Prepare Technical Documents": {
+        "description": "Prepare all technical documents for production",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "Designer"
+    },
+    "Validate Drawings": {
+        "description": "Validate production drawings for accuracy",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "ProductionManager"
+    },
+    "Site Validation": {
+        "description": "Validate site readiness for installation",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "ProductionManager"
+    },
+    "Conduct Kickoff Meeting": {
+        "description": "Conduct production kickoff meeting",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "ProductionManager",
+        "creates_meeting": True
+    },
+    "Send to Production": {
+        "description": "Send project to production queue",
+        "priority": "High",
+        "duration_days": 1,
+        "assigned_to_role": "ProductionManager"
+    }
+}
+
 # ============ AUTH HELPERS ============
 
 async def get_current_user(request: Request) -> User:
