@@ -243,12 +243,12 @@ const Leads = () => {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Creating...
                 </>
-            ) : (
-              '+ Add Sample Leads'
-            )}
-          </Button>
-        )}
-      </div>
+              ) : (
+                '+ Add Sample Leads'
+              )}
+            </Button>
+          )}
+        </div>
 
       {/* Search Bar */}
       <div className="relative max-w-md">
