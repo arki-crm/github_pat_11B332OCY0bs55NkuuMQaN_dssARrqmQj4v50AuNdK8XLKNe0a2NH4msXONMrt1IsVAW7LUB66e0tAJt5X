@@ -2048,6 +2048,13 @@ async def complete_substage(project_id: str, request: Request):
             {"$push": {"comments": group_comment}}
         )
     
+    # Auto-create warranty when "closed" substage is completed (Handover milestone complete)
+    if substage_id == "closed" and group_complete:
+        try:
+            await create_warranty_for_project(project_id, user.user_id, user.name)
+        except Exception as e:
+            logger.error(f"Failed to create warranty for project {project_id}: {e}")
+    
     return {
         "success": True,
         "substage_id": substage_id,
