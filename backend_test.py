@@ -4989,7 +4989,7 @@ print("HybridDesigner user ID: {hybrid_designer_user_id}");
                                               "api/design-projects", 200,
                                               auth_token=self.admin_token)
         if success and projects_data and len(projects_data) > 0:
-            project_id = projects_data[0]['design_project_id']
+            project_id = projects_data[0]['id']  # Use 'id' instead of 'design_project_id'
             
             # ProductionManager should have access
             success1, _ = self.run_test("Validate Design Project (ProductionManager)", "POST", 
@@ -5015,7 +5015,7 @@ print("HybridDesigner user ID: {hybrid_designer_user_id}");
                                               "api/design-projects", 200,
                                               auth_token=self.admin_token)
         if success and projects_data and len(projects_data) > 0:
-            project_id = projects_data[0]['design_project_id']
+            project_id = projects_data[0]['id']  # Use 'id' instead of 'design_project_id'
             
             # ProductionManager should have access
             success1, _ = self.run_test("Send to Production (ProductionManager)", "POST", 
