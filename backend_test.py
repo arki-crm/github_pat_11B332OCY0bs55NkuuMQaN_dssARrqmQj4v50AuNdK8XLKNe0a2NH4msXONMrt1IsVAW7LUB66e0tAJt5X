@@ -7339,6 +7339,304 @@ db.user_sessions.insertOne({{
             return True, {}
 
 
+    # ============ ACADEMY MODULE TESTS ============
+
+    def test_academy_file_upload_valid_video(self):
+        """Test POST /api/academy/upload with valid MP4 file (Admin)"""
+        # Create a small test MP4 file content
+        test_mp4_content = b"fake mp4 content for testing"
+        
+        # Use requests with files parameter for multipart upload
+        url = f"{self.base_url}/api/academy/upload"
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        files = {'file': ('test_video.mp4', test_mp4_content, 'video/mp4')}
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing Academy File Upload (Valid MP4)...")
+        print(f"   URL: {url}")
+        
+        try:
+            response = requests.post(url, files=files, headers=headers, timeout=10)
+            
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                response_data = response.json()
+                print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+                
+                # Store filename for serving test
+                if 'file_url' in response_data:
+                    self.test_academy_filename = response_data['file_url'].split('/')[-1]
+                
+                return success, response_data
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                print(f"   Response: {response.text[:300]}...")
+                self.failed_tests.append({
+                    "test": "Academy File Upload (Valid MP4)",
+                    "expected": 200,
+                    "actual": response.status_code,
+                    "response": response.text[:300]
+                })
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            self.failed_tests.append({
+                "test": "Academy File Upload (Valid MP4)",
+                "error": str(e)
+            })
+            return False, {}
+
+    def test_academy_file_upload_invalid_type(self):
+        """Test POST /api/academy/upload with invalid file type (should return 400)"""
+        test_txt_content = b"This is a text file"
+        
+        url = f"{self.base_url}/api/academy/upload"
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        files = {'file': ('test_file.txt', test_txt_content, 'text/plain')}
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing Academy File Upload (Invalid Type)...")
+        
+        try:
+            response = requests.post(url, files=files, headers=headers, timeout=10)
+            success = response.status_code == 400
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+            else:
+                print(f"❌ Failed - Expected 400, got {response.status_code}")
+                self.failed_tests.append({
+                    "test": "Academy File Upload (Invalid Type)",
+                    "expected": 400,
+                    "actual": response.status_code
+                })
+            
+            return success, {}
+            
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            self.failed_tests.append({
+                "test": "Academy File Upload (Invalid Type)",
+                "error": str(e)
+            })
+            return False, {}
+
+    def test_academy_file_upload_no_auth(self):
+        """Test POST /api/academy/upload without authentication (should return 401)"""
+        test_mp4_content = b"fake mp4 content"
+        
+        url = f"{self.base_url}/api/academy/upload"
+        files = {'file': ('test_video.mp4', test_mp4_content, 'video/mp4')}
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing Academy File Upload (No Auth)...")
+        
+        try:
+            response = requests.post(url, files=files, timeout=10)
+            success = response.status_code == 401
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+            else:
+                print(f"❌ Failed - Expected 401, got {response.status_code}")
+                self.failed_tests.append({
+                    "test": "Academy File Upload (No Auth)",
+                    "expected": 401,
+                    "actual": response.status_code
+                })
+            
+            return success, {}
+            
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            self.failed_tests.append({
+                "test": "Academy File Upload (No Auth)",
+                "error": str(e)
+            })
+            return False, {}
+
+    def test_academy_file_upload_non_admin(self):
+        """Test POST /api/academy/upload with non-Admin user (should return 403)"""
+        test_mp4_content = b"fake mp4 content"
+        
+        url = f"{self.base_url}/api/academy/upload"
+        headers = {'Authorization': f'Bearer {self.pure_designer_token}'}
+        files = {'file': ('test_video.mp4', test_mp4_content, 'video/mp4')}
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing Academy File Upload (Non-Admin)...")
+        
+        try:
+            response = requests.post(url, files=files, headers=headers, timeout=10)
+            success = response.status_code == 403
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+            else:
+                print(f"❌ Failed - Expected 403, got {response.status_code}")
+                self.failed_tests.append({
+                    "test": "Academy File Upload (Non-Admin)",
+                    "expected": 403,
+                    "actual": response.status_code
+                })
+            
+            return success, {}
+            
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            self.failed_tests.append({
+                "test": "Academy File Upload (Non-Admin)",
+                "error": str(e)
+            })
+            return False, {}
+
+    def test_academy_file_serving_authenticated(self):
+        """Test GET /api/academy/files/{filename} with authentication"""
+        if hasattr(self, 'test_academy_filename'):
+            return self.run_test("Academy File Serving (Authenticated)", "GET", 
+                               f"api/academy/files/{self.test_academy_filename}", 200,
+                               auth_token=self.admin_token)
+        else:
+            print("⚠️  No test file available for serving test")
+            return True, {}
+
+    def test_academy_file_serving_no_auth(self):
+        """Test GET /api/academy/files/{filename} without authentication (should return 401)"""
+        if hasattr(self, 'test_academy_filename'):
+            return self.run_test("Academy File Serving (No Auth)", "GET", 
+                               f"api/academy/files/{self.test_academy_filename}", 401)
+        else:
+            print("⚠️  No test file available for serving test")
+            return True, {}
+
+    def test_academy_file_serving_nonexistent(self):
+        """Test GET /api/academy/files/{filename} with non-existent file (should return 404)"""
+        return self.run_test("Academy File Serving (Non-existent)", "GET", 
+                           "api/academy/files/nonexistent-file.mp4", 404,
+                           auth_token=self.admin_token)
+
+    def test_global_search_with_query(self):
+        """Test GET /api/global-search?q=query with valid query"""
+        return self.run_test("Global Search (Valid Query)", "GET", 
+                           "api/global-search?q=test", 200,
+                           auth_token=self.admin_token)
+
+    def test_global_search_short_query(self):
+        """Test GET /api/global-search?q=query with query less than 2 chars (should return empty array)"""
+        success, response_data = self.run_test("Global Search (Short Query)", "GET", 
+                                             "api/global-search?q=a", 200,
+                                             auth_token=self.admin_token)
+        if success:
+            # Should return empty array for short queries
+            is_empty_array = isinstance(response_data, list) and len(response_data) == 0
+            print(f"   Returns empty array: {is_empty_array}")
+            return is_empty_array, response_data
+        return success, response_data
+
+    def test_global_search_no_auth(self):
+        """Test GET /api/global-search without authentication (should return 401)"""
+        return self.run_test("Global Search (No Auth)", "GET", 
+                           "api/global-search?q=test", 401)
+
+    def test_academy_categories_list(self):
+        """Test GET /api/academy/categories"""
+        return self.run_test("Academy Categories List", "GET", "api/academy/categories", 200,
+                           auth_token=self.admin_token)
+
+    def test_academy_categories_create_admin(self):
+        """Test POST /api/academy/categories (Admin only)"""
+        category_data = {
+            "name": "Test Category",
+            "description": "Test category for API testing",
+            "icon": "book",
+            "order": 99
+        }
+        
+        success, response_data = self.run_test("Academy Categories Create (Admin)", "POST", 
+                                             "api/academy/categories", 200,
+                                             data=category_data, auth_token=self.admin_token)
+        if success and 'category_id' in response_data:
+            self.test_category_id = response_data['category_id']
+        
+        return success, response_data
+
+    def test_academy_categories_create_non_admin(self):
+        """Test POST /api/academy/categories with non-Admin user (should return 403)"""
+        category_data = {
+            "name": "Test Category",
+            "description": "Test category",
+            "icon": "book"
+        }
+        
+        return self.run_test("Academy Categories Create (Non-Admin)", "POST", 
+                           "api/academy/categories", 403,
+                           data=category_data, auth_token=self.pure_designer_token)
+
+    def test_academy_seed_admin(self):
+        """Test POST /api/academy/seed (Admin only for seeding)"""
+        return self.run_test("Academy Seed (Admin)", "POST", "api/academy/seed", 200,
+                           auth_token=self.admin_token)
+
+    def test_academy_seed_non_admin(self):
+        """Test POST /api/academy/seed with non-Admin user (should return 403)"""
+        return self.run_test("Academy Seed (Non-Admin)", "POST", "api/academy/seed", 403,
+                           auth_token=self.pure_designer_token)
+
+    def test_academy_lessons_list(self):
+        """Test GET /api/academy/lessons"""
+        return self.run_test("Academy Lessons List", "GET", "api/academy/lessons", 200,
+                           auth_token=self.admin_token)
+
+    def test_academy_lessons_create_admin(self):
+        """Test POST /api/academy/lessons (Admin only)"""
+        # First ensure we have a category
+        if not hasattr(self, 'test_category_id'):
+            # Get existing categories
+            success, categories = self.run_test("Get Categories for Lesson Test", "GET", 
+                                               "api/academy/categories", 200,
+                                               auth_token=self.admin_token)
+            if success and categories and len(categories) > 0:
+                self.test_category_id = categories[0]['category_id']
+            else:
+                print("⚠️  No categories available for lesson creation test")
+                return True, {}
+        
+        lesson_data = {
+            "category_id": self.test_category_id,
+            "title": "Test Lesson",
+            "description": "Test lesson for API testing",
+            "content_type": "text",
+            "text_content": "This is test lesson content",
+            "order": 1,
+            "duration_minutes": 15
+        }
+        
+        success, response_data = self.run_test("Academy Lessons Create (Admin)", "POST", 
+                                             "api/academy/lessons", 200,
+                                             data=lesson_data, auth_token=self.admin_token)
+        if success and 'lesson_id' in response_data:
+            self.test_lesson_id = response_data['lesson_id']
+        
+        return success, response_data
+
+    def test_academy_lessons_get_single(self):
+        """Test GET /api/academy/lessons/{lesson_id}"""
+        if hasattr(self, 'test_lesson_id'):
+            return self.run_test("Academy Lessons Get Single", "GET", 
+                               f"api/academy/lessons/{self.test_lesson_id}", 200,
+                               auth_token=self.admin_token)
+        else:
+            print("⚠️  No test lesson available for single lesson test")
+            return True, {}
+
+
     # ============ WARRANTY & AFTER-SERVICE MODULE TESTS ============
 
     def setup_technician_user(self):
