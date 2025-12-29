@@ -1220,6 +1220,11 @@ const ProjectDetails = () => {
         </div>
       )}
 
+      {/* Warranty & Service Tab */}
+      {activeTab === 'warranty' && user?.role !== 'PreSales' && (
+        <WarrantyServiceTab projectId={id} pid={project?.pid} />
+      )}
+
       {/* Add Payment Modal */}
       <Dialog open={showAddPaymentModal} onOpenChange={setShowAddPaymentModal}>
         <DialogContent className="sm:max-w-md">
