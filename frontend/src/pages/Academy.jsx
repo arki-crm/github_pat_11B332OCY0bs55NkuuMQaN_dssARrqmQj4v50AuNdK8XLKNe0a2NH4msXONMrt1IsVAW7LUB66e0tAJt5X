@@ -866,12 +866,63 @@ const Academy = () => {
             {(lessonForm.content_type === 'pdf' || lessonForm.content_type === 'mixed') && (
               <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
                 <h4 className="font-medium text-slate-700 flex items-center gap-2"><File className="w-4 h-4" />PDF Document</h4>
+                
+                {/* PDF upload area */}
+                <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept=".pdf"
+                    onChange={onPdfFileSelect}
+                    className="hidden"
+                    id="pdf-upload"
+                  />
+                  
+                  {uploadingPdf ? (
+                    <div className="space-y-2">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+                      <p className="text-sm text-slate-600">Uploading PDF...</p>
+                      <Progress value={uploadProgress} className="w-full max-w-xs mx-auto" />
+                      <p className="text-xs text-slate-500">{uploadProgress}%</p>
+                    </div>
+                  ) : lessonForm.pdf_url ? (
+                    <div className="space-y-2">
+                      <CheckCircle className="w-8 h-8 mx-auto text-green-600" />
+                      <p className="text-sm text-green-700 font-medium">PDF uploaded</p>
+                      <p className="text-xs text-slate-500 truncate max-w-xs mx-auto">{lessonForm.pdf_url}</p>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => pdfInputRef.current?.click()}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />Replace PDF
+                      </Button>
+                    </div>
+                  ) : (
+                    <label htmlFor="pdf-upload" className="cursor-pointer">
+                      <Upload className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                      <p className="text-sm font-medium text-slate-700">Click to upload PDF</p>
+                      <p className="text-xs text-slate-500 mt-1">PDF files only</p>
+                    </label>
+                  )}
+                </div>
+                
+                {/* Divider */}
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="flex-1 border-t border-slate-200" />
+                  <span>OR use URL</span>
+                  <div className="flex-1 border-t border-slate-200" />
+                </div>
+                
+                {/* Manual URL input */}
                 <div>
-                  <Label>PDF URL</Label>
+                  <Label>PDF URL (if using external link)</Label>
                   <Input
                     value={lessonForm.pdf_url}
                     onChange={(e) => setLessonForm(p => ({ ...p, pdf_url: e.target.value }))}
-                    placeholder="URL to PDF document"
+                    placeholder="Leave empty if uploaded above"
+                    disabled={uploadingPdf}
                   />
                 </div>
               </div>
