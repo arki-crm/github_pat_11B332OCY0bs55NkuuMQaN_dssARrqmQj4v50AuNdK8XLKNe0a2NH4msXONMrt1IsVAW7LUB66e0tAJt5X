@@ -74,6 +74,30 @@ const Sidebar = () => {
       roles: ['Admin', 'Manager', 'Designer']
     },
     { 
+      path: '/design-board', 
+      label: 'Design Board', 
+      icon: Palette,
+      roles: ['Admin', 'Manager', 'Designer', 'DesignManager', 'HybridDesigner']
+    },
+    { 
+      path: '/design-manager', 
+      label: 'Design Manager', 
+      icon: ClipboardCheck,
+      roles: ['Admin', 'Manager', 'DesignManager']
+    },
+    { 
+      path: '/validation-pipeline', 
+      label: 'Validation', 
+      icon: ClipboardCheck,
+      roles: ['Admin', 'Manager', 'ProductionManager']
+    },
+    { 
+      path: '/ceo-dashboard', 
+      label: 'CEO View', 
+      icon: Crown,
+      roles: ['Admin']
+    },
+    { 
       path: '/reports', 
       label: 'Reports', 
       icon: BarChart3,
