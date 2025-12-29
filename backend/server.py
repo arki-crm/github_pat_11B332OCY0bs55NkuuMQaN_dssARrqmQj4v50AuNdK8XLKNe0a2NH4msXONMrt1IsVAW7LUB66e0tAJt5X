@@ -7709,6 +7709,188 @@ async def get_ceo_dashboard(request: Request):
         }
     }
 
+# ============ OPERATIONS LEAD DASHBOARD ============
+
+@api_router.get("/operations/dashboard")
+async def get_operations_dashboard(request: Request):
+    """Dashboard for Operations Lead - post-production delivery and installation tracking"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager", "OperationsLead"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get projects in operations stages
+    operations_stages = ["Production", "Quality Check", "Delivery", "Installation", "Handover"]
+    
+    # Get all projects in these stages
+    operations_projects = await db.projects.find(
+        {"stage": {"$in": operations_stages}, "status": {"$nin": ["Lost", "Completed"]}},
+        {"_id": 0}
+    ).to_list(500)
+    
+    # Projects by stage
+    projects_by_stage = {stage: 0 for stage in operations_stages}
+    delayed_deliveries = []
+    
+    for project in operations_projects:
+        stage = project.get("stage")
+        if stage in projects_by_stage:
+            projects_by_stage[stage] += 1
+        
+        # Check for delays in delivery
+        timeline = project.get("timeline", [])
+        for milestone in timeline:
+            if milestone.get("stage_ref") in ["Delivery", "Installation", "Handover"]:
+                expected = milestone.get("expectedDate")
+                completed = milestone.get("completedDate")
+                if expected and not completed:
+                    expected_date = datetime.fromisoformat(expected.replace("Z", "+00:00"))
+                    if expected_date < now:
+                        days_delayed = (now - expected_date).days
+                        delayed_deliveries.append({
+                            "project_id": project.get("project_id"),
+                            "project_name": project.get("project_name"),
+                            "client_name": project.get("client_name"),
+                            "stage": stage,
+                            "milestone": milestone.get("title"),
+                            "days_delayed": days_delayed
+                        })
+    
+    # Get upcoming deliveries (next 7 days)
+    upcoming_deliveries = []
+    seven_days = (now + timedelta(days=7)).isoformat()
+    
+    for project in operations_projects:
+        if project.get("stage") in ["Delivery", "Installation"]:
+            timeline = project.get("timeline", [])
+            for milestone in timeline:
+                expected = milestone.get("expectedDate")
+                if expected and not milestone.get("completedDate"):
+                    if expected <= seven_days:
+                        upcoming_deliveries.append({
+                            "project_id": project.get("project_id"),
+                            "project_name": project.get("project_name"),
+                            "client_name": project.get("client_name"),
+                            "milestone": milestone.get("title"),
+                            "expected_date": expected
+                        })
+    
+    # Completed this month
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    completed_this_month = await db.projects.count_documents({
+        "stage": "Completed",
+        "updated_at": {"$gte": month_start.isoformat()}
+    })
+    
+    return {
+        "summary": {
+            "total_in_operations": len(operations_projects),
+            "in_production": projects_by_stage.get("Production", 0),
+            "in_quality_check": projects_by_stage.get("Quality Check", 0),
+            "in_delivery": projects_by_stage.get("Delivery", 0),
+            "in_installation": projects_by_stage.get("Installation", 0),
+            "pending_handover": projects_by_stage.get("Handover", 0),
+            "delayed_count": len(delayed_deliveries),
+            "completed_this_month": completed_this_month
+        },
+        "projects_by_stage": projects_by_stage,
+        "delayed_deliveries": delayed_deliveries[:10],
+        "upcoming_deliveries": upcoming_deliveries[:10]
+    }
+
+# ============ AUTO-COLLABORATOR SYSTEM ============
+
+async def auto_add_stage_collaborators(project_id: str, new_stage: str, activity_message: str = None):
+    """
+    Livspace-style auto-collaborator system.
+    Automatically adds collaborators based on project stage transitions.
+    """
+    roles_to_add = STAGE_COLLABORATOR_ROLES.get(new_stage, [])
+    
+    if not roles_to_add:
+        return
+    
+    project = await db.projects.find_one(
+        {"project_id": project_id},
+        {"_id": 0, "collaborators": 1, "project_name": 1}
+    )
+    
+    if not project:
+        return
+    
+    current_collaborators = project.get("collaborators", [])
+    current_user_ids = [c.get("user_id") for c in current_collaborators]
+    
+    new_collaborators = []
+    now = datetime.now(timezone.utc)
+    
+    for role in roles_to_add:
+        # Find users with this role
+        role_users = await db.users.find(
+            {"role": role, "status": "Active"},
+            {"_id": 0, "user_id": 1, "name": 1, "email": 1, "role": 1, "picture": 1}
+        ).to_list(10)
+        
+        for role_user in role_users:
+            if role_user["user_id"] not in current_user_ids:
+                new_collaborators.append({
+                    "user_id": role_user["user_id"],
+                    "name": role_user.get("name"),
+                    "email": role_user.get("email"),
+                    "role": role_user.get("role"),
+                    "picture": role_user.get("picture"),
+                    "added_at": now.isoformat(),
+                    "added_by": "system",
+                    "reason": f"Auto-added at stage: {new_stage}"
+                })
+                current_user_ids.append(role_user["user_id"])
+    
+    if new_collaborators:
+        # Update project collaborators
+        await db.projects.update_one(
+            {"project_id": project_id},
+            {
+                "$push": {"collaborators": {"$each": new_collaborators}},
+                "$set": {"updated_at": now.isoformat()}
+            }
+        )
+        
+        # Add activity entry for each new collaborator
+        for collab in new_collaborators:
+            activity_entry = {
+                "id": str(uuid.uuid4()),
+                "type": "collaborator_added",
+                "message": f"{collab['name']} ({collab['role']}) auto-added as collaborator",
+                "user_name": "System",
+                "timestamp": now.isoformat(),
+                "metadata": {
+                    "collaborator_id": collab["user_id"],
+                    "collaborator_role": collab["role"],
+                    "trigger_stage": new_stage
+                }
+            }
+            
+            await db.projects.update_one(
+                {"project_id": project_id},
+                {"$push": {"activity": activity_entry}}
+            )
+        
+        # Send notifications to new collaborators
+        for collab in new_collaborators:
+            notification = {
+                "id": str(uuid.uuid4()),
+                "user_id": collab["user_id"],
+                "title": "Added to Project",
+                "message": f"You've been added as a collaborator to {project.get('project_name', 'a project')} at stage: {new_stage}",
+                "type": "collaborator",
+                "read": False,
+                "link_url": f"/projects/{project_id}",
+                "created_at": now.isoformat()
+            }
+            await db.notifications.insert_one(notification)
+
 # ============ DESIGN WORKFLOW SEED DATA ============
 
 @api_router.post("/design-workflow/seed")
