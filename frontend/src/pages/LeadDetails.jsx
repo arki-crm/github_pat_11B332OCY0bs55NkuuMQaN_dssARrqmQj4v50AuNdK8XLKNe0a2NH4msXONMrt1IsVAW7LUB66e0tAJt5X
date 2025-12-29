@@ -872,6 +872,50 @@ const LeadDetails = () => {
     // Designer cannot edit
     return false;
   };
+  
+  // Hold/Activate/Deactivate permission checks
+  const canHold = () => {
+    if (!user) return false;
+    return ['Admin', 'Manager', 'SalesManager', 'Designer'].includes(user.role);
+  };
+  
+  const canActivateOrDeactivate = () => {
+    if (!user) return false;
+    return ['Admin', 'Manager', 'SalesManager'].includes(user.role);
+  };
+  
+  // Handle hold status actions
+  const openHoldModal = (action) => {
+    setHoldAction(action);
+    setHoldReason('');
+    setShowHoldModal(true);
+  };
+  
+  const handleHoldStatusUpdate = async () => {
+    if (!holdReason.trim()) {
+      toast.error('Please provide a reason for this action');
+      return;
+    }
+    
+    try {
+      setIsUpdatingHoldStatus(true);
+      await axios.put(`${API}/leads/${id}/hold-status`, {
+        action: holdAction,
+        reason: holdReason.trim()
+      }, { withCredentials: true });
+      
+      toast.success(`Lead ${holdAction.toLowerCase()}d successfully`);
+      setShowHoldModal(false);
+      setHoldReason('');
+      setHoldAction(null);
+      await fetchLead();
+    } catch (err) {
+      console.error('Failed to update hold status:', err);
+      toast.error(err.response?.data?.detail || 'Failed to update status');
+    } finally {
+      setIsUpdatingHoldStatus(false);
+    }
+  };
 
   if (loading) {
     return (
