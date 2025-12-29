@@ -782,7 +782,8 @@ const PreSalesDetail = () => {
         withCredentials: true
       });
       toast.success('Converted to Lead successfully!');
-      // Navigate to the new lead
+      setShowConvertDialog(false);
+      // Navigate to the new lead in Leads section
       navigate(`/leads/${response.data.lead_id}`);
     } catch (err) {
       console.error('Failed to convert to lead:', err);
@@ -790,6 +791,11 @@ const PreSalesDetail = () => {
     } finally {
       setIsConverting(false);
     }
+  };
+
+  // Open convert confirmation
+  const openConvertDialog = () => {
+    setShowConvertDialog(true);
   };
 
   // Permission checks
