@@ -5985,6 +5985,15 @@ def main():
         tester.test_convert_presales_to_lead_not_qualified_denied()
         tester.test_presales_role_based_access()
 
+        # PID System + Forward-Only Stages + Collaborator Tests
+        print("\n🆔 Testing PID System + Forward-Only Stages + Collaborators...")
+        tester.test_pid_generation_at_conversion()
+        tester.test_lead_stage_forward_only_progression()
+        tester.test_lead_stage_admin_rollback()
+        tester.test_project_stage_forward_only_progression()
+        tester.test_lead_collaborators_endpoints()
+        tester.test_lead_to_project_conversion_with_carry_forward()
+
         # TAT System Tests
         print("\n⏰ Testing TAT (Time-to-Action) System...")
         tester.test_seed_leads_admin()
