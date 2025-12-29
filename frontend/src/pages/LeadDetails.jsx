@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import MeetingModal from '../components/MeetingModal';
 import MeetingCard from '../components/MeetingCard';
+import CustomerDetailsSection from '../components/CustomerDetailsSection';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
