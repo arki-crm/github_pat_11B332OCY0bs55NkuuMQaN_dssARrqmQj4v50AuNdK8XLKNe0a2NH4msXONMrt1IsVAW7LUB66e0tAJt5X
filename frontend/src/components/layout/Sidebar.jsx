@@ -136,8 +136,8 @@ const Sidebar = () => {
     localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify(isCollapsed));
   }, [isCollapsed]);
 
-  // Get role-specific navigation items
-  const navItems = getRoleNavItems(user?.role);
+  // Get role-specific navigation items with senior manager view permission
+  const navItems = getRoleNavItems(user?.role, user?.senior_manager_view);
 
   const NavItem = ({ item }) => {
     const Icon = item.icon;
