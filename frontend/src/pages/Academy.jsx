@@ -419,6 +419,16 @@ const Academy = () => {
     return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  // Helper to get full URL for uploaded files
+  const getFileUrl = (url) => {
+    if (!url) return '';
+    // If it's a relative URL (starts with /api), prepend the backend URL
+    if (url.startsWith('/api')) {
+      return `${process.env.REACT_APP_BACKEND_URL}${url}`;
+    }
+    return url;
+  };
+
   return (
     <div className="h-[calc(100vh-7rem)] flex" data-testid="academy-page">
       {/* Left Panel - Categories */}
