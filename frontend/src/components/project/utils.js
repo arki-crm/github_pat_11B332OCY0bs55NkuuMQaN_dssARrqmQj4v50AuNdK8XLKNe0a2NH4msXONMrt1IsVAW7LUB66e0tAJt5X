@@ -1,19 +1,142 @@
 // Project-related utilities and constants
 
-// Stage configuration - 6 main stages
-export const STAGES = [
-  "Design Finalization",
-  "Production Preparation",
-  "Production",
-  "Delivery",
-  "Installation",
-  "Handover"
+// ============ MILESTONE GROUPS WITH SUB-STAGES ============
+// Each milestone group contains ordered sub-stages that must be completed sequentially
+
+export const MILESTONE_GROUPS = [
+  {
+    id: 'design_finalization',
+    name: 'Design Finalization',
+    color: { bg: 'bg-blue-100', text: 'text-blue-700', ring: 'ring-blue-400', accent: 'bg-blue-500' },
+    subStages: [
+      { id: 'site_measurement', name: 'Site Measurement', order: 1 },
+      { id: 'design_meeting_1', name: 'Design Meeting 1 – Layout Discussion', order: 2 },
+      { id: 'design_meeting_2', name: 'Design Meeting 2 – First Draft of 3D Designs', order: 3 },
+      { id: 'design_meeting_3', name: 'Design Meeting 3 – Final Draft of 3D Designs', order: 4 },
+      { id: 'final_design_presentation', name: 'Final Design Presentation', order: 5 },
+      { id: 'material_selection', name: 'Material Selection', order: 6 },
+      { id: 'payment_collection_50', name: 'Payment Collection – 50%', order: 7 },
+      { id: 'production_drawing_prep', name: 'Production Drawing Preparation', order: 8 },
+      { id: 'validation_internal', name: 'Validation (Internal Check)', order: 9 },
+      { id: 'kws_signoff', name: 'KWS Sign-Off Document Preparation', order: 10 },
+      { id: 'kickoff_meeting', name: 'Kick-Off Meeting', order: 11 }
+    ]
+  },
+  {
+    id: 'production',
+    name: 'Production',
+    color: { bg: 'bg-amber-100', text: 'text-amber-700', ring: 'ring-amber-400', accent: 'bg-amber-500' },
+    subStages: [
+      { id: 'production_start', name: 'Production Started', order: 1 },
+      { id: 'quality_check_1', name: 'Quality Check – Phase 1', order: 2 },
+      { id: 'production_midpoint', name: 'Production Midpoint Review', order: 3 },
+      { id: 'quality_check_2', name: 'Quality Check – Phase 2', order: 4 },
+      { id: 'production_complete', name: 'Production Completed', order: 5 }
+    ]
+  },
+  {
+    id: 'delivery',
+    name: 'Delivery',
+    color: { bg: 'bg-cyan-100', text: 'text-cyan-700', ring: 'ring-cyan-400', accent: 'bg-cyan-500' },
+    subStages: [
+      { id: 'dispatch_scheduled', name: 'Dispatch Scheduled', order: 1 },
+      { id: 'materials_dispatched', name: 'Materials Dispatched', order: 2 },
+      { id: 'delivery_confirmed', name: 'Delivery Confirmed at Site', order: 3 }
+    ]
+  },
+  {
+    id: 'installation',
+    name: 'Installation',
+    color: { bg: 'bg-purple-100', text: 'text-purple-700', ring: 'ring-purple-400', accent: 'bg-purple-500' },
+    subStages: [
+      { id: 'installation_start', name: 'Installation Started', order: 1 },
+      { id: 'installation_progress', name: 'Installation In Progress', order: 2 },
+      { id: 'snag_list', name: 'Snag List Prepared', order: 3 },
+      { id: 'snag_rectification', name: 'Snag Rectification', order: 4 },
+      { id: 'installation_complete', name: 'Installation Completed', order: 5 }
+    ]
+  },
+  {
+    id: 'handover',
+    name: 'Handover',
+    color: { bg: 'bg-green-100', text: 'text-green-700', ring: 'ring-green-400', accent: 'bg-green-500' },
+    subStages: [
+      { id: 'final_inspection', name: 'Final Inspection', order: 1 },
+      { id: 'payment_collection_final', name: 'Final Payment Collection', order: 2 },
+      { id: 'handover_docs', name: 'Handover Documents Prepared', order: 3 },
+      { id: 'project_handover', name: 'Project Handover Complete', order: 4 }
+    ]
+  }
 ];
 
+// Legacy STAGES for backward compatibility (parent group names)
+export const STAGES = MILESTONE_GROUPS.map(g => g.name);
+
+// Get all sub-stage IDs in order (flat list)
+export const getAllSubStages = () => {
+  const allSubStages = [];
+  MILESTONE_GROUPS.forEach(group => {
+    group.subStages.forEach(sub => {
+      allSubStages.push({
+        ...sub,
+        groupId: group.id,
+        groupName: group.name
+      });
+    });
+  });
+  return allSubStages;
+};
+
+// Get milestone group by sub-stage ID
+export const getGroupBySubStage = (subStageId) => {
+  return MILESTONE_GROUPS.find(g => g.subStages.some(s => s.id === subStageId));
+};
+
+// Get sub-stage progress for a group
+export const getGroupProgress = (groupId, completedSubStages = []) => {
+  const group = MILESTONE_GROUPS.find(g => g.id === groupId);
+  if (!group) return { completed: 0, total: 0, percentage: 0 };
+  
+  const total = group.subStages.length;
+  const completed = group.subStages.filter(s => completedSubStages.includes(s.id)).length;
+  return { completed, total, percentage: Math.round((completed / total) * 100) };
+};
+
+// Check if a sub-stage can be completed (previous must be done)
+export const canCompleteSubStage = (subStageId, completedSubStages = []) => {
+  const allSubStages = getAllSubStages();
+  const targetIndex = allSubStages.findIndex(s => s.id === subStageId);
+  
+  if (targetIndex === -1) return false;
+  if (completedSubStages.includes(subStageId)) return false; // Already completed
+  
+  // First sub-stage can always be completed
+  if (targetIndex === 0) return true;
+  
+  // Previous sub-stage must be completed
+  const prevSubStage = allSubStages[targetIndex - 1];
+  return completedSubStages.includes(prevSubStage.id);
+};
+
+// Get current active sub-stage (first incomplete)
+export const getCurrentSubStage = (completedSubStages = []) => {
+  const allSubStages = getAllSubStages();
+  return allSubStages.find(s => !completedSubStages.includes(s.id));
+};
+
+// Get current milestone group based on completed sub-stages
+export const getCurrentMilestoneGroup = (completedSubStages = []) => {
+  for (const group of MILESTONE_GROUPS) {
+    const allGroupComplete = group.subStages.every(s => completedSubStages.includes(s.id));
+    if (!allGroupComplete) return group;
+  }
+  // All complete, return last group
+  return MILESTONE_GROUPS[MILESTONE_GROUPS.length - 1];
+};
+
 export const STAGE_COLORS = {
-  'Design Finalization': { bg: 'bg-slate-100', text: 'text-slate-600', ring: 'ring-slate-400' },
-  'Production Preparation': { bg: 'bg-amber-100', text: 'text-amber-700', ring: 'ring-amber-400' },
-  'Production': { bg: 'bg-blue-100', text: 'text-blue-700', ring: 'ring-blue-400' },
+  'Design Finalization': { bg: 'bg-blue-100', text: 'text-blue-700', ring: 'ring-blue-400' },
+  'Production': { bg: 'bg-amber-100', text: 'text-amber-700', ring: 'ring-amber-400' },
   'Delivery': { bg: 'bg-cyan-100', text: 'text-cyan-700', ring: 'ring-cyan-400' },
   'Installation': { bg: 'bg-purple-100', text: 'text-purple-700', ring: 'ring-purple-400' },
   'Handover': { bg: 'bg-green-100', text: 'text-green-700', ring: 'ring-green-400' }
@@ -23,7 +146,10 @@ export const ROLE_BADGE_STYLES = {
   Admin: 'bg-purple-100 text-purple-700',
   Manager: 'bg-blue-100 text-blue-700',
   Designer: 'bg-pink-100 text-pink-700',
-  PreSales: 'bg-orange-100 text-orange-700'
+  PreSales: 'bg-orange-100 text-orange-700',
+  DesignManager: 'bg-indigo-100 text-indigo-700',
+  ProductionOpsManager: 'bg-amber-100 text-amber-700',
+  SalesManager: 'bg-cyan-100 text-cyan-700'
 };
 
 // Format date helper
