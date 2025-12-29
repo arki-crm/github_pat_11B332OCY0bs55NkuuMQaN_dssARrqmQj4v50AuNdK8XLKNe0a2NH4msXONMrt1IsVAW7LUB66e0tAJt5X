@@ -1672,6 +1672,274 @@ async def update_stage(project_id: str, stage_update: StageUpdate, request: Requ
         "system_comment": system_comment
     }
 
+# ============ SUB-STAGE PROGRESSION SYSTEM ============
+
+# Milestone groups with sub-stages (matching frontend)
+MILESTONE_GROUPS = [
+    {
+        "id": "design_finalization",
+        "name": "Design Finalization",
+        "subStages": [
+            {"id": "site_measurement", "name": "Site Measurement", "order": 1},
+            {"id": "design_meeting_1", "name": "Design Meeting 1 – Layout Discussion", "order": 2},
+            {"id": "design_meeting_2", "name": "Design Meeting 2 – First Draft of 3D Designs", "order": 3},
+            {"id": "design_meeting_3", "name": "Design Meeting 3 – Final Draft of 3D Designs", "order": 4},
+            {"id": "final_design_presentation", "name": "Final Design Presentation", "order": 5},
+            {"id": "material_selection", "name": "Material Selection", "order": 6},
+            {"id": "payment_collection_50", "name": "Payment Collection – 50%", "order": 7},
+            {"id": "production_drawing_prep", "name": "Production Drawing Preparation", "order": 8},
+            {"id": "validation_internal", "name": "Validation (Internal Check)", "order": 9},
+            {"id": "kws_signoff", "name": "KWS Sign-Off Document Preparation", "order": 10},
+            {"id": "kickoff_meeting", "name": "Kick-Off Meeting", "order": 11}
+        ]
+    },
+    {
+        "id": "production",
+        "name": "Production",
+        "subStages": [
+            {"id": "production_start", "name": "Production Started", "order": 1},
+            {"id": "quality_check_1", "name": "Quality Check – Phase 1", "order": 2},
+            {"id": "production_midpoint", "name": "Production Midpoint Review", "order": 3},
+            {"id": "quality_check_2", "name": "Quality Check – Phase 2", "order": 4},
+            {"id": "production_complete", "name": "Production Completed", "order": 5}
+        ]
+    },
+    {
+        "id": "delivery",
+        "name": "Delivery",
+        "subStages": [
+            {"id": "dispatch_scheduled", "name": "Dispatch Scheduled", "order": 1},
+            {"id": "materials_dispatched", "name": "Materials Dispatched", "order": 2},
+            {"id": "delivery_confirmed", "name": "Delivery Confirmed at Site", "order": 3}
+        ]
+    },
+    {
+        "id": "installation",
+        "name": "Installation",
+        "subStages": [
+            {"id": "installation_start", "name": "Installation Started", "order": 1},
+            {"id": "installation_progress", "name": "Installation In Progress", "order": 2},
+            {"id": "snag_list", "name": "Snag List Prepared", "order": 3},
+            {"id": "snag_rectification", "name": "Snag Rectification", "order": 4},
+            {"id": "installation_complete", "name": "Installation Completed", "order": 5}
+        ]
+    },
+    {
+        "id": "handover",
+        "name": "Handover",
+        "subStages": [
+            {"id": "final_inspection", "name": "Final Inspection", "order": 1},
+            {"id": "payment_collection_final", "name": "Final Payment Collection", "order": 2},
+            {"id": "handover_docs", "name": "Handover Documents Prepared", "order": 3},
+            {"id": "project_handover", "name": "Project Handover Complete", "order": 4}
+        ]
+    }
+]
+
+def get_all_substages():
+    """Get flat list of all sub-stages in order"""
+    all_substages = []
+    for group in MILESTONE_GROUPS:
+        for sub in group["subStages"]:
+            all_substages.append({
+                **sub,
+                "group_id": group["id"],
+                "group_name": group["name"]
+            })
+    return all_substages
+
+def can_complete_substage(substage_id: str, completed_substages: list):
+    """Check if a sub-stage can be completed (previous must be done)"""
+    all_substages = get_all_substages()
+    substage_ids = [s["id"] for s in all_substages]
+    
+    if substage_id not in substage_ids:
+        return False, "Invalid sub-stage ID"
+    
+    if substage_id in completed_substages:
+        return False, "Sub-stage already completed"
+    
+    target_index = substage_ids.index(substage_id)
+    
+    # First sub-stage can always be completed
+    if target_index == 0:
+        return True, None
+    
+    # Check if previous sub-stage is completed
+    prev_substage_id = substage_ids[target_index - 1]
+    if prev_substage_id not in completed_substages:
+        prev_substage = all_substages[target_index - 1]
+        return False, f"Must complete '{prev_substage['name']}' first"
+    
+    return True, None
+
+def get_current_milestone_group(completed_substages: list):
+    """Get the current active milestone group"""
+    for group in MILESTONE_GROUPS:
+        all_complete = all(s["id"] in completed_substages for s in group["subStages"])
+        if not all_complete:
+            return group
+    return MILESTONE_GROUPS[-1]
+
+@api_router.post("/projects/{project_id}/substage/complete")
+async def complete_substage(project_id: str, request: Request):
+    """Complete a sub-stage - forward-only progression"""
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    substage_id = body.get("substage_id")
+    substage_name = body.get("substage_name", "")
+    group_name = body.get("group_name", "")
+    
+    if not substage_id:
+        raise HTTPException(status_code=400, detail="substage_id is required")
+    
+    # PreSales cannot access projects
+    if user.role == "PreSales":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check access
+    if user.role == "Designer" and user.user_id not in project.get("collaborators", []):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    completed_substages = project.get("completed_substages", [])
+    
+    # Validate forward-only progression
+    can_complete, error_msg = can_complete_substage(substage_id, completed_substages)
+    if not can_complete:
+        raise HTTPException(status_code=400, detail=error_msg)
+    
+    now = datetime.now(timezone.utc)
+    pid = project.get("pid", "N/A")
+    
+    # Get sub-stage info
+    all_substages = get_all_substages()
+    substage_info = next((s for s in all_substages if s["id"] == substage_id), None)
+    if not substage_info:
+        raise HTTPException(status_code=400, detail="Invalid sub-stage")
+    
+    # Add to completed list
+    completed_substages.append(substage_id)
+    
+    # Check if parent group is now complete
+    parent_group = next((g for g in MILESTONE_GROUPS if g["id"] == substage_info["group_id"]), None)
+    group_complete = False
+    new_stage = project.get("stage", "Design Finalization")
+    
+    if parent_group:
+        group_complete = all(s["id"] in completed_substages for s in parent_group["subStages"])
+        if group_complete:
+            new_stage = parent_group["name"]
+    
+    # Create activity log entry
+    system_comment = {
+        "id": f"comment_{uuid.uuid4().hex[:8]}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "role": user.role,
+        "message": f"✅ Completed: {substage_info['name']} ({substage_info['group_name']})",
+        "is_system": True,
+        "created_at": now.isoformat(),
+        "metadata": {
+            "type": "substage_complete",
+            "pid": pid,
+            "substage_id": substage_id,
+            "substage_name": substage_info["name"],
+            "group_id": substage_info["group_id"],
+            "group_name": substage_info["group_name"]
+        }
+    }
+    
+    # If group complete, add group completion comment
+    group_comment = None
+    if group_complete:
+        group_comment = {
+            "id": f"comment_{uuid.uuid4().hex[:8]}",
+            "user_id": "system",
+            "user_name": "System",
+            "role": "System",
+            "message": f"🎉 Milestone Complete: {parent_group['name']} - All sub-stages completed",
+            "is_system": True,
+            "created_at": now.isoformat(),
+            "metadata": {
+                "type": "milestone_complete",
+                "pid": pid,
+                "group_id": parent_group["id"],
+                "group_name": parent_group["name"]
+            }
+        }
+    
+    # Update project
+    update_ops = {
+        "$set": {
+            "completed_substages": completed_substages,
+            "stage": new_stage,
+            "updated_at": now.isoformat()
+        },
+        "$push": {"comments": system_comment}
+    }
+    
+    await db.projects.update_one({"project_id": project_id}, update_ops)
+    
+    # Add group completion comment separately if needed
+    if group_comment:
+        await db.projects.update_one(
+            {"project_id": project_id},
+            {"$push": {"comments": group_comment}}
+        )
+    
+    return {
+        "success": True,
+        "substage_id": substage_id,
+        "substage_name": substage_info["name"],
+        "group_name": substage_info["group_name"],
+        "group_complete": group_complete,
+        "completed_substages": completed_substages,
+        "current_stage": new_stage,
+        "comment": system_comment
+    }
+
+@api_router.get("/projects/{project_id}/substages")
+async def get_project_substages(project_id: str, request: Request):
+    """Get project sub-stage progress"""
+    user = await get_current_user(request)
+    
+    if user.role == "PreSales":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    completed_substages = project.get("completed_substages", [])
+    current_group = get_current_milestone_group(completed_substages)
+    
+    # Calculate progress for each group
+    group_progress = []
+    for group in MILESTONE_GROUPS:
+        completed = sum(1 for s in group["subStages"] if s["id"] in completed_substages)
+        total = len(group["subStages"])
+        group_progress.append({
+            "id": group["id"],
+            "name": group["name"],
+            "completed": completed,
+            "total": total,
+            "percentage": round((completed / total) * 100) if total > 0 else 0,
+            "is_complete": completed == total
+        })
+    
+    return {
+        "completed_substages": completed_substages,
+        "current_group": current_group["id"] if current_group else None,
+        "current_group_name": current_group["name"] if current_group else None,
+        "group_progress": group_progress,
+        "milestone_groups": MILESTONE_GROUPS
+    }
+
 # ============ FILES ENDPOINTS ============
 
 @api_router.get("/projects/{project_id}/files")
