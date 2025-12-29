@@ -789,10 +789,62 @@ frontend:
         comment: "✅ CALENDAR SYSTEM FRONTEND TESTING COMPLETED SUCCESSFULLY! Comprehensive verification completed: 1) ✅ Calendar Page Loading: Calendar page correctly redirects to login due to Google OAuth requirement - proper security implementation, 2) ✅ Code Structure Verification: Calendar.jsx exists at correct path, imports react-big-calendar properly, route added in App.js for /calendar, Calendar link present in Sidebar.jsx with proper data-testid, 3) ✅ Component Structure Verified: CalendarToolbar component with Today/Prev/Next navigation (lines 125-197), CalendarFilterPanel with event type/project/designer/status filters (lines 200-304), CalendarLegend showing 5 color meanings (lines 98-122), CalendarEventComponent for rendering events (lines 79-95), Event detail modal (Dialog) for viewing milestone/task details (lines 653-799), Create Task modal for adding new tasks (lines 802-924), 4) ✅ Visual Elements Verified: Legend shows exactly 5 color items (Milestone upcoming/Completed/Delayed, Task Pending/In Progress), Quick stats show milestone and task counts (lines 578-593), Header shows 'Calendar' with calendar icon (lines 568-571), 5) ✅ Login Page Testing: Google OAuth login page working perfectly with 'Continue with Google' button, proper Arkiflo branding, Terms/Privacy links present, blue theme styling correct. Calendar frontend implementation is production-ready and meets all requirements. Authentication requirement prevents full UI flow testing without valid Google OAuth session, but all code structure and login flow verified successfully."
 
 test_plan:
-  current_focus: ["PID Display UI Testing", "Collaborators Button UI Testing", "Timeline Carry-Forward UI Testing"]
+  current_focus: ["Delivery Milestone 4-step workflow", "Handover Milestone 8-step workflow", "Hold/Activate/Deactivate System for Projects", "Hold/Activate/Deactivate System for Leads"]
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
+
+  - task: "Delivery Milestone - 4-step Sub-Stage Workflow"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py, /app/frontend/src/components/project/utils.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated Delivery milestone to have 4 sub-stages: Dispatch Scheduled, Installation Team Scheduled, Materials Dispatched, Delivery Confirmed at Site. Forward-only progression with confirmation popups. Auto-completes parent milestone when all 4 steps done."
+
+  - task: "Handover Milestone - 8-step Sub-Stage Workflow"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py, /app/frontend/src/components/project/utils.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated Handover milestone to have 8 sub-stages: Final Inspection, Cleaning, Handover Documents Prepared, Project Handover Complete, CSAT (Customer Satisfaction), Review Video/Photos, Issue Warranty Book, Closed. Forward-only progression. Auto-marks Project as fully Completed when all steps done."
+
+  - task: "Hold/Activate/Deactivate System for Projects"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py, /app/frontend/src/pages/ProjectDetails.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Hold/Activate/Deactivate system for Projects. Added PUT /api/projects/{project_id}/hold-status endpoint. Features: reason modal required for all actions, activity logging with PID/user/timestamp, role-based permissions (Admin/Manager can all actions, Designer can only Hold), status indicator in header and list view, blocks milestone progression when on Hold."
+
+  - task: "Hold/Activate/Deactivate System for Leads"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py, /app/frontend/src/pages/LeadDetails.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented Hold/Activate/Deactivate system for Leads. Added PUT /api/leads/{lead_id}/hold-status endpoint. Features: reason modal required for all actions, activity logging with PID/user/timestamp, role-based permissions (Admin/Manager/SalesManager can all actions, Designer can only Hold), status indicator in header and list view."
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented new features: 1) Updated Delivery milestone with 4 sub-stages, 2) Updated Handover milestone with 8 sub-stages matching user requirements, 3) Added Hold/Activate/Deactivate system for both Projects and Leads with reason capture, activity logging, role-based permissions, and status indicators in list/detail views. Project milestone progression is blocked when on Hold. Please test all new API endpoints and UI functionality."
 
   - task: "Livspace-style Role-Based Access Control System"
     implemented: true
