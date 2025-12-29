@@ -341,6 +341,21 @@ const Leads = () => {
                           <p className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
                             {lead.customer_name}
                           </p>
+                          {/* Hold Status Badge */}
+                          {lead.hold_status && lead.hold_status !== 'Active' && (
+                            <span 
+                              className={cn(
+                                "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                                lead.hold_status === 'Hold' && 'bg-amber-100 text-amber-700',
+                                lead.hold_status === 'Deactivated' && 'bg-red-100 text-red-700'
+                              )}
+                              data-testid={`hold-status-${lead.lead_id}`}
+                            >
+                              {lead.hold_status === 'Hold' && <Pause className="w-2.5 h-2.5 mr-0.5" />}
+                              {lead.hold_status === 'Deactivated' && <Power className="w-2.5 h-2.5 mr-0.5" />}
+                              {lead.hold_status}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
