@@ -26,8 +26,8 @@ import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-// Core roles + Phase 15 Design Workflow roles
-const ROLES = ['Admin', 'Manager', 'DesignManager', 'ProductionManager', 'OperationsLead', 'Designer', 'PreSales', 'HybridDesigner', 'Trainee'];
+// Core roles + Phase 15 Design Workflow roles (10 total)
+const ROLES = ['Admin', 'Manager', 'SalesManager', 'DesignManager', 'ProductionManager', 'OperationsLead', 'Designer', 'PreSales', 'HybridDesigner', 'Trainee'];
 
 const UserInvite = () => {
   const { user } = useAuth();
