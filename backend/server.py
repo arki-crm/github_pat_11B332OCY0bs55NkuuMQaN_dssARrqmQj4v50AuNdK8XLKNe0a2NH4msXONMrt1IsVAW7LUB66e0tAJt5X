@@ -6259,12 +6259,16 @@ async def get_presales_detail(presales_id: str, request: Request):
 
 @api_router.put("/presales/{presales_id}/status")
 async def update_presales_status(presales_id: str, request: Request):
-    """Update pre-sales lead status"""
+    """Update pre-sales lead status - forward-only progression"""
     user = await get_current_user(request)
     body = await request.json()
     new_status = body.get("status")
     
-    if new_status not in ["New", "Contacted", "Waiting", "Qualified", "Dropped"]:
+    # Define valid statuses and forward-only progression order
+    PRESALES_STATUS_ORDER = ["New", "Contacted", "Waiting", "Qualified"]
+    VALID_STATUSES = ["New", "Contacted", "Waiting", "Qualified", "Dropped"]
+    
+    if new_status not in VALID_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid status")
     
     presales_lead = await db.leads.find_one({"lead_id": presales_id}, {"_id": 0})
@@ -6279,6 +6283,32 @@ async def update_presales_status(presales_id: str, request: Request):
         raise HTTPException(status_code=403, detail="Access denied")
     
     old_status = presales_lead.get("status")
+    
+    # Forward-only validation (except for "Dropped" which can be set from any status)
+    if new_status != "Dropped" and old_status != "Dropped":
+        old_index = PRESALES_STATUS_ORDER.index(old_status) if old_status in PRESALES_STATUS_ORDER else -1
+        new_index = PRESALES_STATUS_ORDER.index(new_status) if new_status in PRESALES_STATUS_ORDER else -1
+        
+        if old_index >= 0 and new_index >= 0:
+            if new_index < old_index:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot move backward from '{old_status}' to '{new_status}'. Status progression is forward-only."
+                )
+            if new_index > old_index + 1:
+                # Allow skipping stages only for Admin/SalesManager
+                if user.role not in ["Admin", "SalesManager"]:
+                    expected_next = PRESALES_STATUS_ORDER[old_index + 1]
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Cannot skip stages. Next valid status is '{expected_next}'."
+                    )
+    
+    # Cannot change status from Dropped back to progression (only Admin can)
+    if old_status == "Dropped" and new_status in PRESALES_STATUS_ORDER:
+        if user.role != "Admin":
+            raise HTTPException(status_code=403, detail="Only Admin can reactivate dropped leads")
+    
     now = datetime.now(timezone.utc)
     
     # Add system comment for status change
