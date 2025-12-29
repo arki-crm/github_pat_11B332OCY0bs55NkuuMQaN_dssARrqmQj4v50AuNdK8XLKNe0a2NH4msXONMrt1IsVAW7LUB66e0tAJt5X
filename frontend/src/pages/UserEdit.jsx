@@ -31,8 +31,9 @@ import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-const ROLES = ['Admin', 'Manager', 'Designer', 'PreSales', 'Trainee'];
-const MANAGER_ALLOWED_ROLES = ['Designer', 'PreSales', 'Trainee'];
+// Core roles + Phase 15 Design-specific roles
+const ROLES = ['Admin', 'Manager', 'DesignManager', 'ProductionManager', 'Designer', 'PreSales', 'HybridDesigner', 'Trainee'];
+const MANAGER_ALLOWED_ROLES = ['Designer', 'PreSales', 'HybridDesigner', 'Trainee'];
 
 // Avatar component with initials fallback
 const UserAvatar = ({ user, size = 'lg', showEditOverlay = false, onClick }) => {
