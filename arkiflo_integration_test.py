@@ -309,11 +309,54 @@ print("Technician session token: {technician_session_token}");
         """Test lead to project conversion with carry-forward"""
         print("\n🔍 Testing LEAD TO PROJECT CONVERSION...")
         
-        if not hasattr(self, 'integration_lead_id') or not self.integration_lead_id:
-            print("⚠️ No integration lead available")
+        # Create a new lead specifically for project conversion
+        lead_data = {
+            "customer_name": "Project Conversion Test Customer",
+            "customer_phone": "+1-555-0456",
+            "customer_email": "project.conversion@example.com",
+            "customer_address": "456 Project St, Test City",
+            "customer_requirements": "Office renovation",
+            "source": "Website",
+            "budget": 75000
+        }
+        
+        success, presales_response = self.run_test("Create Pre-Sales for Project Conversion", "POST", "api/presales/create", 200,
+                                                 data=lead_data, auth_token=self.admin_token)
+        if not success:
+            return False, {}
+            
+        presales_id = presales_response.get('lead_id')
+        
+        # Update to qualified and convert to lead
+        success, _ = self.run_test("Update to Qualified", "PUT", 
+                                 f"api/presales/{presales_id}/status", 200,
+                                 data={"status": "Qualified"}, auth_token=self.admin_token)
+        if not success:
             return False, {}
         
-        lead_id = self.integration_lead_id
+        success, convert_response = self.run_test("Convert to Lead", "POST", 
+                                                f"api/presales/{presales_id}/convert-to-lead", 200,
+                                                auth_token=self.admin_token)
+        if not success:
+            return False, {}
+        
+        lead_id = convert_response.get('lead_id')
+        project_pid = convert_response.get('pid')
+        
+        # Add collaborator to lead
+        success, _ = self.run_test("Add Collaborator to Lead", "POST", 
+                                 f"api/leads/{lead_id}/collaborators", 200,
+                                 data={"user_id": self.designer_user_id}, 
+                                 auth_token=self.admin_token)
+        if not success:
+            return False, {}
+        
+        # Update lead to Booked stage for conversion
+        success, _ = self.run_test("Update Lead to Booked", "PUT", 
+                                 f"api/leads/{lead_id}/stage", 200,
+                                 data={"stage": "Booked"}, auth_token=self.admin_token)
+        if not success:
+            return False, {}
         
         # Convert lead to project
         success, convert_response = self.run_test("Convert Lead to Project", "POST", 
@@ -329,14 +372,14 @@ print("Technician session token: {technician_session_token}");
                                                    auth_token=self.admin_token)
             
             if success2:
-                project_pid = project_detail.get('pid')
-                pid_carried_forward = project_pid == self.integration_pid
+                project_pid_after = project_detail.get('pid')
+                pid_carried_forward = project_pid_after == project_pid
                 
                 # Verify collaborators carried forward
                 collaborators = project_detail.get('collaborators', [])
                 collaborators_carried = len(collaborators) > 0
                 
-                print(f"   Project PID: {project_pid}")
+                print(f"   Project PID: {project_pid_after}")
                 print(f"   PID carried forward: {pid_carried_forward}")
                 print(f"   Collaborators carried forward: {collaborators_carried}")
                 
