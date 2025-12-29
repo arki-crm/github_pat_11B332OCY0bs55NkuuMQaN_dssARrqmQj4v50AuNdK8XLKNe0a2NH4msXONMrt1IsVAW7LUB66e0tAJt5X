@@ -53,8 +53,12 @@ import {
   Folder,
   Video,
   File,
-  ExternalLink
+  ExternalLink,
+  Upload,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
+import { Progress } from '../components/ui/progress';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
