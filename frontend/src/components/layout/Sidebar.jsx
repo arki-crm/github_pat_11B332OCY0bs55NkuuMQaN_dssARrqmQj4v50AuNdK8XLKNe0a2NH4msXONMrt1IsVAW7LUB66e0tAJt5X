@@ -111,7 +111,8 @@ const Sidebar = () => {
     const isActive = location.pathname === item.path || 
       (item.path === '/projects' && location.pathname.startsWith('/projects/')) ||
       (item.path === '/users' && location.pathname.startsWith('/users/')) ||
-      (item.path === '/leads' && location.pathname.startsWith('/leads/'));
+      (item.path === '/leads' && location.pathname.startsWith('/leads/')) ||
+      (item.path === '/reports' && location.pathname.startsWith('/reports/'));
 
     const content = (
       <NavLink
