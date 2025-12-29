@@ -105,6 +105,12 @@ const ProjectDetails = () => {
     reference: '',
     date: new Date().toISOString().split('T')[0]
   });
+  
+  // Hold/Activate/Deactivate state
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdAction, setHoldAction] = useState(null); // 'Hold', 'Activate', 'Deactivate'
+  const [holdReason, setHoldReason] = useState('');
+  const [isUpdatingHoldStatus, setIsUpdatingHoldStatus] = useState(false);
 
   // PreSales redirect
   useEffect(() => {
