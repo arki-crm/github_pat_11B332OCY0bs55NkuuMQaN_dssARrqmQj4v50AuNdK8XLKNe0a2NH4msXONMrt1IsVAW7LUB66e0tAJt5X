@@ -659,6 +659,7 @@ const ProjectDetails = () => {
                 canChangeStage={canChangeStage()}
                 isUpdating={isUpdatingStage}
                 userRole={user?.role}
+                holdStatus={project?.hold_status || 'Active'}
               />
             </CardContent>
           </Card>
