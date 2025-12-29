@@ -1782,3 +1782,52 @@ test_plan:
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
+
+  - task: "Academy Module - Video Upload Support"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py, /app/frontend/src/pages/Academy.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented direct video upload for Academy module. Backend: POST /api/academy/upload accepts video files (MP4, MOV, AVI, WEBM up to 500MB), GET /api/academy/files/{filename} serves files to authenticated users only. Frontend: Updated Academy.jsx with drag-drop file upload UI, progress bar, and video player for uploaded content."
+
+  - task: "Academy Module - PDF Upload Support"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py, /app/frontend/src/pages/Academy.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented PDF upload for Academy module. Backend endpoint handles PDF files. Frontend has drag-drop upload UI and proper file handling."
+
+  - task: "Global Search Feature"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py, /app/frontend/src/components/layout/Header.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Global search implemented with GET /api/global-search endpoint supporting multi-field partial matching across leads, presales, projects, warranties, service requests, and technicians. Frontend Header.jsx has search bar with real-time results dropdown and navigation."
+
+  - task: "Notification Toggle Dropdown"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/layout/Header.jsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Notification bell uses Popover component with toggle functionality. Opens on first click, closes on second click or when clicking outside."
+
