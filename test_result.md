@@ -897,3 +897,14 @@ agent_communication:
     message: "✅ CODE REFACTORING COMPLETED - No functionality changes, only code reorganization: 1) BACKEND - Created modular structure: /backend/models/ (10 files for Pydantic models), /backend/config/ (5 files for constants and TAT configurations), /backend/utils/ (7 files for auth, timeline, formatting, notifications, settings utilities). Original server.py remains intact as the main entry point. 2) FRONTEND - Extracted ProjectDetails.jsx components (reduced from 2259 to 1006 lines - 55% reduction): Created /components/project/ with 7 components (TimelinePanel.jsx, CommentsPanel.jsx, StagesPanel.jsx, FilesTab.jsx, NotesTab.jsx, CollaboratorsTab.jsx, CustomPaymentScheduleEditor.jsx) + utils.js and index.js. All functionality preserved, improved code maintainability and readability."
   - agent: "main"
     message: "✅ REPORTS & ANALYTICS MODULE COMPLETED - Created 5 report pages: 1) RevenueReport.jsx - Revenue Forecast with stage-wise revenue, milestone projections, and pending collections table (Admin, Manager), 2) ProjectReport.jsx - Project Health with stage distribution, health progress, and detailed project table (Admin, Manager, Designer), 3) LeadReport.jsx - Lead Conversion funnel, source performance, and PreSales performance metrics (Admin, Manager, PreSales), 4) DesignerReport.jsx - Individual designer performance cards with revenue contribution, milestones, tasks, and meetings (Admin, Manager), 5) DelayReport.jsx - Delay analytics with stage analysis, monthly trend, and designer analysis (Admin, Manager). Added routes in App.js and Reports navigation link in Sidebar.jsx. All pages have proper role-based access control."
+  - task: "Phase 15A - Design Workflow Foundation"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/DesignBoard.jsx, /app/frontend/src/pages/DesignManagerDashboard.jsx, /app/frontend/src/pages/ValidationPipeline.jsx, /app/frontend/src/pages/CEODashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Completed Phase 15A UI Foundation: 1) Added routes in App.js for /design-board, /design-manager, /validation-pipeline, /ceo-dashboard, 2) Added sidebar navigation with role-based access for Design Board (Designer, Admin, Manager, DesignManager, HybridDesigner), Design Manager (Admin, Manager, DesignManager), Validation Pipeline (Admin, Manager, ProductionManager), CEO Dashboard (Admin only), 3) Updated DesignBoard.jsx Kanban UI with clean, Notion-like design - Gray To Do column, Blue (#2563EB) In Progress, Green (#16A34A) Completed with white cards and subtle shadows, 4) DesignManagerDashboard.jsx, ValidationPipeline.jsx, CEODashboard.jsx already implemented with proper UI. Backend endpoints exist for all pages."
