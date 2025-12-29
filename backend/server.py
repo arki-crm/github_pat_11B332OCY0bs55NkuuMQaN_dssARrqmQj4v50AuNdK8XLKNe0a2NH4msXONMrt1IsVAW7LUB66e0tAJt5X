@@ -10109,6 +10109,767 @@ async def seed_design_workflow_data(request: Request):
     }
 
 
+# ============ WARRANTY ENDPOINTS ============
+
+@api_router.get("/warranties")
+async def list_warranties(request: Request, search: Optional[str] = None, status: Optional[str] = None):
+    """List all warranties with optional filters"""
+    user = await get_current_user(request)
+    
+    if user.role == "Technician":
+        raise HTTPException(status_code=403, detail="Technicians cannot access warranty list")
+    
+    query = {}
+    if search:
+        query["$or"] = [
+            {"pid": {"$regex": search, "$options": "i"}},
+            {"customer_name": {"$regex": search, "$options": "i"}},
+            {"customer_phone": {"$regex": search, "$options": "i"}},
+            {"project_name": {"$regex": search, "$options": "i"}}
+        ]
+    if status:
+        query["warranty_status"] = status
+    
+    warranties = await db.warranties.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return warranties
+
+@api_router.get("/warranties/{warranty_id}")
+async def get_warranty(warranty_id: str, request: Request):
+    """Get a single warranty by ID"""
+    user = await get_current_user(request)
+    
+    warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+    if not warranty:
+        raise HTTPException(status_code=404, detail="Warranty not found")
+    
+    return warranty
+
+@api_router.get("/warranties/by-pid/{pid}")
+async def get_warranty_by_pid(pid: str, request: Request):
+    """Get warranty by PID"""
+    user = await get_current_user(request)
+    
+    warranty = await db.warranties.find_one({"pid": pid}, {"_id": 0})
+    if not warranty:
+        raise HTTPException(status_code=404, detail="Warranty not found for this PID")
+    
+    return warranty
+
+@api_router.get("/warranties/by-project/{project_id}")
+async def get_warranty_by_project(project_id: str, request: Request):
+    """Get warranty by project ID"""
+    user = await get_current_user(request)
+    
+    warranty = await db.warranties.find_one({"project_id": project_id}, {"_id": 0})
+    return warranty  # Can be None if no warranty exists yet
+
+@api_router.put("/warranties/{warranty_id}")
+async def update_warranty(warranty_id: str, request: Request):
+    """Update warranty details (files, materials, modules, notes)"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "SalesManager", "ProductionOpsManager"]:
+        raise HTTPException(status_code=403, detail="You don't have permission to update warranties")
+    
+    body = await request.json()
+    warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+    if not warranty:
+        raise HTTPException(status_code=404, detail="Warranty not found")
+    
+    now = datetime.now(timezone.utc)
+    update_fields = {"updated_at": now.isoformat()}
+    
+    allowed_fields = ["warranty_book_url", "vendor_warranty_files", "materials_list", "modules_list", "notes"]
+    for field in allowed_fields:
+        if field in body:
+            update_fields[field] = body[field]
+    
+    await db.warranties.update_one(
+        {"warranty_id": warranty_id},
+        {"$set": update_fields}
+    )
+    
+    updated = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+    return updated
+
+async def create_warranty_for_project(project_id: str, user_id: str, user_name: str):
+    """Auto-create warranty when project reaches Closed status"""
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        return None
+    
+    # Check if warranty already exists
+    existing = await db.warranties.find_one({"project_id": project_id}, {"_id": 0})
+    if existing:
+        return existing
+    
+    now = datetime.now(timezone.utc)
+    handover_date = now.strftime("%Y-%m-%d")
+    warranty_end = (now + timedelta(days=365*10)).strftime("%Y-%m-%d")  # 10 years
+    
+    warranty_id = f"WAR-{uuid.uuid4().hex[:8].upper()}"
+    
+    warranty = {
+        "warranty_id": warranty_id,
+        "pid": project.get("pid", ""),
+        "project_id": project_id,
+        "project_name": project.get("project_name", ""),
+        "customer_name": project.get("client_name", ""),
+        "customer_address": project.get("client_address", ""),
+        "customer_phone": project.get("client_phone", ""),
+        "customer_email": project.get("client_email", ""),
+        "handover_date": handover_date,
+        "warranty_start_date": handover_date,
+        "warranty_end_date": warranty_end,
+        "warranty_status": "Active",
+        "warranty_book_url": None,
+        "vendor_warranty_files": [],
+        "materials_list": [],
+        "modules_list": [],
+        "service_requests": [],
+        "notes": None,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.warranties.insert_one(warranty)
+    
+    # Add timeline entry to project
+    timeline_entry = {
+        "id": f"timeline_{uuid.uuid4().hex[:8]}",
+        "title": "Warranty Created",
+        "message": f"10-year warranty record created. Warranty ID: {warranty_id}",
+        "user_id": user_id,
+        "user_name": user_name,
+        "type": "warranty_created",
+        "created_at": now.isoformat()
+    }
+    
+    await db.projects.update_one(
+        {"project_id": project_id},
+        {"$push": {"comments": timeline_entry}}
+    )
+    
+    return warranty
+
+
+# ============ SERVICE REQUEST ENDPOINTS ============
+
+@api_router.get("/service-requests")
+async def list_service_requests(
+    request: Request, 
+    search: Optional[str] = None, 
+    stage: Optional[str] = None,
+    priority: Optional[str] = None,
+    technician_id: Optional[str] = None
+):
+    """List service requests with filters"""
+    user = await get_current_user(request)
+    
+    query = {}
+    
+    # Technicians can only see their assigned requests
+    if user.role == "Technician":
+        query["assigned_technician_id"] = user.user_id
+    
+    if search:
+        query["$or"] = [
+            {"service_request_id": {"$regex": search, "$options": "i"}},
+            {"pid": {"$regex": search, "$options": "i"}},
+            {"customer_name": {"$regex": search, "$options": "i"}},
+            {"customer_phone": {"$regex": search, "$options": "i"}}
+        ]
+    if stage:
+        query["stage"] = stage
+    if priority:
+        query["priority"] = priority
+    if technician_id and user.role != "Technician":
+        query["assigned_technician_id"] = technician_id
+    
+    requests = await db.service_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return requests
+
+@api_router.get("/service-requests/{request_id}")
+async def get_service_request(request_id: str, request: Request):
+    """Get a single service request"""
+    user = await get_current_user(request)
+    
+    sr = await db.service_requests.find_one({"service_request_id": request_id}, {"_id": 0})
+    if not sr:
+        raise HTTPException(status_code=404, detail="Service request not found")
+    
+    # Technicians can only view their assigned requests
+    if user.role == "Technician" and sr.get("assigned_technician_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return sr
+
+@api_router.get("/service-requests/by-pid/{pid}")
+async def get_service_requests_by_pid(pid: str, request: Request):
+    """Get all service requests for a PID"""
+    user = await get_current_user(request)
+    
+    requests = await db.service_requests.find({"pid": pid}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return requests
+
+@api_router.get("/service-requests/by-project/{project_id}")
+async def get_service_requests_by_project(project_id: str, request: Request):
+    """Get all service requests for a project"""
+    user = await get_current_user(request)
+    
+    requests = await db.service_requests.find({"project_id": project_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return requests
+
+@api_router.post("/service-requests")
+async def create_service_request(data: ServiceRequestCreate, request: Request):
+    """Create a new service request (internal)"""
+    user = await get_current_user(request)
+    
+    if user.role == "Technician":
+        raise HTTPException(status_code=403, detail="Technicians cannot create service requests")
+    
+    now = datetime.now(timezone.utc)
+    service_request_id = f"SR-{uuid.uuid4().hex[:8].upper()}"
+    sla_visit_by = (now + timedelta(hours=72)).isoformat()
+    
+    # Try to find project and warranty by PID
+    project = None
+    warranty = None
+    warranty_status = "Unknown"
+    
+    if data.pid:
+        project = await db.projects.find_one({"pid": data.pid}, {"_id": 0})
+        if project:
+            warranty = await db.warranties.find_one({"pid": data.pid}, {"_id": 0})
+            if warranty:
+                # Check if warranty is active
+                end_date = datetime.strptime(warranty["warranty_end_date"], "%Y-%m-%d")
+                warranty_status = "Active" if end_date > now.replace(tzinfo=None) else "Expired"
+    
+    service_request = {
+        "service_request_id": service_request_id,
+        "pid": data.pid,
+        "warranty_id": warranty["warranty_id"] if warranty else None,
+        "project_id": project["project_id"] if project else None,
+        "project_name": project["project_name"] if project else None,
+        "customer_name": data.customer_name,
+        "customer_phone": data.customer_phone,
+        "customer_email": data.customer_email,
+        "customer_address": data.customer_address,
+        "issue_category": data.issue_category,
+        "issue_description": data.issue_description,
+        "issue_images": data.issue_images or [],
+        "priority": data.priority or "Medium",
+        "warranty_status": warranty_status,
+        "stage": "New",
+        "assigned_technician_id": None,
+        "assigned_technician_name": None,
+        "sla_visit_by": sla_visit_by,
+        "actual_visit_date": None,
+        "expected_closure_date": None,
+        "actual_closure_date": None,
+        "delay_count": 0,
+        "delays": [],
+        "last_delay_reason": None,
+        "last_delay_owner": None,
+        "before_photos": [],
+        "after_photos": [],
+        "technician_notes": [],
+        "spare_parts": [],
+        "timeline": [{
+            "id": f"timeline_{uuid.uuid4().hex[:8]}",
+            "action": "Service Request Created",
+            "stage": "New",
+            "user_id": user.user_id,
+            "user_name": user.name,
+            "timestamp": now.isoformat()
+        }],
+        "comments": [],
+        "source": "Internal",
+        "created_by": user.user_id,
+        "created_by_name": user.name,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.service_requests.insert_one(service_request)
+    
+    # Update warranty with service request reference
+    if warranty:
+        await db.warranties.update_one(
+            {"warranty_id": warranty["warranty_id"]},
+            {"$push": {"service_requests": service_request_id}}
+        )
+    
+    return {
+        "success": True,
+        "service_request_id": service_request_id,
+        "message": "Service request created successfully"
+    }
+
+@api_router.post("/service-requests/from-google-form")
+async def create_service_request_from_google_form(data: ServiceRequestFromGoogleForm):
+    """Create service request from Google Form submission (no auth required)"""
+    now = datetime.now(timezone.utc)
+    service_request_id = f"SR-{uuid.uuid4().hex[:8].upper()}"
+    sla_visit_by = (now + timedelta(hours=72)).isoformat()
+    
+    # Try to find project and warranty by PID
+    project = None
+    warranty = None
+    warranty_status = "Unknown"
+    customer_address = None
+    customer_email = None
+    
+    if data.pid:
+        project = await db.projects.find_one({"pid": data.pid}, {"_id": 0})
+        if project:
+            warranty = await db.warranties.find_one({"pid": data.pid}, {"_id": 0})
+            customer_address = project.get("client_address")
+            customer_email = project.get("client_email")
+            if warranty:
+                end_date = datetime.strptime(warranty["warranty_end_date"], "%Y-%m-%d")
+                warranty_status = "Active" if end_date > now.replace(tzinfo=None) else "Expired"
+    
+    # Convert image URLs to proper format
+    issue_images = []
+    for url in (data.image_urls or []):
+        issue_images.append({
+            "url": url,
+            "uploaded_at": now.isoformat(),
+            "uploaded_by": "Google Form"
+        })
+    
+    service_request = {
+        "service_request_id": service_request_id,
+        "pid": data.pid,
+        "warranty_id": warranty["warranty_id"] if warranty else None,
+        "project_id": project["project_id"] if project else None,
+        "project_name": project["project_name"] if project else None,
+        "customer_name": data.name,
+        "customer_phone": data.phone,
+        "customer_email": customer_email,
+        "customer_address": customer_address,
+        "issue_category": "Other",  # Default for Google Form
+        "issue_description": data.issue_description,
+        "issue_images": issue_images,
+        "priority": "Medium",
+        "warranty_status": warranty_status,
+        "stage": "New",
+        "assigned_technician_id": None,
+        "assigned_technician_name": None,
+        "sla_visit_by": sla_visit_by,
+        "actual_visit_date": None,
+        "expected_closure_date": None,
+        "actual_closure_date": None,
+        "delay_count": 0,
+        "delays": [],
+        "last_delay_reason": None,
+        "last_delay_owner": None,
+        "before_photos": [],
+        "after_photos": [],
+        "technician_notes": [],
+        "spare_parts": [],
+        "timeline": [{
+            "id": f"timeline_{uuid.uuid4().hex[:8]}",
+            "action": "Service Request Created via Google Form",
+            "stage": "New",
+            "user_id": "google_form",
+            "user_name": "Google Form",
+            "timestamp": now.isoformat()
+        }],
+        "comments": [],
+        "source": "Google Form",
+        "created_by": "google_form",
+        "created_by_name": "Google Form",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.service_requests.insert_one(service_request)
+    
+    # Update warranty with service request reference
+    if warranty:
+        await db.warranties.update_one(
+            {"warranty_id": warranty["warranty_id"]},
+            {"$push": {"service_requests": service_request_id}}
+        )
+    
+    return {
+        "success": True,
+        "service_request_id": service_request_id,
+        "message": "Service request created from Google Form"
+    }
+
+@api_router.put("/service-requests/{request_id}/assign")
+async def assign_technician(request_id: str, data: ServiceRequestAssignTechnician, request: Request):
+    """Assign a technician to a service request"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "SalesManager", "ProductionOpsManager"]:
+        raise HTTPException(status_code=403, detail="You don't have permission to assign technicians")
+    
+    sr = await db.service_requests.find_one({"service_request_id": request_id}, {"_id": 0})
+    if not sr:
+        raise HTTPException(status_code=404, detail="Service request not found")
+    
+    # Get technician details
+    technician = await db.users.find_one({"user_id": data.technician_id}, {"_id": 0})
+    if not technician:
+        raise HTTPException(status_code=404, detail="Technician not found")
+    
+    if technician.get("role") != "Technician":
+        raise HTTPException(status_code=400, detail="Selected user is not a Technician")
+    
+    now = datetime.now(timezone.utc)
+    
+    timeline_entry = {
+        "id": f"timeline_{uuid.uuid4().hex[:8]}",
+        "action": f"Assigned to Technician: {technician['name']}",
+        "stage": "Assigned to Technician",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "timestamp": now.isoformat()
+    }
+    
+    await db.service_requests.update_one(
+        {"service_request_id": request_id},
+        {
+            "$set": {
+                "assigned_technician_id": data.technician_id,
+                "assigned_technician_name": technician["name"],
+                "stage": "Assigned to Technician",
+                "updated_at": now.isoformat()
+            },
+            "$push": {"timeline": timeline_entry}
+        }
+    )
+    
+    return {
+        "success": True,
+        "message": f"Assigned to {technician['name']}",
+        "technician_name": technician["name"]
+    }
+
+@api_router.put("/service-requests/{request_id}/stage")
+async def update_service_request_stage(request_id: str, data: ServiceRequestStageUpdate, request: Request):
+    """Update service request stage (forward-only)"""
+    user = await get_current_user(request)
+    
+    sr = await db.service_requests.find_one({"service_request_id": request_id}, {"_id": 0})
+    if not sr:
+        raise HTTPException(status_code=404, detail="Service request not found")
+    
+    # Technicians can only update their assigned requests
+    if user.role == "Technician" and sr.get("assigned_technician_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    current_stage = sr.get("stage", "New")
+    new_stage = data.stage
+    
+    if new_stage not in SERVICE_REQUEST_STAGES:
+        raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {SERVICE_REQUEST_STAGES}")
+    
+    # Validate forward-only progression
+    current_index = SERVICE_REQUEST_STAGES.index(current_stage)
+    new_index = SERVICE_REQUEST_STAGES.index(new_stage)
+    
+    if new_index <= current_index:
+        raise HTTPException(status_code=400, detail="Can only move forward in stages")
+    
+    now = datetime.now(timezone.utc)
+    update_data = {
+        "stage": new_stage,
+        "updated_at": now.isoformat()
+    }
+    
+    # Handle specific stage transitions
+    if new_stage == "Technician Visited":
+        update_data["actual_visit_date"] = now.isoformat()
+    
+    if new_stage == "Closed":
+        update_data["actual_closure_date"] = now.isoformat()
+    
+    timeline_entry = {
+        "id": f"timeline_{uuid.uuid4().hex[:8]}",
+        "action": f"Stage updated: {current_stage} → {new_stage}",
+        "stage": new_stage,
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "notes": data.notes,
+        "timestamp": now.isoformat()
+    }
+    
+    await db.service_requests.update_one(
+        {"service_request_id": request_id},
+        {
+            "$set": update_data,
+            "$push": {"timeline": timeline_entry}
+        }
+    )
+    
+    return {
+        "success": True,
+        "stage": new_stage,
+        "message": f"Stage updated to {new_stage}"
+    }
+
+@api_router.put("/service-requests/{request_id}/expected-closure")
+async def set_expected_closure_date(request_id: str, data: ServiceRequestClosureDate, request: Request):
+    """Set expected closure date (by technician after inspection)"""
+    user = await get_current_user(request)
+    
+    sr = await db.service_requests.find_one({"service_request_id": request_id}, {"_id": 0})
+    if not sr:
+        raise HTTPException(status_code=404, detail="Service request not found")
+    
+    # Technicians can only update their assigned requests
+    if user.role == "Technician" and sr.get("assigned_technician_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    
+    timeline_entry = {
+        "id": f"timeline_{uuid.uuid4().hex[:8]}",
+        "action": f"Expected closure date set: {data.expected_closure_date}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "timestamp": now.isoformat()
+    }
+    
+    await db.service_requests.update_one(
+        {"service_request_id": request_id},
+        {
+            "$set": {
+                "expected_closure_date": data.expected_closure_date,
+                "updated_at": now.isoformat()
+            },
+            "$push": {"timeline": timeline_entry}
+        }
+    )
+    
+    return {
+        "success": True,
+        "expected_closure_date": data.expected_closure_date
+    }
+
+@api_router.post("/service-requests/{request_id}/delay")
+async def log_service_request_delay(request_id: str, data: ServiceRequestDelayUpdate, request: Request):
+    """Log a delay for a service request"""
+    user = await get_current_user(request)
+    
+    sr = await db.service_requests.find_one({"service_request_id": request_id}, {"_id": 0})
+    if not sr:
+        raise HTTPException(status_code=404, detail="Service request not found")
+    
+    if data.delay_reason not in SERVICE_DELAY_REASONS:
+        raise HTTPException(status_code=400, detail=f"Invalid delay reason. Must be one of: {SERVICE_DELAY_REASONS}")
+    
+    if data.delay_owner not in SERVICE_DELAY_OWNERS:
+        raise HTTPException(status_code=400, detail=f"Invalid delay owner. Must be one of: {SERVICE_DELAY_OWNERS}")
+    
+    now = datetime.now(timezone.utc)
+    
+    delay_entry = {
+        "id": f"delay_{uuid.uuid4().hex[:8]}",
+        "reason": data.delay_reason,
+        "owner": data.delay_owner,
+        "new_expected_date": data.new_expected_date,
+        "notes": data.notes,
+        "logged_by": user.user_id,
+        "logged_by_name": user.name,
+        "logged_at": now.isoformat()
+    }
+    
+    timeline_entry = {
+        "id": f"timeline_{uuid.uuid4().hex[:8]}",
+        "action": f"Delay logged: {data.delay_reason} (Owner: {data.delay_owner})",
+        "type": "delay",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "delay_reason": data.delay_reason,
+        "delay_owner": data.delay_owner,
+        "new_expected_date": data.new_expected_date,
+        "timestamp": now.isoformat()
+    }
+    
+    await db.service_requests.update_one(
+        {"service_request_id": request_id},
+        {
+            "$set": {
+                "last_delay_reason": data.delay_reason,
+                "last_delay_owner": data.delay_owner,
+                "expected_closure_date": data.new_expected_date,
+                "updated_at": now.isoformat()
+            },
+            "$inc": {"delay_count": 1},
+            "$push": {
+                "delays": delay_entry,
+                "timeline": timeline_entry
+            }
+        }
+    )
+    
+    return {
+        "success": True,
+        "message": "Delay logged successfully",
+        "delay_count": sr.get("delay_count", 0) + 1
+    }
+
+@api_router.post("/service-requests/{request_id}/photos")
+async def upload_service_photos(request_id: str, request: Request):
+    """Upload before/after photos"""
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    sr = await db.service_requests.find_one({"service_request_id": request_id}, {"_id": 0})
+    if not sr:
+        raise HTTPException(status_code=404, detail="Service request not found")
+    
+    # Technicians can only update their assigned requests
+    if user.role == "Technician" and sr.get("assigned_technician_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    photo_type = body.get("type")  # "before" or "after"
+    photo_url = body.get("url")
+    
+    if photo_type not in ["before", "after"]:
+        raise HTTPException(status_code=400, detail="Photo type must be 'before' or 'after'")
+    
+    if not photo_url:
+        raise HTTPException(status_code=400, detail="Photo URL is required")
+    
+    now = datetime.now(timezone.utc)
+    
+    photo_entry = {
+        "id": f"photo_{uuid.uuid4().hex[:8]}",
+        "url": photo_url,
+        "uploaded_by": user.user_id,
+        "uploaded_by_name": user.name,
+        "uploaded_at": now.isoformat()
+    }
+    
+    field = "before_photos" if photo_type == "before" else "after_photos"
+    
+    await db.service_requests.update_one(
+        {"service_request_id": request_id},
+        {
+            "$push": {field: photo_entry},
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    return {
+        "success": True,
+        "message": f"{photo_type.capitalize()} photo uploaded",
+        "photo": photo_entry
+    }
+
+@api_router.post("/service-requests/{request_id}/notes")
+async def add_technician_note(request_id: str, request: Request):
+    """Add a technician note"""
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    sr = await db.service_requests.find_one({"service_request_id": request_id}, {"_id": 0})
+    if not sr:
+        raise HTTPException(status_code=404, detail="Service request not found")
+    
+    note_text = body.get("note")
+    if not note_text:
+        raise HTTPException(status_code=400, detail="Note text is required")
+    
+    now = datetime.now(timezone.utc)
+    
+    note_entry = {
+        "id": f"note_{uuid.uuid4().hex[:8]}",
+        "note": note_text,
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "created_at": now.isoformat()
+    }
+    
+    timeline_entry = {
+        "id": f"timeline_{uuid.uuid4().hex[:8]}",
+        "action": f"Note added: {note_text[:50]}...",
+        "type": "note",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "timestamp": now.isoformat()
+    }
+    
+    await db.service_requests.update_one(
+        {"service_request_id": request_id},
+        {
+            "$push": {
+                "technician_notes": note_entry,
+                "timeline": timeline_entry
+            },
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    return {
+        "success": True,
+        "note": note_entry
+    }
+
+@api_router.post("/service-requests/{request_id}/comments")
+async def add_service_request_comment(request_id: str, request: Request):
+    """Add a comment to service request"""
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    sr = await db.service_requests.find_one({"service_request_id": request_id}, {"_id": 0})
+    if not sr:
+        raise HTTPException(status_code=404, detail="Service request not found")
+    
+    message = body.get("message")
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required")
+    
+    now = datetime.now(timezone.utc)
+    
+    comment = {
+        "id": f"comment_{uuid.uuid4().hex[:8]}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "role": user.role,
+        "message": message,
+        "created_at": now.isoformat()
+    }
+    
+    await db.service_requests.update_one(
+        {"service_request_id": request_id},
+        {
+            "$push": {"comments": comment},
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    return comment
+
+@api_router.get("/technicians")
+async def list_technicians(request: Request):
+    """List all technicians"""
+    user = await get_current_user(request)
+    
+    technicians = await db.users.find(
+        {"role": "Technician", "status": "Active"},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "phone": 1}
+    ).to_list(100)
+    
+    # Add service request counts
+    for tech in technicians:
+        open_count = await db.service_requests.count_documents({
+            "assigned_technician_id": tech["user_id"],
+            "stage": {"$nin": ["Completed", "Closed"]}
+        })
+        tech["open_requests"] = open_count
+    
+    return technicians
+
+
 # ============ HEALTH CHECK ============
 
 @api_router.get("/")
