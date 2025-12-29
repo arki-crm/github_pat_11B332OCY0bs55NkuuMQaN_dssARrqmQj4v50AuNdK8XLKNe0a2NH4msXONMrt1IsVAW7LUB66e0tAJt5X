@@ -4101,6 +4101,238 @@ db.user_sessions.insertOne({{
             return success and has_message, response_data
         return success, response_data
 
+    # ============ REPORTS & ANALYTICS ENDPOINTS TESTS ============
+
+    def test_revenue_report_admin(self):
+        """Test GET /api/reports/revenue - Revenue Forecast report (Admin/Manager only)"""
+        success, revenue_data = self.run_test("Revenue Report (Admin)", "GET", "api/reports/revenue", 200,
+                                             auth_token=self.admin_token)
+        if success:
+            # Verify revenue report structure
+            required_fields = ['total_forecast', 'expected_this_month', 'total_pending', 'projects_count', 
+                             'stage_wise_revenue', 'milestone_projection', 'pending_collections']
+            has_all_fields = all(field in revenue_data for field in required_fields)
+            
+            print(f"   Has all required fields: {has_all_fields}")
+            print(f"   Total forecast: {revenue_data.get('total_forecast', 'N/A')}")
+            print(f"   Expected this month: {revenue_data.get('expected_this_month', 'N/A')}")
+            print(f"   Projects count: {revenue_data.get('projects_count', 'N/A')}")
+            
+            # Check milestone projection structure
+            milestone_projection = revenue_data.get('milestone_projection', {})
+            expected_milestones = ['Design Booking', 'Production Start', 'Before Installation']
+            has_milestone_structure = all(milestone in milestone_projection for milestone in expected_milestones)
+            print(f"   Has milestone projection structure: {has_milestone_structure}")
+            
+            return success and has_all_fields and has_milestone_structure, revenue_data
+        return success, revenue_data
+
+    def test_revenue_report_designer_denied(self):
+        """Test GET /api/reports/revenue with Designer token (should fail)"""
+        return self.run_test("Revenue Report (Designer - Should Fail)", "GET", "api/reports/revenue", 403,
+                           auth_token=self.designer_token)
+
+    def test_projects_report_admin(self):
+        """Test GET /api/reports/projects - Project Health report (Admin/Manager only)"""
+        success, projects_data = self.run_test("Projects Report (Admin)", "GET", "api/reports/projects", 200,
+                                              auth_token=self.admin_token)
+        if success:
+            # Verify projects report structure
+            required_fields = ['total_projects', 'total_active', 'on_track_count', 'delayed_count', 
+                             'avg_delay_days', 'projects_by_stage', 'project_details']
+            has_all_fields = all(field in projects_data for field in required_fields)
+            
+            print(f"   Has all required fields: {has_all_fields}")
+            print(f"   Total projects: {projects_data.get('total_projects', 'N/A')}")
+            print(f"   Total active: {projects_data.get('total_active', 'N/A')}")
+            print(f"   On track count: {projects_data.get('on_track_count', 'N/A')}")
+            print(f"   Delayed count: {projects_data.get('delayed_count', 'N/A')}")
+            
+            # Check project details structure
+            project_details = projects_data.get('project_details', [])
+            if project_details:
+                first_project = project_details[0]
+                detail_fields = ['project_id', 'project_name', 'client_name', 'designer', 'stage', 
+                               'delay_status', 'delay_days', 'payment_status']
+                has_detail_structure = all(field in first_project for field in detail_fields)
+                print(f"   Has project detail structure: {has_detail_structure}")
+                return success and has_all_fields and has_detail_structure, projects_data
+            
+            return success and has_all_fields, projects_data
+        return success, projects_data
+
+    def test_projects_report_designer_denied(self):
+        """Test GET /api/reports/projects with Designer token (should fail)"""
+        return self.run_test("Projects Report (Designer - Should Fail)", "GET", "api/reports/projects", 403,
+                           auth_token=self.designer_token)
+
+    def test_leads_report_admin(self):
+        """Test GET /api/reports/leads - Lead Conversion report (Admin/Manager/PreSales only)"""
+        success, leads_data = self.run_test("Leads Report (Admin)", "GET", "api/reports/leads", 200,
+                                           auth_token=self.admin_token)
+        if success:
+            # Verify leads report structure
+            required_fields = ['total_leads', 'qualified_count', 'converted_count', 'lost_count', 
+                             'conversion_rate', 'avg_cycle_time', 'source_performance', 'presales_performance']
+            has_all_fields = all(field in leads_data for field in required_fields)
+            
+            print(f"   Has all required fields: {has_all_fields}")
+            print(f"   Total leads: {leads_data.get('total_leads', 'N/A')}")
+            print(f"   Qualified count: {leads_data.get('qualified_count', 'N/A')}")
+            print(f"   Conversion rate: {leads_data.get('conversion_rate', 'N/A')}%")
+            
+            # Check source performance structure
+            source_performance = leads_data.get('source_performance', {})
+            if source_performance:
+                first_source = list(source_performance.values())[0]
+                source_fields = ['total', 'qualified', 'converted', 'lost']
+                has_source_structure = all(field in first_source for field in source_fields)
+                print(f"   Has source performance structure: {has_source_structure}")
+                return success and has_all_fields and has_source_structure, leads_data
+            
+            return success and has_all_fields, leads_data
+        return success, leads_data
+
+    def test_leads_report_presales_access(self):
+        """Test GET /api/reports/leads with PreSales token (should work)"""
+        # Create a PreSales user for testing
+        presales_user_id = f"test-presales-{uuid.uuid4().hex[:8]}"
+        presales_session_token = f"test_presales_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{presales_user_id}",
+  email: "presales.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test PreSales",
+  picture: "https://via.placeholder.com/150",
+  role: "PreSales",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{presales_user_id}",
+  session_token: "{presales_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                return self.run_test("Leads Report (PreSales)", "GET", "api/reports/leads", 200,
+                                   auth_token=presales_session_token)
+            else:
+                print(f"❌ Failed to create PreSales user: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing PreSales access: {str(e)}")
+            return False, {}
+
+    def test_leads_report_designer_denied(self):
+        """Test GET /api/reports/leads with Designer token (should fail)"""
+        return self.run_test("Leads Report (Designer - Should Fail)", "GET", "api/reports/leads", 403,
+                           auth_token=self.designer_token)
+
+    def test_designers_report_admin(self):
+        """Test GET /api/reports/designers - Designer Performance report (Admin/Manager only)"""
+        success, designers_data = self.run_test("Designers Report (Admin)", "GET", "api/reports/designers", 200,
+                                               auth_token=self.admin_token)
+        if success:
+            # Verify designers report structure
+            required_fields = ['summary', 'designers']
+            has_all_fields = all(field in designers_data for field in required_fields)
+            
+            print(f"   Has all required fields: {has_all_fields}")
+            
+            # Check summary structure
+            summary = designers_data.get('summary', {})
+            summary_fields = ['total_designers', 'total_projects', 'total_revenue', 'on_time_percentage']
+            has_summary_structure = all(field in summary for field in summary_fields)
+            print(f"   Has summary structure: {has_summary_structure}")
+            print(f"   Total designers: {summary.get('total_designers', 'N/A')}")
+            print(f"   On time percentage: {summary.get('on_time_percentage', 'N/A')}%")
+            
+            # Check designers array structure
+            designers = designers_data.get('designers', [])
+            if designers:
+                first_designer = designers[0]
+                designer_fields = ['user_id', 'name', 'project_count', 'revenue_contribution', 
+                                 'on_time_milestones', 'delayed_milestones']
+                has_designer_structure = all(field in first_designer for field in designer_fields)
+                print(f"   Has designer structure: {has_designer_structure}")
+                print(f"   Designers count: {len(designers)}")
+                return success and has_all_fields and has_summary_structure and has_designer_structure, designers_data
+            
+            return success and has_all_fields and has_summary_structure, designers_data
+        return success, designers_data
+
+    def test_designers_report_designer_own_data(self):
+        """Test GET /api/reports/designers with Designer token (should see own data only)"""
+        success, designers_data = self.run_test("Designers Report (Designer - Own Data)", "GET", "api/reports/designers", 200,
+                                               auth_token=self.designer_token)
+        if success:
+            # Designer should only see their own data
+            designers = designers_data.get('designers', [])
+            print(f"   Designers visible to Designer: {len(designers)} (should be 1)")
+            
+            if designers:
+                designer = designers[0]
+                is_own_data = designer.get('user_id') == self.designer_user_id
+                print(f"   Is own data: {is_own_data}")
+                return success and len(designers) == 1 and is_own_data, designers_data
+            
+            return success and len(designers) <= 1, designers_data
+        return success, designers_data
+
+    def test_delays_report_admin(self):
+        """Test GET /api/reports/delays - Delay Analytics report (Admin/Manager only)"""
+        success, delays_data = self.run_test("Delays Report (Admin)", "GET", "api/reports/delays", 200,
+                                            auth_token=self.admin_token)
+        if success:
+            # Verify delays report structure
+            required_fields = ['total_delays', 'projects_with_delays', 'stage_analysis', 'designer_analysis', 
+                             'monthly_trend', 'delay_reasons', 'top_delayed_projects']
+            has_all_fields = all(field in delays_data for field in required_fields)
+            
+            print(f"   Has all required fields: {has_all_fields}")
+            print(f"   Total delays: {delays_data.get('total_delays', 'N/A')}")
+            print(f"   Projects with delays: {delays_data.get('projects_with_delays', 'N/A')}")
+            
+            # Check stage analysis structure
+            stage_analysis = delays_data.get('stage_analysis', [])
+            if stage_analysis:
+                first_stage = stage_analysis[0]
+                stage_fields = ['stage', 'delay_count', 'total_delay_days', 'avg_delay_days']
+                has_stage_structure = all(field in first_stage for field in stage_fields)
+                print(f"   Has stage analysis structure: {has_stage_structure}")
+            else:
+                has_stage_structure = True  # Empty is valid
+                print(f"   Stage analysis is empty (valid)")
+            
+            # Check top delayed projects structure
+            top_delayed = delays_data.get('top_delayed_projects', [])
+            if top_delayed:
+                first_project = top_delayed[0]
+                project_fields = ['project_id', 'project_name', 'designer', 'delay_count', 'total_delay_days']
+                has_project_structure = all(field in first_project for field in project_fields)
+                print(f"   Has delayed project structure: {has_project_structure}")
+            else:
+                has_project_structure = True  # Empty is valid
+                print(f"   Top delayed projects is empty (valid)")
+            
+            return success and has_all_fields and has_stage_structure and has_project_structure, delays_data
+        return success, delays_data
+
+    def test_delays_report_designer_denied(self):
+        """Test GET /api/reports/delays with Designer token (should fail)"""
+        return self.run_test("Delays Report (Designer - Should Fail)", "GET", "api/reports/delays", 403,
+                           auth_token=self.designer_token)
+
     def cleanup_test_data(self):
         """Clean up test data from MongoDB"""
         print("\n🧹 Cleaning up test data...")
