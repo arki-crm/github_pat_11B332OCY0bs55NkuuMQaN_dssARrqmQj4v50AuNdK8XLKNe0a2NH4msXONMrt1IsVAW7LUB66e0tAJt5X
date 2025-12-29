@@ -70,6 +70,12 @@ const AppRouter = () => {
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/meetings" element={<Meetings />} />
+        <Route path="/reports" element={<Reports />} />
+        <Route path="/reports/revenue" element={<RevenueReport />} />
+        <Route path="/reports/projects" element={<ProjectReport />} />
+        <Route path="/reports/leads" element={<LeadReport />} />
+        <Route path="/reports/designers" element={<DesignerReport />} />
+        <Route path="/reports/delays" element={<DelayReport />} />
       </Route>
 
       {/* Redirect root to dashboard */}
