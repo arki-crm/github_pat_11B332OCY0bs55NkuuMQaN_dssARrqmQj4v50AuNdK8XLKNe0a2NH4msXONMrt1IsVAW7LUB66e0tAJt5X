@@ -6201,6 +6201,1594 @@ async def get_delays_report(request: Request):
     }
 
 
+# ============ DESIGN WORKFLOW SYSTEM - MODELS ============
+
+class DesignProjectCreate(BaseModel):
+    project_id: str  # Link to main project
+    designer_id: str
+    is_referral: bool = False
+    referral_source: Optional[str] = None
+
+class DesignStageUpdate(BaseModel):
+    stage: str
+    notes: Optional[str] = None
+
+class DesignTaskUpdate(BaseModel):
+    status: str  # Pending, In Progress, Completed
+    notes: Optional[str] = None
+
+class MeasurementRequest(BaseModel):
+    project_id: str
+    notes: Optional[str] = None
+    assigned_to: Optional[str] = None
+
+class DesignMeetingCreate(BaseModel):
+    project_id: str
+    meeting_type: str  # floor_plan, presentation, review, material, kickoff
+    date: str
+    start_time: str
+    end_time: str
+    notes: Optional[str] = None
+    generate_meet_link: bool = True
+
+class ValidationRequest(BaseModel):
+    status: str  # approved, rejected, needs_revision
+    notes: Optional[str] = None
+
+# ============ DESIGN WORKFLOW HELPER FUNCTIONS ============
+
+async def create_design_auto_tasks(design_project_id: str, stage: str, designer_id: str):
+    """Auto-create tasks when design stage changes"""
+    stage_config = DESIGN_STAGE_CONFIG.get(stage)
+    if not stage_config:
+        return []
+    
+    created_tasks = []
+    auto_tasks = stage_config.get("auto_tasks", [])
+    now = datetime.now(timezone.utc)
+    
+    cumulative_days = 0
+    for task_title in auto_tasks:
+        template = DESIGN_TASK_TEMPLATES.get(task_title, {})
+        duration = template.get("duration_days", 1)
+        cumulative_days += duration
+        
+        # Determine assignee based on template
+        assigned_role = template.get("assigned_to_role", "Designer")
+        assigned_to = designer_id
+        
+        if assigned_role == "DesignManager":
+            # Find a design manager
+            manager = await db.users.find_one(
+                {"role": "DesignManager", "status": "Active"},
+                {"_id": 0, "user_id": 1}
+            )
+            if manager:
+                assigned_to = manager["user_id"]
+        elif assigned_role == "ProductionManager":
+            # Find production manager
+            pm = await db.users.find_one(
+                {"role": "ProductionManager", "status": "Active"},
+                {"_id": 0, "user_id": 1}
+            )
+            if pm:
+                assigned_to = pm["user_id"]
+        
+        task = {
+            "id": f"dtask_{uuid.uuid4().hex[:8]}",
+            "design_project_id": design_project_id,
+            "title": task_title,
+            "description": template.get("description", ""),
+            "priority": template.get("priority", "Medium"),
+            "status": "Pending",
+            "stage": stage,
+            "assigned_to": assigned_to,
+            "due_date": (now + timedelta(days=cumulative_days)).isoformat(),
+            "creates_meeting": template.get("creates_meeting", False),
+            "auto_generated": True,
+            "started_at": None,
+            "completed_at": None,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        
+        await db.design_tasks.insert_one(task)
+        created_tasks.append(task)
+    
+    return created_tasks
+
+async def create_design_notification(user_ids: list, title: str, message: str, link_url: str = None, notif_type: str = "design"):
+    """Create in-app notifications for design workflow"""
+    now = datetime.now(timezone.utc).isoformat()
+    
+    for user_id in user_ids:
+        notification = {
+            "id": f"notif_{uuid.uuid4().hex[:8]}",
+            "user_id": user_id,
+            "title": title,
+            "message": message,
+            "type": notif_type,
+            "link_url": link_url,
+            "is_read": False,
+            "created_at": now
+        }
+        await db.notifications.insert_one(notification)
+
+async def notify_design_managers(design_project_id: str, message: str, link_url: str = None):
+    """Notify all design managers about a design project event"""
+    managers = await db.users.find(
+        {"role": "DesignManager", "status": "Active"},
+        {"_id": 0, "user_id": 1}
+    ).to_list(100)
+    
+    user_ids = [m["user_id"] for m in managers]
+    if user_ids:
+        await create_design_notification(
+            user_ids, 
+            "Design Project Update", 
+            message,
+            link_url,
+            "design"
+        )
+
+async def notify_production_managers(design_project_id: str, message: str, link_url: str = None):
+    """Notify production managers about validation/handoff events"""
+    managers = await db.users.find(
+        {"role": "ProductionManager", "status": "Active"},
+        {"_id": 0, "user_id": 1}
+    ).to_list(100)
+    
+    user_ids = [m["user_id"] for m in managers]
+    if user_ids:
+        await create_design_notification(
+            user_ids,
+            "Production Pipeline Update",
+            message,
+            link_url,
+            "production"
+        )
+
+async def check_and_notify_delays(design_project_id: str):
+    """Check for delayed tasks and notify managers"""
+    now = datetime.now(timezone.utc)
+    
+    # Find overdue tasks
+    design_project = await db.design_projects.find_one(
+        {"id": design_project_id},
+        {"_id": 0}
+    )
+    
+    if not design_project:
+        return
+    
+    overdue_tasks = await db.design_tasks.find({
+        "design_project_id": design_project_id,
+        "status": {"$ne": "Completed"},
+        "due_date": {"$lt": now.isoformat()}
+    }, {"_id": 0}).to_list(100)
+    
+    if overdue_tasks:
+        project = await db.projects.find_one(
+            {"project_id": design_project.get("project_id")},
+            {"_id": 0, "project_name": 1}
+        )
+        project_name = project.get("project_name", "Unknown") if project else "Unknown"
+        
+        await notify_design_managers(
+            design_project_id,
+            f"Project '{project_name}' has {len(overdue_tasks)} overdue task(s)",
+            f"/design-board/{design_project_id}"
+        )
+
+def generate_meet_link():
+    """Generate a placeholder Google Meet link"""
+    meeting_id = uuid.uuid4().hex[:12]
+    # Placeholder format - in future can integrate with real Google Meet API
+    return f"https://meet.google.com/{meeting_id[:3]}-{meeting_id[3:7]}-{meeting_id[7:11]}"
+
+# ============ DESIGN WORKFLOW ENDPOINTS ============
+
+@api_router.post("/design-projects")
+async def create_design_project(data: DesignProjectCreate, request: Request):
+    """Initialize design workflow for a project after booking"""
+    user = await get_current_user(request)
+    
+    # Check permissions
+    if user.role not in ["Admin", "Manager", "DesignManager", "HybridDesigner"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Check if project exists
+    project = await db.projects.find_one(
+        {"project_id": data.project_id},
+        {"_id": 0}
+    )
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check if design project already exists
+    existing = await db.design_projects.find_one(
+        {"project_id": data.project_id},
+        {"_id": 0}
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="Design workflow already initialized for this project")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create design project
+    design_project = {
+        "id": f"dp_{uuid.uuid4().hex[:8]}",
+        "project_id": data.project_id,
+        "designer_id": data.designer_id,
+        "current_stage": DESIGN_WORKFLOW_STAGES[0],  # Start at "Measurement Required"
+        "stage_history": [{
+            "stage": DESIGN_WORKFLOW_STAGES[0],
+            "entered_at": now.isoformat(),
+            "completed_at": None,
+            "notes": "Design workflow initialized"
+        }],
+        "is_referral": data.is_referral,
+        "referral_source": data.referral_source,
+        "status": "active",  # active, paused, completed
+        "files": [],  # Design files per stage
+        "meetings": [],  # Meeting history
+        "created_by": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.design_projects.insert_one(design_project)
+    
+    # Auto-create tasks for first stage
+    await create_design_auto_tasks(
+        design_project["id"],
+        DESIGN_WORKFLOW_STAGES[0],
+        data.designer_id
+    )
+    
+    # Notify design manager
+    await notify_design_managers(
+        design_project["id"],
+        f"New design project started: {project.get('project_name', 'Unknown')}",
+        f"/design-board/{design_project['id']}"
+    )
+    
+    # If referral, also notify for special handling
+    if data.is_referral:
+        await notify_design_managers(
+            design_project["id"],
+            f"Referral project requires attention: {project.get('project_name', 'Unknown')} from {data.referral_source}",
+            f"/design-board/{design_project['id']}"
+        )
+    
+    return {**design_project, "_id": None}
+
+@api_router.get("/design-projects")
+async def list_design_projects(
+    request: Request,
+    status: Optional[str] = None,
+    designer_id: Optional[str] = None,
+    is_referral: Optional[bool] = None
+):
+    """List design projects with role-based access"""
+    user = await get_current_user(request)
+    
+    query = {}
+    
+    # Role-based filtering
+    if user.role in ["Designer", "HybridDesigner"]:
+        # See only their own projects
+        query["designer_id"] = user.user_id
+    elif user.role == "ProductionManager":
+        # See only projects in validation/kickoff stage
+        query["current_stage"] = "Validation & Kickoff"
+    # Admin, Manager, DesignManager see all
+    
+    if status and status != "all":
+        query["status"] = status
+    
+    if designer_id and user.role in ["Admin", "Manager", "DesignManager"]:
+        query["designer_id"] = designer_id
+    
+    if is_referral is not None:
+        query["is_referral"] = is_referral
+    
+    design_projects = await db.design_projects.find(query, {"_id": 0}).to_list(1000)
+    
+    # Enrich with project details
+    for dp in design_projects:
+        project = await db.projects.find_one(
+            {"project_id": dp.get("project_id")},
+            {"_id": 0, "project_name": 1, "client_name": 1, "client_phone": 1}
+        )
+        dp["project"] = project
+        
+        # Get designer details
+        designer = await db.users.find_one(
+            {"user_id": dp.get("designer_id")},
+            {"_id": 0, "name": 1, "picture": 1}
+        )
+        dp["designer"] = designer
+        
+        # Get task counts
+        total_tasks = await db.design_tasks.count_documents({"design_project_id": dp["id"]})
+        completed_tasks = await db.design_tasks.count_documents({
+            "design_project_id": dp["id"],
+            "status": "Completed"
+        })
+        dp["tasks_total"] = total_tasks
+        dp["tasks_completed"] = completed_tasks
+        
+        # Check for delays
+        now = datetime.now(timezone.utc)
+        overdue_tasks = await db.design_tasks.count_documents({
+            "design_project_id": dp["id"],
+            "status": {"$ne": "Completed"},
+            "due_date": {"$lt": now.isoformat()}
+        })
+        dp["has_delays"] = overdue_tasks > 0
+        dp["overdue_count"] = overdue_tasks
+    
+    return design_projects
+
+@api_router.get("/design-projects/{design_project_id}")
+async def get_design_project(design_project_id: str, request: Request):
+    """Get design project details"""
+    user = await get_current_user(request)
+    
+    design_project = await db.design_projects.find_one(
+        {"id": design_project_id},
+        {"_id": 0}
+    )
+    
+    if not design_project:
+        raise HTTPException(status_code=404, detail="Design project not found")
+    
+    # Check access
+    if user.role in ["Designer", "HybridDesigner"]:
+        if design_project.get("designer_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Enrich with project details
+    project = await db.projects.find_one(
+        {"project_id": design_project.get("project_id")},
+        {"_id": 0}
+    )
+    design_project["project"] = project
+    
+    # Get designer details  
+    designer = await db.users.find_one(
+        {"user_id": design_project.get("designer_id")},
+        {"_id": 0, "name": 1, "picture": 1, "email": 1}
+    )
+    design_project["designer"] = designer
+    
+    # Get all tasks for this design project
+    tasks = await db.design_tasks.find(
+        {"design_project_id": design_project_id},
+        {"_id": 0}
+    ).to_list(100)
+    design_project["tasks"] = tasks
+    
+    # Get meetings for this design project
+    meetings = await db.design_meetings.find(
+        {"design_project_id": design_project_id},
+        {"_id": 0}
+    ).to_list(100)
+    design_project["meetings"] = meetings
+    
+    return design_project
+
+@api_router.put("/design-projects/{design_project_id}/stage")
+async def update_design_stage(
+    design_project_id: str,
+    stage_update: DesignStageUpdate,
+    request: Request
+):
+    """Move design project to next stage - triggers auto-task creation"""
+    user = await get_current_user(request)
+    
+    design_project = await db.design_projects.find_one(
+        {"id": design_project_id},
+        {"_id": 0}
+    )
+    
+    if not design_project:
+        raise HTTPException(status_code=404, detail="Design project not found")
+    
+    # Check permissions
+    if user.role in ["Designer", "HybridDesigner"]:
+        if design_project.get("designer_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user.role not in ["Admin", "Manager", "DesignManager", "ProductionManager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    new_stage = stage_update.stage
+    if new_stage not in DESIGN_WORKFLOW_STAGES:
+        raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {DESIGN_WORKFLOW_STAGES}")
+    
+    old_stage = design_project.get("current_stage")
+    now = datetime.now(timezone.utc)
+    
+    # Update stage history
+    stage_history = design_project.get("stage_history", [])
+    
+    # Mark previous stage as completed
+    if stage_history:
+        stage_history[-1]["completed_at"] = now.isoformat()
+    
+    # Add new stage entry
+    stage_history.append({
+        "stage": new_stage,
+        "entered_at": now.isoformat(),
+        "completed_at": None,
+        "notes": stage_update.notes or f"Moved from {old_stage}"
+    })
+    
+    # Update design project
+    await db.design_projects.update_one(
+        {"id": design_project_id},
+        {"$set": {
+            "current_stage": new_stage,
+            "stage_history": stage_history,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Auto-create tasks for new stage
+    await create_design_auto_tasks(
+        design_project_id,
+        new_stage,
+        design_project.get("designer_id")
+    )
+    
+    # Get project name for notifications
+    project = await db.projects.find_one(
+        {"project_id": design_project.get("project_id")},
+        {"_id": 0, "project_name": 1}
+    )
+    project_name = project.get("project_name", "Unknown") if project else "Unknown"
+    
+    # Notify based on stage
+    stage_config = DESIGN_STAGE_CONFIG.get(new_stage, {})
+    notify_roles = stage_config.get("notify_roles", [])
+    
+    if "DesignManager" in notify_roles:
+        await notify_design_managers(
+            design_project_id,
+            f"Project '{project_name}' moved to {new_stage}",
+            f"/design-board/{design_project_id}"
+        )
+    
+    if "ProductionManager" in notify_roles:
+        await notify_production_managers(
+            design_project_id,
+            f"Project '{project_name}' ready for {new_stage}",
+            f"/validation/{design_project_id}"
+        )
+    
+    # Add system comment to main project
+    comment = {
+        "id": f"cm_{uuid.uuid4().hex[:8]}",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": f"Design workflow moved from '{old_stage}' to '{new_stage}'" + (f" - {stage_update.notes}" if stage_update.notes else ""),
+        "is_system": True,
+        "created_at": now.isoformat()
+    }
+    
+    await db.projects.update_one(
+        {"project_id": design_project.get("project_id")},
+        {"$push": {"comments": comment}}
+    )
+    
+    return {"message": "Stage updated", "new_stage": new_stage}
+
+@api_router.get("/design-tasks")
+async def list_design_tasks(
+    request: Request,
+    design_project_id: Optional[str] = None,
+    status: Optional[str] = None,
+    assigned_to: Optional[str] = None
+):
+    """List design tasks for Kanban board"""
+    user = await get_current_user(request)
+    
+    query = {}
+    
+    # Role-based filtering
+    if user.role in ["Designer", "HybridDesigner"]:
+        query["assigned_to"] = user.user_id
+    elif user.role == "ProductionManager":
+        # See only validation-related tasks
+        query["stage"] = "Validation & Kickoff"
+    
+    if design_project_id:
+        query["design_project_id"] = design_project_id
+    
+    if status and status != "all":
+        query["status"] = status
+    
+    if assigned_to and user.role in ["Admin", "Manager", "DesignManager"]:
+        query["assigned_to"] = assigned_to
+    
+    tasks = await db.design_tasks.find(query, {"_id": 0}).to_list(1000)
+    
+    # Enrich with assignee details
+    for task in tasks:
+        assignee = await db.users.find_one(
+            {"user_id": task.get("assigned_to")},
+            {"_id": 0, "name": 1, "picture": 1}
+        )
+        task["assignee"] = assignee
+        
+        # Get design project details
+        dp = await db.design_projects.find_one(
+            {"id": task.get("design_project_id")},
+            {"_id": 0, "project_id": 1}
+        )
+        if dp:
+            project = await db.projects.find_one(
+                {"project_id": dp.get("project_id")},
+                {"_id": 0, "project_name": 1, "client_name": 1}
+            )
+            task["project"] = project
+        
+        # Check if overdue
+        if task.get("due_date") and task.get("status") != "Completed":
+            due = datetime.fromisoformat(task["due_date"].replace("Z", "+00:00"))
+            if due.tzinfo is None:
+                due = due.replace(tzinfo=timezone.utc)
+            task["is_overdue"] = due < datetime.now(timezone.utc)
+        else:
+            task["is_overdue"] = False
+    
+    return tasks
+
+@api_router.put("/design-tasks/{task_id}")
+async def update_design_task(task_id: str, update: DesignTaskUpdate, request: Request):
+    """Update design task status (1-click complete)"""
+    user = await get_current_user(request)
+    
+    task = await db.design_tasks.find_one({"id": task_id}, {"_id": 0})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Check permissions
+    if user.role in ["Designer", "HybridDesigner"]:
+        if task.get("assigned_to") != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    update_data = {"updated_at": now.isoformat()}
+    
+    if update.status:
+        update_data["status"] = update.status
+        
+        if update.status == "In Progress" and not task.get("started_at"):
+            update_data["started_at"] = now.isoformat()
+        
+        if update.status == "Completed":
+            update_data["completed_at"] = now.isoformat()
+    
+    if update.notes:
+        update_data["notes"] = update.notes
+    
+    await db.design_tasks.update_one(
+        {"id": task_id},
+        {"$set": update_data}
+    )
+    
+    # Check if all tasks in current stage are complete
+    design_project = await db.design_projects.find_one(
+        {"id": task.get("design_project_id")},
+        {"_id": 0}
+    )
+    
+    if design_project and update.status == "Completed":
+        current_stage = design_project.get("current_stage")
+        pending_tasks = await db.design_tasks.count_documents({
+            "design_project_id": task.get("design_project_id"),
+            "stage": current_stage,
+            "status": {"$ne": "Completed"}
+        })
+        
+        # If all tasks complete and task was just completed, check for auto-advance
+        if pending_tasks == 0:
+            project = await db.projects.find_one(
+                {"project_id": design_project.get("project_id")},
+                {"_id": 0, "project_name": 1}
+            )
+            project_name = project.get("project_name", "Unknown") if project else "Unknown"
+            
+            await notify_design_managers(
+                design_project["id"],
+                f"All tasks complete for '{project_name}' in stage '{current_stage}'. Ready to move forward.",
+                f"/design-board/{design_project['id']}"
+            )
+    
+    return {"message": "Task updated", "id": task_id}
+
+@api_router.post("/design-projects/{design_project_id}/measurement-request")
+async def create_measurement_request(design_project_id: str, data: MeasurementRequest, request: Request):
+    """Create measurement request - auto-creates task and notifies team"""
+    user = await get_current_user(request)
+    
+    design_project = await db.design_projects.find_one(
+        {"id": design_project_id},
+        {"_id": 0}
+    )
+    
+    if not design_project:
+        raise HTTPException(status_code=404, detail="Design project not found")
+    
+    # Check permissions
+    if user.role not in ["Admin", "Manager", "DesignManager", "Designer", "HybridDesigner"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create measurement request record
+    measurement_request = {
+        "id": f"mreq_{uuid.uuid4().hex[:8]}",
+        "design_project_id": design_project_id,
+        "project_id": design_project.get("project_id"),
+        "requested_by": user.user_id,
+        "assigned_to": data.assigned_to or design_project.get("designer_id"),
+        "notes": data.notes,
+        "status": "pending",  # pending, in_progress, completed
+        "files": [],
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.measurement_requests.insert_one(measurement_request)
+    
+    # Create associated task
+    task = {
+        "id": f"dtask_{uuid.uuid4().hex[:8]}",
+        "design_project_id": design_project_id,
+        "title": "Complete Site Measurement",
+        "description": f"Site measurement requested. {data.notes or ''}".strip(),
+        "priority": "High",
+        "status": "Pending",
+        "stage": "Measurement Required",
+        "assigned_to": data.assigned_to or design_project.get("designer_id"),
+        "due_date": (now + timedelta(days=2)).isoformat(),
+        "measurement_request_id": measurement_request["id"],
+        "auto_generated": True,
+        "started_at": None,
+        "completed_at": None,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.design_tasks.insert_one(task)
+    
+    # Notify assigned person
+    await create_design_notification(
+        [data.assigned_to or design_project.get("designer_id")],
+        "Measurement Request",
+        f"Site measurement has been requested",
+        f"/design-board/{design_project_id}"
+    )
+    
+    return {"message": "Measurement request created", "request": measurement_request}
+
+@api_router.post("/design-projects/{design_project_id}/upload")
+async def upload_design_file(design_project_id: str, request: Request):
+    """Upload design file with auto-stage completion check"""
+    user = await get_current_user(request)
+    
+    design_project = await db.design_projects.find_one(
+        {"id": design_project_id},
+        {"_id": 0}
+    )
+    
+    if not design_project:
+        raise HTTPException(status_code=404, detail="Design project not found")
+    
+    # Check permissions
+    if user.role in ["Designer", "HybridDesigner"]:
+        if design_project.get("designer_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    body = await request.json()
+    file_name = body.get("file_name")
+    file_url = body.get("file_url")
+    file_type = body.get("file_type", "other")  # measurement, floor_plan, design, production_drawing, etc.
+    stage = body.get("stage") or design_project.get("current_stage")
+    
+    now = datetime.now(timezone.utc)
+    
+    file_record = {
+        "id": f"dfile_{uuid.uuid4().hex[:8]}",
+        "file_name": file_name,
+        "file_url": file_url,
+        "file_type": file_type,
+        "stage": stage,
+        "uploaded_by": user.user_id,
+        "uploaded_by_name": user.name,
+        "uploaded_at": now.isoformat()
+    }
+    
+    # Add file to design project
+    await db.design_projects.update_one(
+        {"id": design_project_id},
+        {
+            "$push": {"files": file_record},
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    # Check if this completes a measurement request
+    if file_type == "measurement":
+        await db.measurement_requests.update_one(
+            {"design_project_id": design_project_id, "status": "pending"},
+            {"$set": {"status": "completed", "updated_at": now.isoformat()}, "$push": {"files": file_record}}
+        )
+        
+        # Mark measurement tasks as complete
+        await db.design_tasks.update_many(
+            {
+                "design_project_id": design_project_id,
+                "title": {"$regex": "measurement", "$options": "i"},
+                "status": {"$ne": "Completed"}
+            },
+            {"$set": {"status": "Completed", "completed_at": now.isoformat()}}
+        )
+    
+    # Check required uploads for stage completion
+    stage_config = DESIGN_STAGE_CONFIG.get(stage, {})
+    required_uploads = stage_config.get("required_uploads", [])
+    
+    if file_type in required_uploads:
+        # Get all files for this stage
+        updated_dp = await db.design_projects.find_one(
+            {"id": design_project_id},
+            {"_id": 0, "files": 1}
+        )
+        
+        stage_files = [f for f in updated_dp.get("files", []) if f.get("stage") == stage]
+        stage_file_types = [f.get("file_type") for f in stage_files]
+        
+        # Check if all required uploads are present
+        all_uploaded = all(req in stage_file_types for req in required_uploads)
+        
+        if all_uploaded:
+            project = await db.projects.find_one(
+                {"project_id": design_project.get("project_id")},
+                {"_id": 0, "project_name": 1}
+            )
+            project_name = project.get("project_name", "Unknown") if project else "Unknown"
+            
+            await notify_design_managers(
+                design_project_id,
+                f"All required files uploaded for '{project_name}' in stage '{stage}'",
+                f"/design-board/{design_project_id}"
+            )
+    
+    return {"message": "File uploaded", "file": file_record}
+
+@api_router.post("/design-projects/{design_project_id}/meeting")
+async def schedule_design_meeting(design_project_id: str, data: DesignMeetingCreate, request: Request):
+    """Schedule design meeting with auto-generated Meet link"""
+    user = await get_current_user(request)
+    
+    design_project = await db.design_projects.find_one(
+        {"id": design_project_id},
+        {"_id": 0}
+    )
+    
+    if not design_project:
+        raise HTTPException(status_code=404, detail="Design project not found")
+    
+    # Check permissions
+    if user.role in ["Designer", "HybridDesigner"]:
+        if design_project.get("designer_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Generate meet link if requested
+    meet_link = generate_meet_link() if data.generate_meet_link else None
+    
+    meeting = {
+        "id": f"dmeet_{uuid.uuid4().hex[:8]}",
+        "design_project_id": design_project_id,
+        "project_id": design_project.get("project_id"),
+        "meeting_type": data.meeting_type,
+        "title": f"{data.meeting_type.replace('_', ' ').title()} Meeting",
+        "date": data.date,
+        "start_time": data.start_time,
+        "end_time": data.end_time,
+        "meet_link": meet_link,
+        "notes": data.notes,
+        "status": "scheduled",  # scheduled, completed, cancelled
+        "scheduled_by": user.user_id,
+        "scheduled_by_name": user.name,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.design_meetings.insert_one(meeting)
+    
+    # Add to design project meetings list
+    await db.design_projects.update_one(
+        {"id": design_project_id},
+        {
+            "$push": {"meetings": meeting["id"]},
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    # Mark meeting scheduling tasks as complete
+    await db.design_tasks.update_many(
+        {
+            "design_project_id": design_project_id,
+            "title": {"$regex": "schedule.*meeting", "$options": "i"},
+            "status": {"$ne": "Completed"}
+        },
+        {"$set": {"status": "Completed", "completed_at": now.isoformat()}}
+    )
+    
+    # Also add to main meetings collection for calendar integration
+    main_meeting = {
+        "id": meeting["id"],
+        "title": meeting["title"],
+        "description": f"Design meeting for project. {data.notes or ''}".strip(),
+        "project_id": design_project.get("project_id"),
+        "lead_id": None,
+        "scheduled_by": user.user_id,
+        "scheduled_for": design_project.get("designer_id"),
+        "date": data.date,
+        "start_time": data.start_time,
+        "end_time": data.end_time,
+        "location": meet_link or "To be determined",
+        "status": "Scheduled",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.meetings.insert_one(main_meeting)
+    
+    # Notify designer
+    await create_design_notification(
+        [design_project.get("designer_id")],
+        "Meeting Scheduled",
+        f"{meeting['title']} scheduled for {data.date} at {data.start_time}",
+        f"/design-board/{design_project_id}"
+    )
+    
+    return {"message": "Meeting scheduled", "meeting": meeting}
+
+@api_router.put("/design-meetings/{meeting_id}/complete")
+async def complete_design_meeting(meeting_id: str, request: Request):
+    """Mark design meeting as complete - 1-click action"""
+    user = await get_current_user(request)
+    
+    meeting = await db.design_meetings.find_one({"id": meeting_id}, {"_id": 0})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    await db.design_meetings.update_one(
+        {"id": meeting_id},
+        {"$set": {"status": "completed", "completed_at": now.isoformat(), "updated_at": now.isoformat()}}
+    )
+    
+    # Also update main meetings collection
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {"$set": {"status": "Completed", "updated_at": now.isoformat()}}
+    )
+    
+    # Mark meeting-related tasks as complete
+    await db.design_tasks.update_many(
+        {
+            "design_project_id": meeting.get("design_project_id"),
+            "title": {"$regex": "conduct.*meeting|meeting", "$options": "i"},
+            "status": {"$ne": "Completed"}
+        },
+        {"$set": {"status": "Completed", "completed_at": now.isoformat()}}
+    )
+    
+    # Check if stage requires meeting completion for advancement
+    design_project = await db.design_projects.find_one(
+        {"id": meeting.get("design_project_id")},
+        {"_id": 0}
+    )
+    
+    if design_project:
+        current_stage = design_project.get("current_stage")
+        stage_config = DESIGN_STAGE_CONFIG.get(current_stage, {})
+        
+        if stage_config.get("next_stage_trigger") == "meeting_complete":
+            project = await db.projects.find_one(
+                {"project_id": design_project.get("project_id")},
+                {"_id": 0, "project_name": 1}
+            )
+            project_name = project.get("project_name", "Unknown") if project else "Unknown"
+            
+            await notify_design_managers(
+                meeting.get("design_project_id"),
+                f"Meeting completed for '{project_name}'. Stage '{current_stage}' ready to advance.",
+                f"/design-board/{meeting.get('design_project_id')}"
+            )
+    
+    return {"message": "Meeting marked as complete"}
+
+# ============ VALIDATION PIPELINE (Sharon) ============
+
+@api_router.get("/validation-pipeline")
+async def get_validation_pipeline(request: Request):
+    """Get validation pipeline for Production Manager"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager", "ProductionManager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get design projects in validation stage
+    validation_projects = await db.design_projects.find(
+        {"current_stage": "Validation & Kickoff", "status": "active"},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Enrich with details
+    pipeline_items = []
+    for dp in validation_projects:
+        project = await db.projects.find_one(
+            {"project_id": dp.get("project_id")},
+            {"_id": 0, "project_name": 1, "client_name": 1}
+        )
+        
+        designer = await db.users.find_one(
+            {"user_id": dp.get("designer_id")},
+            {"_id": 0, "name": 1, "picture": 1}
+        )
+        
+        # Get files for validation
+        files = [f for f in dp.get("files", []) if f.get("file_type") in ["production_drawings", "cutting_list", "sign_off_document"]]
+        
+        # Get validation tasks
+        validation_tasks = await db.design_tasks.find({
+            "design_project_id": dp["id"],
+            "stage": "Validation & Kickoff"
+        }, {"_id": 0}).to_list(20)
+        
+        pipeline_items.append({
+            "design_project": dp,
+            "project": project,
+            "designer": designer,
+            "files": files,
+            "tasks": validation_tasks,
+            "has_drawings": any(f.get("file_type") == "production_drawings" for f in files),
+            "has_sign_off": any(f.get("file_type") == "sign_off_document" for f in files)
+        })
+    
+    # Also get tasks pending validation
+    validation_tasks = await db.design_tasks.find({
+        "stage": "Validation & Kickoff",
+        "status": {"$ne": "Completed"},
+        "title": {"$regex": "validate|validation", "$options": "i"}
+    }, {"_id": 0}).to_list(100)
+    
+    return {
+        "pipeline": pipeline_items,
+        "pending_validation_tasks": validation_tasks,
+        "total_pending": len(pipeline_items)
+    }
+
+@api_router.post("/validation-pipeline/{design_project_id}/validate")
+async def validate_design_project(design_project_id: str, data: ValidationRequest, request: Request):
+    """Validate production drawings - 1-click action"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager", "ProductionManager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    design_project = await db.design_projects.find_one(
+        {"id": design_project_id},
+        {"_id": 0}
+    )
+    
+    if not design_project:
+        raise HTTPException(status_code=404, detail="Design project not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create validation record
+    validation = {
+        "id": f"val_{uuid.uuid4().hex[:8]}",
+        "design_project_id": design_project_id,
+        "validated_by": user.user_id,
+        "validated_by_name": user.name,
+        "status": data.status,
+        "notes": data.notes,
+        "created_at": now.isoformat()
+    }
+    
+    await db.validations.insert_one(validation)
+    
+    # Update design project
+    update_data = {"updated_at": now.isoformat()}
+    
+    if data.status == "approved":
+        # Mark validation tasks as complete
+        await db.design_tasks.update_many(
+            {
+                "design_project_id": design_project_id,
+                "title": {"$regex": "validate", "$options": "i"},
+                "status": {"$ne": "Completed"}
+            },
+            {"$set": {"status": "Completed", "completed_at": now.isoformat()}}
+        )
+        
+        # Notify designer
+        await create_design_notification(
+            [design_project.get("designer_id")],
+            "Validation Approved",
+            f"Production drawings have been approved",
+            f"/design-board/{design_project_id}"
+        )
+    elif data.status == "needs_revision":
+        # Notify designer with revision notes
+        await create_design_notification(
+            [design_project.get("designer_id")],
+            "Revision Required",
+            f"Production drawings need revision: {data.notes or 'Please check with Production Manager'}",
+            f"/design-board/{design_project_id}"
+        )
+    
+    await db.design_projects.update_one(
+        {"id": design_project_id},
+        {"$set": update_data, "$push": {"validations": validation}}
+    )
+    
+    return {"message": f"Validation {data.status}", "validation": validation}
+
+@api_router.post("/validation-pipeline/{design_project_id}/send-to-production")
+async def send_to_production(design_project_id: str, request: Request):
+    """Send project to production - final action in design workflow"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager", "ProductionManager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    design_project = await db.design_projects.find_one(
+        {"id": design_project_id},
+        {"_id": 0}
+    )
+    
+    if not design_project:
+        raise HTTPException(status_code=404, detail="Design project not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Mark design project as completed
+    stage_history = design_project.get("stage_history", [])
+    if stage_history:
+        stage_history[-1]["completed_at"] = now.isoformat()
+    
+    await db.design_projects.update_one(
+        {"id": design_project_id},
+        {"$set": {
+            "status": "completed",
+            "stage_history": stage_history,
+            "sent_to_production_at": now.isoformat(),
+            "sent_to_production_by": user.user_id,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Mark all remaining tasks as complete
+    await db.design_tasks.update_many(
+        {"design_project_id": design_project_id, "status": {"$ne": "Completed"}},
+        {"$set": {"status": "Completed", "completed_at": now.isoformat()}}
+    )
+    
+    # Update main project stage
+    await db.projects.update_one(
+        {"project_id": design_project.get("project_id")},
+        {"$set": {"stage": "Production Preparation", "updated_at": now.isoformat()}}
+    )
+    
+    # Add system comment
+    comment = {
+        "id": f"cm_{uuid.uuid4().hex[:8]}",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": f"Design workflow completed. Project sent to production by {user.name}",
+        "is_system": True,
+        "created_at": now.isoformat()
+    }
+    
+    await db.projects.update_one(
+        {"project_id": design_project.get("project_id")},
+        {"$push": {"comments": comment}}
+    )
+    
+    # Notify designer
+    await create_design_notification(
+        [design_project.get("designer_id")],
+        "Project Sent to Production",
+        "Your design project has been approved and sent to production!",
+        f"/projects/{design_project.get('project_id')}"
+    )
+    
+    return {"message": "Project sent to production"}
+
+# ============ DESIGN MANAGER DASHBOARD (Arya) ============
+
+@api_router.get("/design-manager/dashboard")
+async def get_design_manager_dashboard(request: Request):
+    """Dashboard for Design Manager - overview of all design projects"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager", "DesignManager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get all active design projects
+    active_projects = await db.design_projects.find(
+        {"status": "active"},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Projects by stage
+    projects_by_stage = {}
+    for stage in DESIGN_WORKFLOW_STAGES:
+        projects_by_stage[stage] = 0
+    
+    delayed_projects = []
+    pending_approvals = []
+    bottlenecks = {"measurement": 0, "designer": 0, "validation": 0}
+    
+    for dp in active_projects:
+        stage = dp.get("current_stage")
+        if stage in projects_by_stage:
+            projects_by_stage[stage] += 1
+        
+        # Check for delays
+        overdue_tasks = await db.design_tasks.count_documents({
+            "design_project_id": dp["id"],
+            "status": {"$ne": "Completed"},
+            "due_date": {"$lt": now.isoformat()}
+        })
+        
+        if overdue_tasks > 0:
+            project = await db.projects.find_one(
+                {"project_id": dp.get("project_id")},
+                {"_id": 0, "project_name": 1}
+            )
+            designer = await db.users.find_one(
+                {"user_id": dp.get("designer_id")},
+                {"_id": 0, "name": 1}
+            )
+            
+            delayed_projects.append({
+                "design_project_id": dp["id"],
+                "project_name": project.get("project_name") if project else "Unknown",
+                "designer_name": designer.get("name") if designer else "Unknown",
+                "stage": stage,
+                "overdue_tasks": overdue_tasks
+            })
+            
+            # Categorize bottleneck
+            if stage == "Measurement Required":
+                bottlenecks["measurement"] += 1
+            elif stage == "Validation & Kickoff":
+                bottlenecks["validation"] += 1
+            else:
+                bottlenecks["designer"] += 1
+    
+    # Get designers with their workload
+    designers = await db.users.find(
+        {"role": {"$in": ["Designer", "HybridDesigner"]}, "status": "Active"},
+        {"_id": 0}
+    ).to_list(100)
+    
+    designer_workload = []
+    for designer in designers:
+        active_count = await db.design_projects.count_documents({
+            "designer_id": designer["user_id"],
+            "status": "active"
+        })
+        
+        overdue_count = await db.design_tasks.count_documents({
+            "assigned_to": designer["user_id"],
+            "status": {"$ne": "Completed"},
+            "due_date": {"$lt": now.isoformat()}
+        })
+        
+        designer_workload.append({
+            "user_id": designer["user_id"],
+            "name": designer["name"],
+            "picture": designer.get("picture"),
+            "active_projects": active_count,
+            "overdue_tasks": overdue_count,
+            "is_behind": overdue_count > 0
+        })
+    
+    # Sort by overdue tasks (most behind first)
+    designer_workload.sort(key=lambda x: x["overdue_tasks"], reverse=True)
+    
+    # Get pending meetings
+    pending_meetings = await db.design_meetings.count_documents({
+        "status": "scheduled",
+        "date": {"$lte": (now + timedelta(days=7)).strftime("%Y-%m-%d")}
+    })
+    
+    # Get referral projects
+    referral_count = await db.design_projects.count_documents({
+        "is_referral": True,
+        "status": "active"
+    })
+    
+    # Missing drawings (Production Drawings stage with no drawings uploaded)
+    production_drawing_projects = await db.design_projects.find(
+        {"current_stage": "Production Drawings Preparation", "status": "active"},
+        {"_id": 0}
+    ).to_list(100)
+    
+    missing_drawings = 0
+    for dp in production_drawing_projects:
+        files = dp.get("files", [])
+        if not any(f.get("file_type") == "production_drawings" for f in files):
+            missing_drawings += 1
+    
+    return {
+        "summary": {
+            "total_active_projects": len(active_projects),
+            "delayed_count": len(delayed_projects),
+            "pending_meetings": pending_meetings,
+            "missing_drawings": missing_drawings,
+            "referral_projects": referral_count
+        },
+        "projects_by_stage": projects_by_stage,
+        "delayed_projects": delayed_projects[:10],
+        "designer_workload": designer_workload,
+        "bottlenecks": bottlenecks
+    }
+
+# ============ CEO DASHBOARD ============
+
+@api_router.get("/ceo/dashboard")
+async def get_ceo_dashboard(request: Request):
+    """Private CEO dashboard with performance scores and analytics"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    thirty_days_ago = now - timedelta(days=30)
+    
+    # === Designer Performance Scores ===
+    designers = await db.users.find(
+        {"role": {"$in": ["Designer", "HybridDesigner"]}, "status": "Active"},
+        {"_id": 0}
+    ).to_list(100)
+    
+    designer_scores = []
+    for designer in designers:
+        designer_id = designer["user_id"]
+        
+        # Get completed design projects
+        completed_projects = await db.design_projects.count_documents({
+            "designer_id": designer_id,
+            "status": "completed"
+        })
+        
+        # Get on-time completion rate
+        total_tasks = await db.design_tasks.count_documents({
+            "assigned_to": designer_id,
+            "status": "Completed"
+        })
+        
+        late_tasks = await db.design_tasks.count_documents({
+            "assigned_to": designer_id,
+            "status": "Completed",
+            "$expr": {"$gt": ["$completed_at", "$due_date"]}
+        })
+        
+        on_time_rate = ((total_tasks - late_tasks) / total_tasks * 100) if total_tasks > 0 else 100
+        
+        # Active projects
+        active_projects = await db.design_projects.count_documents({
+            "designer_id": designer_id,
+            "status": "active"
+        })
+        
+        # Current overdue
+        overdue_count = await db.design_tasks.count_documents({
+            "assigned_to": designer_id,
+            "status": {"$ne": "Completed"},
+            "due_date": {"$lt": now.isoformat()}
+        })
+        
+        # Calculate performance score (0-100)
+        score = min(100, max(0, int(
+            on_time_rate * 0.6 +  # 60% weight on on-time
+            (completed_projects * 5) +  # Bonus for completed projects
+            (100 - overdue_count * 10)  # Penalty for overdue
+        )))
+        
+        designer_scores.append({
+            "user_id": designer_id,
+            "name": designer["name"],
+            "picture": designer.get("picture"),
+            "role": designer["role"],
+            "score": score,
+            "on_time_rate": round(on_time_rate, 1),
+            "completed_projects": completed_projects,
+            "active_projects": active_projects,
+            "overdue_tasks": overdue_count
+        })
+    
+    designer_scores.sort(key=lambda x: x["score"], reverse=True)
+    
+    # === Design Manager (Arya) Performance ===
+    design_managers = await db.users.find(
+        {"role": "DesignManager", "status": "Active"},
+        {"_id": 0}
+    ).to_list(10)
+    
+    manager_scores = []
+    for manager in design_managers:
+        # Get total design projects under management
+        total_projects = await db.design_projects.count_documents({"status": "active"})
+        delayed_projects = await db.design_projects.count_documents({
+            "status": "active",
+            "current_stage": {"$ne": "Validation & Kickoff"}
+        })
+        
+        # Calculate review turnaround (from stage history)
+        manager_scores.append({
+            "user_id": manager["user_id"],
+            "name": manager["name"],
+            "picture": manager.get("picture"),
+            "total_projects_managed": total_projects,
+            "delayed_projects": len([dp for dp in (await db.design_projects.find(
+                {"status": "active"}, {"_id": 0}
+            ).to_list(1000)) if any(
+                t.get("status") != "Completed" and t.get("due_date", "") < now.isoformat()
+                for t in (await db.design_tasks.find({"design_project_id": dp["id"]}, {"_id": 0}).to_list(100))
+            )]),
+            "score": 85  # Placeholder - would need more detailed tracking
+        })
+    
+    # === Validation Speed (Sharon) ===
+    production_managers = await db.users.find(
+        {"role": "ProductionManager", "status": "Active"},
+        {"_id": 0}
+    ).to_list(10)
+    
+    validation_scores = []
+    for pm in production_managers:
+        validations = await db.validations.find(
+            {"validated_by": pm["user_id"]},
+            {"_id": 0}
+        ).to_list(1000)
+        
+        approved_count = len([v for v in validations if v.get("status") == "approved"])
+        revision_count = len([v for v in validations if v.get("status") == "needs_revision"])
+        
+        validation_scores.append({
+            "user_id": pm["user_id"],
+            "name": pm["name"],
+            "picture": pm.get("picture"),
+            "total_validations": len(validations),
+            "approved": approved_count,
+            "needs_revision": revision_count,
+            "approval_rate": round(approved_count / len(validations) * 100, 1) if validations else 100
+        })
+    
+    # === Delay Attribution ===
+    delay_by_stage = {}
+    delay_by_designer = {}
+    
+    all_design_projects = await db.design_projects.find(
+        {"status": "active"},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for dp in all_design_projects:
+        overdue_tasks = await db.design_tasks.find({
+            "design_project_id": dp["id"],
+            "status": {"$ne": "Completed"},
+            "due_date": {"$lt": now.isoformat()}
+        }, {"_id": 0}).to_list(100)
+        
+        for task in overdue_tasks:
+            stage = task.get("stage", "Unknown")
+            if stage not in delay_by_stage:
+                delay_by_stage[stage] = 0
+            delay_by_stage[stage] += 1
+            
+            assignee = task.get("assigned_to")
+            if assignee:
+                if assignee not in delay_by_designer:
+                    assignee_user = await db.users.find_one(
+                        {"user_id": assignee},
+                        {"_id": 0, "name": 1}
+                    )
+                    delay_by_designer[assignee] = {
+                        "name": assignee_user.get("name") if assignee_user else "Unknown",
+                        "count": 0
+                    }
+                delay_by_designer[assignee]["count"] += 1
+    
+    # === Workload Distribution ===
+    workload = []
+    for designer in designers:
+        active = await db.design_projects.count_documents({
+            "designer_id": designer["user_id"],
+            "status": "active"
+        })
+        workload.append({
+            "name": designer["name"],
+            "active_projects": active
+        })
+    
+    # === Project Health Overview ===
+    total_design_projects = await db.design_projects.count_documents({})
+    active_design_projects = await db.design_projects.count_documents({"status": "active"})
+    completed_design_projects = await db.design_projects.count_documents({"status": "completed"})
+    
+    # Projects with delays
+    projects_with_delays = 0
+    for dp in all_design_projects:
+        has_overdue = await db.design_tasks.count_documents({
+            "design_project_id": dp["id"],
+            "status": {"$ne": "Completed"},
+            "due_date": {"$lt": now.isoformat()}
+        })
+        if has_overdue > 0:
+            projects_with_delays += 1
+    
+    return {
+        "designer_performance": designer_scores,
+        "manager_performance": manager_scores,
+        "validation_performance": validation_scores,
+        "delay_attribution": {
+            "by_stage": delay_by_stage,
+            "by_designer": list(delay_by_designer.values())
+        },
+        "workload_distribution": workload,
+        "project_health": {
+            "total": total_design_projects,
+            "active": active_design_projects,
+            "completed": completed_design_projects,
+            "with_delays": projects_with_delays,
+            "health_percentage": round((active_design_projects - projects_with_delays) / active_design_projects * 100, 1) if active_design_projects > 0 else 100
+        },
+        "bottleneck_analysis": {
+            "most_delayed_stage": max(delay_by_stage.items(), key=lambda x: x[1])[0] if delay_by_stage else None,
+            "delay_by_stage": delay_by_stage
+        }
+    }
+
+# ============ DESIGN WORKFLOW SEED DATA ============
+
+@api_router.post("/design-workflow/seed")
+async def seed_design_workflow_data(request: Request):
+    """Seed design workflow data for testing"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create design manager user
+    design_manager = {
+        "user_id": f"dm_{uuid.uuid4().hex[:8]}",
+        "email": "arya@arkiflo.com",
+        "name": "Arya (Design Manager)",
+        "role": "DesignManager",
+        "status": "Active",
+        "created_at": now.isoformat()
+    }
+    
+    existing_dm = await db.users.find_one({"email": "arya@arkiflo.com"})
+    if not existing_dm:
+        await db.users.insert_one(design_manager)
+    
+    # Create production manager user
+    prod_manager = {
+        "user_id": f"pm_{uuid.uuid4().hex[:8]}",
+        "email": "sharon@arkiflo.com",
+        "name": "Sharon (Production Manager)",
+        "role": "ProductionManager",
+        "status": "Active",
+        "created_at": now.isoformat()
+    }
+    
+    existing_pm = await db.users.find_one({"email": "sharon@arkiflo.com"})
+    if not existing_pm:
+        await db.users.insert_one(prod_manager)
+    
+    # Create sample designers
+    designer_names = ["Priya Designer", "Rahul Designer", "Anita Hybrid Designer"]
+    designer_roles = ["Designer", "Designer", "HybridDesigner"]
+    
+    created_designers = []
+    for i, name in enumerate(designer_names):
+        email = f"{name.lower().replace(' ', '.')}@arkiflo.com"
+        existing = await db.users.find_one({"email": email})
+        if not existing:
+            designer = {
+                "user_id": f"des_{uuid.uuid4().hex[:8]}",
+                "email": email,
+                "name": name,
+                "role": designer_roles[i],
+                "status": "Active",
+                "created_at": now.isoformat()
+            }
+            await db.users.insert_one(designer)
+            created_designers.append(designer)
+        else:
+            created_designers.append(existing)
+    
+    # Get existing projects
+    projects = await db.projects.find({}, {"_id": 0}).to_list(10)
+    
+    design_projects_created = 0
+    for i, project in enumerate(projects[:5]):
+        # Check if design project already exists
+        existing_dp = await db.design_projects.find_one({"project_id": project["project_id"]})
+        if existing_dp:
+            continue
+        
+        designer = created_designers[i % len(created_designers)]
+        stage_index = i % len(DESIGN_WORKFLOW_STAGES)
+        current_stage = DESIGN_WORKFLOW_STAGES[stage_index]
+        
+        design_project = {
+            "id": f"dp_{uuid.uuid4().hex[:8]}",
+            "project_id": project["project_id"],
+            "designer_id": designer["user_id"],
+            "current_stage": current_stage,
+            "stage_history": [{
+                "stage": current_stage,
+                "entered_at": (now - timedelta(days=i*3)).isoformat(),
+                "completed_at": None,
+                "notes": "Seeded design project"
+            }],
+            "is_referral": i == 2,  # One referral project
+            "referral_source": "Milestone Infrastructure" if i == 2 else None,
+            "status": "active",
+            "files": [],
+            "meetings": [],
+            "created_by": user.user_id,
+            "created_at": (now - timedelta(days=i*3)).isoformat(),
+            "updated_at": now.isoformat()
+        }
+        
+        await db.design_projects.insert_one(design_project)
+        design_projects_created += 1
+        
+        # Create auto-tasks for current stage
+        await create_design_auto_tasks(
+            design_project["id"],
+            current_stage,
+            designer["user_id"]
+        )
+    
+    return {
+        "message": "Design workflow data seeded",
+        "design_projects_created": design_projects_created,
+        "design_manager": design_manager.get("email") if not existing_dm else "Already exists",
+        "production_manager": prod_manager.get("email") if not existing_pm else "Already exists",
+        "designers": [d.get("email") for d in created_designers]
+    }
+
+
 # ============ HEALTH CHECK ============
 
 @api_router.get("/")
