@@ -8,6 +8,16 @@ import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Badge } from '../components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 import { 
   ArrowLeft, 
   Loader2, 
@@ -28,7 +38,9 @@ import {
   Download,
   ArrowRightCircle,
   Edit2,
-  X
+  X,
+  ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
