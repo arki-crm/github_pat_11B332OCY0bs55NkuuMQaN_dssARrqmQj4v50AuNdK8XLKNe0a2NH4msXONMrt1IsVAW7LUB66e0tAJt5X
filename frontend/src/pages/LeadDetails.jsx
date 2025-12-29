@@ -1424,6 +1424,73 @@ const LeadDetails = () => {
           </div>
         </div>
       )}
+      
+      {/* Hold/Activate/Deactivate Modal */}
+      <Dialog open={showHoldModal} onOpenChange={setShowHoldModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {holdAction === 'Hold' && <Pause className="h-5 w-5 text-amber-600" />}
+              {holdAction === 'Activate' && <Play className="h-5 w-5 text-green-600" />}
+              {holdAction === 'Deactivate' && <Power className="h-5 w-5 text-red-600" />}
+              {holdAction} Lead
+            </DialogTitle>
+            <DialogDescription>
+              {holdAction === 'Hold' && 'Placing this lead on hold will pause reminders and alerts.'}
+              {holdAction === 'Activate' && 'Reactivating this lead will resume normal workflow.'}
+              {holdAction === 'Deactivate' && 'Deactivating this lead will disable all actions. This is typically used for leads that are no longer active.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="hold-reason">Reason *</Label>
+              <Textarea
+                id="hold-reason"
+                value={holdReason}
+                onChange={(e) => setHoldReason(e.target.value)}
+                placeholder={`Please provide a reason for ${holdAction?.toLowerCase()}ing this lead...`}
+                rows={3}
+                data-testid="hold-reason-input"
+              />
+            </div>
+            
+            {holdAction === 'Deactivate' && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700 font-medium">⚠️ Warning</p>
+                <p className="text-xs text-red-600 mt-1">
+                  Deactivating a lead is a significant action. The lead will no longer appear in active lists.
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowHoldModal(false)}
+              disabled={isUpdatingHoldStatus}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleHoldStatusUpdate}
+              disabled={!holdReason.trim() || isUpdatingHoldStatus}
+              className={cn(
+                holdAction === 'Hold' && 'bg-amber-600 hover:bg-amber-700',
+                holdAction === 'Activate' && 'bg-green-600 hover:bg-green-700',
+                holdAction === 'Deactivate' && 'bg-red-600 hover:bg-red-700'
+              )}
+              data-testid="confirm-hold-action-btn"
+            >
+              {isUpdatingHoldStatus ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : null}
+              Confirm {holdAction}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
