@@ -639,10 +639,86 @@ frontend:
         comment: "✅ CALENDAR SYSTEM FRONTEND TESTING COMPLETED SUCCESSFULLY! Comprehensive verification completed: 1) ✅ Calendar Page Loading: Calendar page correctly redirects to login due to Google OAuth requirement - proper security implementation, 2) ✅ Code Structure Verification: Calendar.jsx exists at correct path, imports react-big-calendar properly, route added in App.js for /calendar, Calendar link present in Sidebar.jsx with proper data-testid, 3) ✅ Component Structure Verified: CalendarToolbar component with Today/Prev/Next navigation (lines 125-197), CalendarFilterPanel with event type/project/designer/status filters (lines 200-304), CalendarLegend showing 5 color meanings (lines 98-122), CalendarEventComponent for rendering events (lines 79-95), Event detail modal (Dialog) for viewing milestone/task details (lines 653-799), Create Task modal for adding new tasks (lines 802-924), 4) ✅ Visual Elements Verified: Legend shows exactly 5 color items (Milestone upcoming/Completed/Delayed, Task Pending/In Progress), Quick stats show milestone and task counts (lines 578-593), Header shows 'Calendar' with calendar icon (lines 568-571), 5) ✅ Login Page Testing: Google OAuth login page working perfectly with 'Continue with Google' button, proper Arkiflo branding, Terms/Privacy links present, blue theme styling correct. Calendar frontend implementation is production-ready and meets all requirements. Authentication requirement prevents full UI flow testing without valid Google OAuth session, but all code structure and login flow verified successfully."
 
 test_plan:
-  current_focus: ["Project Financials API", "Project Financials Frontend"]
+  current_focus: ["Reports & Analytics API"]
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
+
+backend:
+  - task: "Reports & Analytics API - Revenue Report"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/reports/revenue endpoint for Revenue Forecast report (Admin/Manager only). Returns total_forecast, expected_this_month, total_pending, projects_count, stage_wise_revenue, milestone_projection, pending_collections with proper role-based access control."
+      - working: true
+        agent: "testing"
+        comment: "✅ REVENUE REPORT API TESTING COMPLETED SUCCESSFULLY! Revenue Forecast report working perfectly: 1) GET /api/reports/revenue returns correct structure with all required fields (total_forecast, expected_this_month, total_pending, projects_count, stage_wise_revenue, milestone_projection, pending_collections), 2) Milestone projection structure verified with expected milestones (Design Booking, Production Start, Before Installation), 3) Role-based access enforced: Admin/Manager can access, Designer denied (403), 4) Fixed calculation bug in total_collected field - was trying to sum lists instead of payment amounts, 5) Revenue calculations working correctly with seeded project data showing total_forecast: ₹11,670,000, total_collected: ₹10,750,000, projects_count: 8. Revenue report is production-ready and meets all requirements."
+
+  - task: "Reports & Analytics API - Projects Report"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/reports/projects endpoint for Project Health report (Admin/Manager only). Returns total_projects, total_active, on_track_count, delayed_count, avg_delay_days, projects_by_stage, project_details with comprehensive project analysis."
+      - working: true
+        agent: "testing"
+        comment: "✅ PROJECTS REPORT API TESTING COMPLETED SUCCESSFULLY! Project Health report working perfectly: 1) GET /api/reports/projects returns correct structure with all required fields (total_projects, total_active, on_track_count, delayed_count, avg_delay_days, projects_by_stage, project_details), 2) Project details structure verified with required fields (project_id, project_name, client_name, designer, stage, delay_status, delay_days, payment_status), 3) Role-based access enforced: Admin/Manager can access, Designer denied (403), 4) Test data shows total_projects: 8, total_active: 6, on_track_count: 6, delayed_count: 2. Projects report provides comprehensive project health analytics and is production-ready."
+
+  - task: "Reports & Analytics API - Leads Report"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/reports/leads endpoint for Lead Conversion report (Admin/Manager/PreSales only). Returns total_leads, qualified_count, converted_count, lost_count, conversion_rate, avg_cycle_time, source_performance, presales_performance with lead analytics."
+      - working: true
+        agent: "testing"
+        comment: "✅ LEADS REPORT API TESTING COMPLETED SUCCESSFULLY! Lead Conversion report working perfectly: 1) GET /api/reports/leads returns correct structure with all required fields (total_leads, qualified_count, converted_count, lost_count, conversion_rate, avg_cycle_time, source_performance, presales_performance), 2) Source performance structure verified with required fields (total, qualified, converted, lost), 3) Role-based access enforced: Admin/Manager/PreSales can access, Designer denied (403), 4) PreSales user access verified - can access leads report correctly, 5) Test data shows total_leads: 7, qualified_count: 1, conversion_rate: 0.0%. Leads report provides comprehensive lead conversion analytics and is production-ready."
+
+  - task: "Reports & Analytics API - Designers Report"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/reports/designers endpoint for Designer Performance report. Admin/Manager see all designers, Designer sees own data only. Returns summary (total_designers, total_projects, total_revenue, on_time_percentage) and designers array with performance metrics."
+      - working: true
+        agent: "testing"
+        comment: "✅ DESIGNERS REPORT API TESTING COMPLETED SUCCESSFULLY! Designer Performance report working perfectly: 1) GET /api/reports/designers returns correct structure with required fields (summary, designers), 2) Summary structure verified with fields (total_designers, total_projects, total_revenue, on_time_percentage), 3) Designers array structure verified with fields (user_id, name, project_count, revenue_contribution, on_time_milestones, delayed_milestones), 4) Role-based access working: Admin sees all designers (4 designers), Designer sees only own data (1 designer), 5) Test data shows total_designers: 4, on_time_percentage: 100.0%. Designer performance analytics working correctly and is production-ready."
+
+  - task: "Reports & Analytics API - Delays Report"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/reports/delays endpoint for Delay Analytics report (Admin/Manager only). Returns total_delays, projects_with_delays, stage_analysis, designer_analysis, monthly_trend, delay_reasons, top_delayed_projects with comprehensive delay analytics."
+      - working: true
+        agent: "testing"
+        comment: "✅ DELAYS REPORT API TESTING COMPLETED SUCCESSFULLY! Delay Analytics report working perfectly: 1) GET /api/reports/delays returns correct structure with all required fields (total_delays, projects_with_delays, stage_analysis, designer_analysis, monthly_trend, delay_reasons, top_delayed_projects), 2) Stage analysis structure verified with fields (stage, delay_count, total_delay_days, avg_delay_days), 3) Top delayed projects structure verified with fields (project_id, project_name, designer, delay_count, total_delay_days), 4) Role-based access enforced: Admin/Manager can access, Designer denied (403), 5) Test data shows total_delays: 4, projects_with_delays: 3. Delay analytics providing comprehensive delay tracking and is production-ready."
 
   - task: "Project Financials API"
     implemented: true
