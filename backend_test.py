@@ -7243,6 +7243,17 @@ def main():
         tester.test_percentage_endpoint_access_control()
         tester.test_production_milestone_full_flow()
         
+        # NEW FEATURES TESTS - Delivery, Handover & Hold System
+        print("\n🚀 Testing NEW FEATURES - Delivery, Handover & Hold System...")
+        tester.test_delivery_milestone_4_substages()
+        tester.test_handover_milestone_8_substages()
+        tester.test_project_hold_status_admin()
+        tester.test_project_hold_status_designer_restricted()
+        tester.test_project_hold_status_validation()
+        tester.test_lead_hold_status_admin()
+        tester.test_milestone_progression_blocking_when_on_hold()
+        tester.test_activity_logging_for_hold_status()
+        
         # Logout test (do this last as it invalidates session)
         tester.test_logout()
         
