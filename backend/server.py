@@ -2559,7 +2559,7 @@ async def assign_designer(lead_id: str, assign_data: LeadAssignDesigner, request
 
 @api_router.post("/leads/{lead_id}/convert")
 async def convert_to_project(lead_id: str, request: Request):
-    """Convert a lead to a project"""
+    """Convert a lead to a project - carries forward PID and all history"""
     user = await get_current_user(request)
     
     if user.role not in ["Admin", "Manager"]:
@@ -2579,24 +2579,42 @@ async def convert_to_project(lead_id: str, request: Request):
     now = datetime.now(timezone.utc)
     project_id = f"proj_{uuid.uuid4().hex[:8]}"
     
+    # Get the PID from the lead (should already exist from Pre-Sales conversion)
+    pid = lead.get("pid")
+    if not pid:
+        # Generate PID if somehow missing (backward compatibility)
+        pid = await generate_pid()
+    
     # Generate project timeline with TAT-aware expected dates
     project_timeline = generate_project_timeline("Design Finalization", now.isoformat())
     
-    # Copy comments and add conversion system comment
+    # Carry forward ALL comments from lead (complete activity history)
     project_comments = lead.get("comments", []).copy()
     project_comments.append({
         "id": f"comment_{uuid.uuid4().hex[:8]}",
         "user_id": user.user_id,
         "user_name": user.name,
         "role": user.role,
-        "message": f"Project created from lead on {now.strftime('%d/%m/%Y')} by {user.name}.",
+        "message": f"Project created from lead on {now.strftime('%d/%m/%Y')} by {user.name}. PID: {pid}",
         "is_system": True,
         "created_at": now.isoformat()
     })
     
-    # Create project with ALL customer details carried forward
+    # Carry forward files from lead
+    project_files = lead.get("files", []).copy()
+    
+    # Carry forward collaborators from lead
+    lead_collaborators = lead.get("collaborators", [])
+    project_collaborator_ids = [c.get("user_id") for c in lead_collaborators if c.get("user_id")]
+    
+    # Add designer if exists and not already in collaborators
+    if lead.get("designer_id") and lead["designer_id"] not in project_collaborator_ids:
+        project_collaborator_ids.append(lead["designer_id"])
+    
+    # Create project with ALL customer details and history carried forward
     new_project = {
         "project_id": project_id,
+        "pid": pid,  # PID stays same throughout lifecycle
         "project_name": f"{lead['customer_name']} - Interior Project",
         # Customer Details (carried forward from lead - persistent)
         "client_name": lead["customer_name"],
@@ -2608,12 +2626,14 @@ async def convert_to_project(lead_id: str, request: Request):
         "budget": lead.get("budget"),
         # Project Details
         "stage": "Design Finalization",
-        "collaborators": [lead["designer_id"]] if lead.get("designer_id") else [],
+        "collaborators": project_collaborator_ids,
+        "collaborator_details": lead_collaborators,  # Full collaborator info
         "summary": f"Converted from lead {lead_id}",
         "lead_id": lead_id,  # Reference to original lead
         "timeline": project_timeline,
-        "comments": project_comments,
-        "files": [],
+        "lead_timeline": lead.get("timeline", []),  # Preserve lead timeline
+        "comments": project_comments,  # Full activity history
+        "files": project_files,  # Files from lead
         "notes": [],
         "project_value": lead.get("budget") or 0,
         "payment_schedule": [
@@ -2656,7 +2676,7 @@ async def convert_to_project(lead_id: str, request: Request):
                 "user_id": user.user_id,
                 "user_name": user.name,
                 "role": user.role,
-                "message": f"Converted to project {project_id}",
+                "message": f"Converted to project {project_id}. PID: {pid}",
                 "is_system": True,
                 "created_at": now.isoformat()
             }}
@@ -2666,6 +2686,7 @@ async def convert_to_project(lead_id: str, request: Request):
     return {
         "message": "Lead converted to project successfully",
         "project_id": project_id,
+        "pid": pid,
         "lead_id": lead_id
     }
 
