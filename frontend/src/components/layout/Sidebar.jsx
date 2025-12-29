@@ -40,6 +40,7 @@ const getRoleNavItems = (role) => {
         ...commonItems,
         { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
         { path: '/leads', label: 'Leads', icon: Users },
+        { path: '/sales-manager', label: 'Sales Manager', icon: Target },
         { path: '/projects', label: 'Projects', icon: FolderKanban },
         { path: '/design-board', label: 'Design Board', icon: Palette },
         { path: '/design-manager', label: 'Design Manager', icon: ClipboardCheck },
