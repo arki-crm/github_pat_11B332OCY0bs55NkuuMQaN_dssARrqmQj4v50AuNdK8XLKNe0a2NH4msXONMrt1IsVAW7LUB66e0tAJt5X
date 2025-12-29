@@ -351,10 +351,10 @@ print("Technician session token: {technician_session_token}");
         if not success:
             return False, {}
         
-        # Update lead to Booked stage for conversion
-        success, _ = self.run_test("Update Lead to Booked", "PUT", 
+        # Update lead to Booking Completed stage for conversion
+        success, _ = self.run_test("Update Lead to Booking Completed", "PUT", 
                                  f"api/leads/{lead_id}/stage", 200,
-                                 data={"stage": "Booked"}, auth_token=self.admin_token)
+                                 data={"stage": "Booking Completed"}, auth_token=self.admin_token)
         if not success:
             return False, {}
         
