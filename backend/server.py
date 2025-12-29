@@ -781,6 +781,7 @@ VALID_ROLES = [
 # Role categories for permission checks
 DESIGN_ROLES = ["Designer", "DesignManager"]
 SALES_ROLES = ["PreSales", "SalesManager", "Designer"]  # Designer handles sales stages too
+SALES_MANAGER_ROLES = ["Admin", "SalesManager"]  # Can manage sales dashboard
 MANAGER_ROLES = ["Admin", "SalesManager", "DesignManager", "ProductionOpsManager"]
 EXECUTION_ROLES = ["Admin", "ProductionOpsManager"]
 
