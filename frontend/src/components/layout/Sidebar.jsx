@@ -41,25 +41,37 @@ const Sidebar = () => {
       path: '/dashboard', 
       label: 'Dashboard', 
       icon: LayoutDashboard,
-      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'Trainee']
+      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'HybridDesigner', 'Trainee']
+    },
+    { 
+      path: '/design-manager', 
+      label: 'Design Dashboard', 
+      icon: ClipboardCheck,
+      roles: ['DesignManager']
+    },
+    { 
+      path: '/validation-pipeline', 
+      label: 'Validation Dashboard', 
+      icon: ClipboardCheck,
+      roles: ['ProductionManager']
     },
     { 
       path: '/calendar', 
       label: 'Calendar', 
       icon: Calendar,
-      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'Trainee']
+      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'DesignManager', 'ProductionManager', 'HybridDesigner', 'Trainee']
     },
     { 
       path: '/meetings', 
       label: 'Meetings', 
       icon: CalendarDays,
-      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'Trainee']
+      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'DesignManager', 'ProductionManager', 'HybridDesigner', 'Trainee']
     },
     { 
       path: '/presales', 
       label: 'Pre-Sales', 
       icon: UserPlus,
-      roles: ['Admin', 'Manager', 'PreSales']
+      roles: ['Admin', 'Manager', 'PreSales', 'HybridDesigner']
     },
     { 
       path: '/leads', 
@@ -71,7 +83,7 @@ const Sidebar = () => {
       path: '/projects', 
       label: 'Projects', 
       icon: FolderKanban,
-      roles: ['Admin', 'Manager', 'Designer']
+      roles: ['Admin', 'Manager', 'Designer', 'DesignManager', 'HybridDesigner']
     },
     { 
       path: '/design-board', 
@@ -81,15 +93,15 @@ const Sidebar = () => {
     },
     { 
       path: '/design-manager', 
-      label: 'Design Manager', 
+      label: 'Team Overview', 
       icon: ClipboardCheck,
-      roles: ['Admin', 'Manager', 'DesignManager']
+      roles: ['Admin', 'Manager']
     },
     { 
       path: '/validation-pipeline', 
       label: 'Validation', 
       icon: ClipboardCheck,
-      roles: ['Admin', 'Manager', 'ProductionManager']
+      roles: ['Admin', 'Manager', 'DesignManager']
     },
     { 
       path: '/ceo-dashboard', 
@@ -101,7 +113,7 @@ const Sidebar = () => {
       path: '/reports', 
       label: 'Reports', 
       icon: BarChart3,
-      roles: ['Admin', 'Manager', 'PreSales', 'Designer']
+      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'DesignManager']
     },
     { 
       path: '/users', 
@@ -119,7 +131,7 @@ const Sidebar = () => {
       path: '/profile', 
       label: 'My Profile', 
       icon: User,
-      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'Trainee']
+      roles: ['Admin', 'Manager', 'PreSales', 'Designer', 'DesignManager', 'ProductionManager', 'HybridDesigner', 'Trainee']
     },
     { 
       path: '/settings', 
