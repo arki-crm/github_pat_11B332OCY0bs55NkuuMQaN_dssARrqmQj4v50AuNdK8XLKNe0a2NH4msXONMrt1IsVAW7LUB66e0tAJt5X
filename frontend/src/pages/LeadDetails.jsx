@@ -812,6 +812,15 @@ const LeadDetails = () => {
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
+            {/* PID Badge - Always visible if exists */}
+            {lead?.pid && (
+              <span 
+                className="inline-flex items-center rounded-md bg-slate-900 px-2.5 py-1 text-sm font-mono font-bold text-white"
+                data-testid="lead-pid-badge"
+              >
+                {lead.pid}
+              </span>
+            )}
             <h1 
               className="text-2xl font-bold tracking-tight text-slate-900"
               style={{ fontFamily: 'Manrope, sans-serif' }}
@@ -831,6 +840,7 @@ const LeadDetails = () => {
             )}
           </div>
           <p className="text-slate-500 mt-1">
+            {lead?.pid && <span className="font-medium text-slate-700">{lead.pid} • </span>}
             Phone: {lead?.customer_phone} • Source: {lead?.source} • Updated {formatRelativeTime(lead?.updated_at)}
           </p>
         </div>
