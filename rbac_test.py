@@ -480,28 +480,33 @@ db.user_sessions.insertOne({{
         """Test activity feed for stage changes and collaborator additions"""
         print("\n🧪 Testing Activity Feed...")
         
-        # Create a test project
-        project_data = {
-            "project_name": "Activity Feed Test Project",
-            "client_name": "Test Client Activity",
-            "client_phone": "+1234567890",
-            "stage": "Design Finalization",
-            "summary": "Test project for activity feed testing"
-        }
-        
-        success, project_response = self.run_test(
-            "Create Project for Activity Feed Test",
+        # First seed projects to ensure we have test data
+        success, seed_response = self.run_test(
+            "Seed Projects for Activity Feed Test",
             "POST",
-            "api/projects",
+            "api/projects/seed",
             200,
-            data=project_data,
             auth_token=self.tokens["Admin"]
         )
         
         if not success:
+            print("❌ Failed to seed projects")
             return False
         
-        project_id = project_response.get("project_id")
+        # Get list of projects
+        success, projects_list = self.run_test(
+            "Get Projects List for Activity Feed",
+            "GET",
+            "api/projects",
+            200,
+            auth_token=self.tokens["Admin"]
+        )
+        
+        if not success or not projects_list or len(projects_list) == 0:
+            print("❌ No projects available for testing")
+            return False
+        
+        project_id = projects_list[0]["project_id"]
         
         # Update stage to generate activity
         success, _ = self.run_test(
