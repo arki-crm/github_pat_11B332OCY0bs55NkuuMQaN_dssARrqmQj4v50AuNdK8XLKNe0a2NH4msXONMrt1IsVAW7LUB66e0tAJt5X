@@ -93,9 +93,11 @@ const Header = () => {
       const response = await axios.get(`${API_URL}/api/notifications?limit=10`, { 
         withCredentials: true 
       });
-      setNotifications(response.data || []);
+      // API returns { notifications: [...], total, unread_count }
+      setNotifications(response.data?.notifications || []);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
+      setNotifications([]);
     } finally {
       setLoadingNotifications(false);
     }
