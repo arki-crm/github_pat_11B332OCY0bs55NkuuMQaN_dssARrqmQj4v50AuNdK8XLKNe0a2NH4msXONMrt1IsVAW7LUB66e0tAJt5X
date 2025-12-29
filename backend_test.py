@@ -4356,6 +4356,20 @@ def main():
         tester.test_calendar_events_with_meetings()
         tester.test_meeting_role_based_access()
         
+        # Reports & Analytics Tests
+        print("\n📊 Testing Reports & Analytics API...")
+        tester.test_revenue_report_admin()
+        tester.test_revenue_report_designer_denied()
+        tester.test_projects_report_admin()
+        tester.test_projects_report_designer_denied()
+        tester.test_leads_report_admin()
+        tester.test_leads_report_presales_access()
+        tester.test_leads_report_designer_denied()
+        tester.test_designers_report_admin()
+        tester.test_designers_report_designer_own_data()
+        tester.test_delays_report_admin()
+        tester.test_delays_report_designer_denied()
+        
         # Logout test (do this last as it invalidates session)
         tester.test_logout()
         
