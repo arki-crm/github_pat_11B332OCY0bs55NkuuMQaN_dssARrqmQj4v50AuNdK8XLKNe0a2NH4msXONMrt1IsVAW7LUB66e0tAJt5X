@@ -16,6 +16,16 @@ import aiofiles
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# File upload directory for Academy
+UPLOADS_DIR = ROOT_DIR / "uploads" / "academy"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Allowed file extensions for Academy uploads
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".webm"}
+ALLOWED_PDF_EXTENSIONS = {".pdf"}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB max for videos
+
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
