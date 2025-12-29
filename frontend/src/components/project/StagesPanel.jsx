@@ -29,7 +29,8 @@ export const StagesPanel = ({
   onPercentageUpdate,
   canChangeStage, 
   isUpdating,
-  userRole 
+  userRole,
+  holdStatus = 'Active'  // New prop for hold status
 }) => {
   const [expandedGroups, setExpandedGroups] = useState(() => {
     // Auto-expand the current active group
@@ -45,6 +46,9 @@ export const StagesPanel = ({
   });
   const [newPercentage, setNewPercentage] = useState(0);
   const [percentageComment, setPercentageComment] = useState('');
+  
+  // Check if progression is blocked due to hold status
+  const isProgressionBlocked = holdStatus === 'Hold' || holdStatus === 'Deactivated';
 
   // Update expanded groups when completedSubStages changes
   React.useEffect(() => {
