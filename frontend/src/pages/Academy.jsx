@@ -117,6 +117,13 @@ const Academy = () => {
   // Action states
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  
+  // File upload states
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const videoInputRef = React.useRef(null);
+  const pdfInputRef = React.useRef(null);
 
   useEffect(() => {
     fetchCategories();
