@@ -7,7 +7,6 @@ import {
   Users,
   UserPlus,
   FolderKanban,
-  GraduationCap,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -20,117 +19,101 @@ import {
   ClipboardCheck,
   Crown,
   Truck,
-  Target
+  Target,
+  FileText
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 const SIDEBAR_STATE_KEY = 'arkiflo_sidebar_collapsed';
 
-// Strict role-based navigation - each role sees ONLY their relevant items
-const getRoleNavItems = (role) => {
+// ============ V1 SIMPLIFIED RBAC - 6 CORE ROLES ============
+// Each role sees ONLY their relevant items - minimal, clean navigation
+
+const getRoleNavItems = (role, hasSeniorManagerView = false) => {
+  // Common items for all roles
   const commonItems = [
     { path: '/calendar', label: 'Calendar', icon: Calendar },
     { path: '/meetings', label: 'Meetings', icon: CalendarDays },
     { path: '/profile', label: 'My Profile', icon: User }
   ];
 
+  // Senior Manager View - adds read-only access to all dashboards
+  const seniorManagerItems = hasSeniorManagerView ? [
+    { path: '/sales-manager', label: 'Sales View', icon: Target, readOnly: true },
+    { path: '/design-manager', label: 'Design View', icon: ClipboardCheck, readOnly: true },
+    { path: '/production-ops', label: 'Production View', icon: Truck, readOnly: true },
+    { path: '/ceo-dashboard', label: 'CEO View', icon: Crown, readOnly: true }
+  ] : [];
+
   switch (role) {
+    // 1. ADMIN - Full access to everything
     case 'Admin':
       return [
         { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         ...commonItems,
-        { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
         { path: '/leads', label: 'Leads', icon: Users },
-        { path: '/sales-manager', label: 'Sales Manager', icon: Target },
         { path: '/projects', label: 'Projects', icon: FolderKanban },
+        { path: '/sales-manager', label: 'Sales Manager', icon: Target },
         { path: '/design-board', label: 'Design Board', icon: Palette },
         { path: '/design-manager', label: 'Design Manager', icon: ClipboardCheck },
-        { path: '/validation-pipeline', label: 'Validation', icon: ClipboardCheck },
-        { path: '/operations', label: 'Operations', icon: Truck },
+        { path: '/production-ops', label: 'Production/Ops', icon: Truck },
         { path: '/ceo-dashboard', label: 'CEO View', icon: Crown },
         { path: '/reports', label: 'Reports', icon: BarChart3 },
         { path: '/users', label: 'Users', icon: UserCog },
-        { path: '/academy', label: 'Academy', icon: GraduationCap },
         { path: '/settings', label: 'Settings', icon: Settings }
       ];
 
-    case 'Manager':
-      return [
-        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        ...commonItems,
-        { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
-        { path: '/leads', label: 'Leads', icon: Users },
-        { path: '/sales-manager', label: 'Sales Manager', icon: Target },
-        { path: '/projects', label: 'Projects', icon: FolderKanban },
-        { path: '/design-board', label: 'Design Board', icon: Palette },
-        { path: '/design-manager', label: 'Design Manager', icon: ClipboardCheck },
-        { path: '/validation-pipeline', label: 'Validation', icon: ClipboardCheck },
-        { path: '/operations', label: 'Operations', icon: Truck },
-        { path: '/reports', label: 'Reports', icon: BarChart3 },
-        { path: '/users', label: 'Users', icon: UserCog }
-      ];
-
-    case 'DesignManager':
-      // Design Manager lands on their dashboard - NO access to general dashboard
-      return [
-        { path: '/design-manager', label: 'My Dashboard', icon: LayoutDashboard },
-        ...commonItems,
-        { path: '/projects', label: 'Projects', icon: FolderKanban },
-        { path: '/design-board', label: 'Design Board', icon: Palette },
-        { path: '/validation-pipeline', label: 'Validation', icon: ClipboardCheck },
-        { path: '/reports', label: 'Reports', icon: BarChart3 }
-      ];
-
-    case 'ProductionManager':
-      // Production Manager lands on validation pipeline - NO access to design areas
-      return [
-        { path: '/validation-pipeline', label: 'My Dashboard', icon: LayoutDashboard },
-        ...commonItems,
-        { path: '/projects', label: 'Projects', icon: FolderKanban },
-        { path: '/operations', label: 'Operations', icon: Truck }
-      ];
-
-    case 'OperationsLead':
-      // Operations Lead lands on operations dashboard - NO access to design/validation
-      return [
-        { path: '/operations', label: 'My Dashboard', icon: LayoutDashboard },
-        ...commonItems,
-        { path: '/projects', label: 'Projects', icon: FolderKanban }
-      ];
-
-    case 'SalesManager':
-      // Sales Manager lands on sales dashboard - ONLY sales-related items
-      return [
-        { path: '/sales-manager', label: 'Sales Dashboard', icon: LayoutDashboard },
-        { path: '/leads', label: 'Leads', icon: Users },
-        { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
-        ...commonItems,
-        { path: '/reports', label: 'Reports', icon: BarChart3 }
-      ];
-
-    case 'Designer':
-    case 'HybridDesigner':
-      return [
-        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        ...commonItems,
-        { path: '/projects', label: 'Projects', icon: FolderKanban },
-        { path: '/design-board', label: 'Design Board', icon: Palette },
-        { path: '/reports', label: 'Reports', icon: BarChart3 },
-        ...(role === 'HybridDesigner' ? [{ path: '/presales', label: 'Pre-Sales', icon: UserPlus }] : [])
-      ];
-
+    // 2. PRE-SALES - Lead creation, qualification, handover
     case 'PreSales':
       return [
         { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         ...commonItems,
-        { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
-        { path: '/reports', label: 'Reports', icon: BarChart3 }
+        { path: '/leads', label: 'My Leads', icon: Users },
+        { path: '/reports', label: 'Reports', icon: BarChart3 },
+        ...seniorManagerItems
       ];
 
-    case 'Trainee':
+    // 3. SALES MANAGER - All leads not booked, funnel, reassign
+    case 'SalesManager':
+      return [
+        { path: '/sales-manager', label: 'Sales Dashboard', icon: LayoutDashboard },
+        { path: '/leads', label: 'All Leads', icon: Users },
+        ...commonItems,
+        { path: '/reports', label: 'Reports', icon: BarChart3 },
+        ...seniorManagerItems
+      ];
+
+    // 4. DESIGNER - Assigned leads/projects, sales + design stages
+    case 'Designer':
       return [
         { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        ...commonItems
+        ...commonItems,
+        { path: '/leads', label: 'My Leads', icon: Users },
+        { path: '/projects', label: 'My Projects', icon: FolderKanban },
+        { path: '/design-board', label: 'Design Board', icon: Palette },
+        { path: '/reports', label: 'Reports', icon: BarChart3 },
+        ...seniorManagerItems
+      ];
+
+    // 5. DESIGN MANAGER - All designers' tasks, delays, bottlenecks
+    case 'DesignManager':
+      return [
+        { path: '/design-manager', label: 'My Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/projects', label: 'All Projects', icon: FolderKanban },
+        { path: '/design-board', label: 'Design Board', icon: Palette },
+        { path: '/reports', label: 'Reports', icon: BarChart3 },
+        ...seniorManagerItems
+      ];
+
+    // 6. PRODUCTION/OPS MANAGER - Validation, production, delivery, handover
+    case 'ProductionOpsManager':
+      return [
+        { path: '/production-ops', label: 'My Dashboard', icon: LayoutDashboard },
+        ...commonItems,
+        { path: '/projects', label: 'Projects', icon: FolderKanban },
+        { path: '/reports', label: 'Reports', icon: BarChart3 },
+        ...seniorManagerItems
       ];
 
     default:
