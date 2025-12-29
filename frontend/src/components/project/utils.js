@@ -46,8 +46,9 @@ export const MILESTONE_GROUPS = [
     color: { bg: 'bg-cyan-100', text: 'text-cyan-700', ring: 'ring-cyan-400', accent: 'bg-cyan-500' },
     subStages: [
       { id: 'dispatch_scheduled', name: 'Dispatch Scheduled', order: 1 },
-      { id: 'materials_dispatched', name: 'Materials Dispatched', order: 2 },
-      { id: 'delivery_confirmed', name: 'Delivery Confirmed at Site', order: 3 }
+      { id: 'installation_team_scheduled', name: 'Installation Team Scheduled', order: 2 },
+      { id: 'materials_dispatched', name: 'Materials Dispatched', order: 3 },
+      { id: 'delivery_confirmed', name: 'Delivery Confirmed at Site', order: 4 }
     ]
   },
   {
@@ -68,9 +69,13 @@ export const MILESTONE_GROUPS = [
     color: { bg: 'bg-green-100', text: 'text-green-700', ring: 'ring-green-400', accent: 'bg-green-500' },
     subStages: [
       { id: 'final_inspection', name: 'Final Inspection', order: 1 },
-      { id: 'payment_collection_final', name: 'Final Payment Collection', order: 2 },
+      { id: 'cleaning', name: 'Cleaning', order: 2 },
       { id: 'handover_docs', name: 'Handover Documents Prepared', order: 3 },
-      { id: 'project_handover', name: 'Project Handover Complete', order: 4 }
+      { id: 'project_handover', name: 'Project Handover Complete', order: 4 },
+      { id: 'csat', name: 'CSAT (Customer Satisfaction)', order: 5 },
+      { id: 'review_video_photos', name: 'Review Video / Photos', order: 6 },
+      { id: 'issue_warranty_book', name: 'Issue Warranty Book', order: 7 },
+      { id: 'closed', name: 'Closed', order: 8 }
     ]
   }
 ];
