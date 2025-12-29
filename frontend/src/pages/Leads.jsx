@@ -249,6 +249,7 @@ const Leads = () => {
             </Button>
           )}
         </div>
+      </div>
 
       {/* Search Bar */}
       <div className="relative max-w-md">
