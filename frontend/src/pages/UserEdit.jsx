@@ -31,9 +31,9 @@ import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-// Core roles + Phase 15 Design Workflow roles (10 total)
-const ROLES = ['Admin', 'Manager', 'SalesManager', 'DesignManager', 'ProductionManager', 'OperationsLead', 'Designer', 'PreSales', 'HybridDesigner', 'Trainee'];
-const MANAGER_ALLOWED_ROLES = ['Designer', 'PreSales', 'HybridDesigner', 'Trainee'];
+// V1 SIMPLIFIED RBAC - 6 Core Roles Only
+const ROLES = ['Admin', 'PreSales', 'SalesManager', 'Designer', 'DesignManager', 'ProductionOpsManager'];
+const MANAGER_ALLOWED_ROLES = ['Designer', 'PreSales'];  // What non-Admin managers can assign
 
 // Avatar component with initials fallback
 const UserAvatar = ({ user, size = 'lg', showEditOverlay = false, onClick }) => {
