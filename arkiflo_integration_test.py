@@ -221,7 +221,7 @@ print("Technician session token: {technician_session_token}");
             "budget": 50000
         }
         
-        success, presales_response = self.run_test("Create Pre-Sales Lead", "POST", "api/presales", 200,
+        success, presales_response = self.run_test("Create Pre-Sales Lead", "POST", "api/presales/create", 200,
                                                  data=lead_data, auth_token=self.admin_token)
         if not success:
             return False, {}
