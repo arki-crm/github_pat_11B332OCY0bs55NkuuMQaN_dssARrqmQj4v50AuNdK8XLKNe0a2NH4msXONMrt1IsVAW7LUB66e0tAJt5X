@@ -942,6 +942,7 @@ const LeadDetails = () => {
                 canAssignDesigner={canAssignDesigner()}
                 onConvertToProject={handleConvertToProject}
                 canConvert={canConvert()}
+                userRole={user?.role}
               />
             </CardContent>
           </Card>
