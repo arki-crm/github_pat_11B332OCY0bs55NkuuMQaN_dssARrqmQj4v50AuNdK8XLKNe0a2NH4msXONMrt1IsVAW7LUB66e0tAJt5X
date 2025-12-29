@@ -6,6 +6,16 @@ import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ScrollArea } from '../components/ui/scroll-area';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 import { 
   ArrowLeft, 
   Loader2, 
@@ -18,7 +28,11 @@ import {
   ArrowRightCircle,
   X,
   CalendarDays,
-  Plus
+  Plus,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
