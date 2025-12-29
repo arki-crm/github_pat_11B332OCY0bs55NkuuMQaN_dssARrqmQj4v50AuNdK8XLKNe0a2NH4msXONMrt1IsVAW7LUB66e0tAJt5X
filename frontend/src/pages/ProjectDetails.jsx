@@ -653,7 +653,9 @@ const ProjectDetails = () => {
               <StagesPanel 
                 currentStage={project?.stage}
                 completedSubStages={completedSubStages}
+                percentageSubStages={percentageSubStages}
                 onSubStageComplete={handleSubStageComplete}
+                onPercentageUpdate={handlePercentageUpdate}
                 canChangeStage={canChangeStage()}
                 isUpdating={isUpdatingStage}
                 userRole={user?.role}
