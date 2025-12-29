@@ -263,48 +263,148 @@ const CustomerDetailsPanel = ({ lead, canEdit, onSave, saving }) => {
 };
 
 // ============ STATUS PANEL ============
+// Forward-only status order (excluding Dropped)
+const STATUS_ORDER = ['New', 'Contacted', 'Waiting', 'Qualified'];
+
 const StatusPanel = ({ currentStatus, onStatusChange, canChange, isUpdating, onConvertToLead, canConvert }) => {
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, targetStatus: null });
+  
+  const currentIndex = STATUS_ORDER.indexOf(currentStatus);
+  
+  // Check if a status is in the past (already completed)
+  const isPastStatus = (status) => {
+    if (status === 'Dropped') return currentStatus === 'Dropped';
+    const statusIndex = STATUS_ORDER.indexOf(status);
+    return statusIndex < currentIndex && currentIndex >= 0;
+  };
+  
+  // Check if a status is the next valid step
+  const isNextStatus = (status) => {
+    if (status === 'Dropped') return currentStatus !== 'Dropped'; // Can always drop
+    const statusIndex = STATUS_ORDER.indexOf(status);
+    return statusIndex === currentIndex + 1;
+  };
+  
+  // Check if status can be clicked
+  const canClickStatus = (status) => {
+    if (!canChange || isUpdating) return false;
+    if (status === currentStatus) return false;
+    if (isPastStatus(status)) return false;
+    return true; // Allow clicking future stages (backend will validate)
+  };
+  
+  const handleStatusClick = (status) => {
+    if (!canClickStatus(status)) return;
+    setConfirmDialog({ open: true, targetStatus: status });
+  };
+  
+  const confirmStatusChange = () => {
+    if (confirmDialog.targetStatus) {
+      onStatusChange(confirmDialog.targetStatus);
+    }
+    setConfirmDialog({ open: false, targetStatus: null });
+  };
+
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Status</h3>
+      <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Status Progression</h3>
+      
+      {/* Forward-only notice */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+        <p className="text-xs text-blue-600 flex items-center gap-1">
+          <ChevronRight className="w-3 h-3" />
+          Status moves forward only: New → Contacted → Waiting → Qualified
+        </p>
+      </div>
       
       <div className="space-y-2">
-        {PRESALES_STATUSES.map((status) => {
+        {PRESALES_STATUSES.filter(s => s !== 'Dropped').map((status, idx) => {
           const isCurrent = currentStatus === status;
+          const isPast = isPastStatus(status);
+          const isNext = isNextStatus(status);
           const statusStyle = STATUS_STYLES[status] || STATUS_STYLES['New'];
-          const isClickable = canChange && !isUpdating && status !== currentStatus;
+          const canClick = canClickStatus(status);
           
           return (
             <button
               key={status}
-              onClick={() => isClickable && onStatusChange(status)}
-              disabled={!isClickable}
+              onClick={() => canClick && handleStatusClick(status)}
+              disabled={!canClick}
               className={cn(
                 "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
-                isCurrent ? `${statusStyle.bg} border-2 ${statusStyle.ring.replace('ring', 'border')}` : "bg-white border-slate-200",
-                isClickable && "cursor-pointer hover:bg-slate-50",
-                !isClickable && "cursor-default opacity-60"
+                isCurrent && `${statusStyle.bg} border-2 ${statusStyle.ring.replace('ring', 'border')}`,
+                isPast && "bg-slate-50 border-slate-200 opacity-50",
+                !isCurrent && !isPast && "bg-white border-slate-200",
+                canClick && isNext && "cursor-pointer hover:bg-slate-50 hover:border-blue-300",
+                canClick && !isNext && "cursor-pointer hover:bg-slate-50",
+                !canClick && "cursor-not-allowed"
               )}
+              data-testid={`status-btn-${status.toLowerCase()}`}
             >
+              {/* Status indicator */}
               <div className={cn(
-                "w-3 h-3 rounded-full",
-                isCurrent ? statusStyle.bg.replace('100', '500') : "bg-slate-300"
-              )} />
+                "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                isCurrent && statusStyle.bg.replace('100', '500') + " text-white",
+                isPast && "bg-green-500 text-white",
+                !isCurrent && !isPast && "bg-slate-200 text-slate-500"
+              )}>
+                {isPast ? <Check className="w-3 h-3" /> : idx + 1}
+              </div>
+              
               <span className={cn(
-                "text-sm font-medium",
-                isCurrent ? statusStyle.text : "text-slate-600"
+                "text-sm font-medium flex-1",
+                isCurrent && statusStyle.text,
+                isPast && "text-slate-500 line-through",
+                !isCurrent && !isPast && "text-slate-600"
               )}>
                 {status}
               </span>
+              
               {isCurrent && isUpdating && (
-                <Loader2 className="w-4 h-4 animate-spin ml-auto" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               )}
               {isCurrent && !isUpdating && (
-                <Check className="w-4 h-4 ml-auto text-current" />
+                <Badge variant="outline" className="text-xs">Current</Badge>
+              )}
+              {isNext && canChange && !isUpdating && (
+                <ChevronRight className="w-4 h-4 text-blue-500" />
               )}
             </button>
           );
         })}
+        
+        {/* Dropped option - separate section */}
+        <div className="pt-2 border-t border-slate-200 mt-2">
+          <button
+            onClick={() => canClickStatus('Dropped') && handleStatusClick('Dropped')}
+            disabled={!canClickStatus('Dropped')}
+            className={cn(
+              "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
+              currentStatus === 'Dropped' 
+                ? "bg-red-100 border-2 border-red-500" 
+                : "bg-white border-slate-200 hover:border-red-300",
+              canClickStatus('Dropped') && "cursor-pointer hover:bg-red-50",
+              !canClickStatus('Dropped') && "cursor-not-allowed opacity-50"
+            )}
+            data-testid="status-btn-dropped"
+          >
+            <div className={cn(
+              "w-6 h-6 rounded-full flex items-center justify-center",
+              currentStatus === 'Dropped' ? "bg-red-500 text-white" : "bg-slate-200 text-slate-500"
+            )}>
+              <X className="w-3 h-3" />
+            </div>
+            <span className={cn(
+              "text-sm font-medium flex-1",
+              currentStatus === 'Dropped' ? "text-red-700" : "text-slate-600"
+            )}>
+              Mark as Dropped
+            </span>
+            {currentStatus === 'Dropped' && (
+              <Badge variant="outline" className="text-xs text-red-600 border-red-300">Dropped</Badge>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Convert to Lead Button */}
@@ -313,6 +413,7 @@ const StatusPanel = ({ currentStatus, onStatusChange, canChange, isUpdating, onC
           <Button
             onClick={onConvertToLead}
             className="w-full bg-green-600 hover:bg-green-700"
+            data-testid="convert-to-lead-btn"
           >
             <ArrowRightCircle className="w-4 h-4 mr-2" />
             Convert to Lead
@@ -322,6 +423,53 @@ const StatusPanel = ({ currentStatus, onStatusChange, canChange, isUpdating, onC
           </p>
         </div>
       )}
+      
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, targetStatus: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {confirmDialog.targetStatus === 'Dropped' ? (
+                <>
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  Drop this lead?
+                </>
+              ) : (
+                <>
+                  <ChevronRight className="w-5 h-5 text-blue-500" />
+                  Update Status
+                </>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog.targetStatus === 'Dropped' ? (
+                <>
+                  Are you sure you want to mark this lead as <strong className="text-red-600">Dropped</strong>? 
+                  This indicates the lead is no longer active.
+                </>
+              ) : (
+                <>
+                  Change status from <strong className="text-slate-700">{currentStatus}</strong> to{' '}
+                  <strong className="text-blue-600">{confirmDialog.targetStatus}</strong>?
+                  <br /><br />
+                  <span className="text-amber-600 text-sm">
+                    ⚠️ Note: Status progression is forward-only. You cannot move back to previous stages.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmStatusChange}
+              className={confirmDialog.targetStatus === 'Dropped' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}
+            >
+              {confirmDialog.targetStatus === 'Dropped' ? 'Drop Lead' : 'Confirm Change'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
