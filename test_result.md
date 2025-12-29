@@ -300,6 +300,21 @@ backend:
         agent: "testing"
         comment: "✅ VERIFIED: Sub-Stage Progression System working perfectly! All 12 tests passed (100% success rate). Key functionality verified: 1) GET /api/projects/{id}/substages returns proper structure (completed_substages array, group_progress array), 2) POST /api/projects/{id}/substage/complete works correctly for first sub-stage (site_measurement), 3) Forward-only validation enforced - cannot skip sub-stages (design_meeting_2 fails without design_meeting_1), 4) Sequential completion working (site_measurement → design_meeting_1 → design_meeting_2), 5) Duplicate completion blocked with proper error message, 6) Invalid sub-stage IDs rejected with appropriate error, 7) Designer role can complete sub-stages for assigned projects, 8) PreSales role properly denied access (403 errors), 9) Response structure includes success, substage_id, substage_name, group_name, group_complete, completed_substages, current_stage fields. System enforces proper progression through 11 Design Finalization sub-stages with activity logging."
 
+  - task: "Warranty & After-Service Module"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented comprehensive warranty and after-service module with warranty endpoints (GET /api/warranties, GET /api/warranties/{id}, GET /api/warranties/by-pid/{pid}, GET /api/warranties/by-project/{project_id}, PUT /api/warranties/{id}), service request endpoints (GET/POST /api/service-requests, GET /api/service-requests/{id}, GET /api/service-requests/by-pid/{pid}, POST /api/service-requests/from-google-form), service request workflow (PUT /api/service-requests/{id}/assign, PUT /api/service-requests/{id}/stage, PUT /api/service-requests/{id}/expected-closure, POST /api/service-requests/{id}/delay, POST /api/service-requests/{id}/photos, POST /api/service-requests/{id}/notes, POST /api/service-requests/{id}/comments), technician endpoints (GET /api/technicians), and new Technician role with proper permissions"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Warranty & After-Service Module working perfectly! All 14 tests passed (100% success rate). Key features confirmed: 1) Technician role exists in VALID_ROLES and can be created, 2) Warranty endpoints working with proper role-based access (Admin can access, Technician denied with 403), 3) Service request creation working for both internal (requires auth) and Google Form (no auth), 4) Service request assignment to technicians working, 5) Service request stage progression working with forward-only validation (New → Assigned to Technician → Technician Visit Scheduled), 6) Technician permissions properly enforced (can view assigned requests, cannot create requests, cannot access warranties), 7) List technicians endpoint working with open_requests count. All role-based access controls functioning correctly."
+
 frontend:
   - task: "Sub-Stage Progression UI Bug Fix"
     implemented: true
