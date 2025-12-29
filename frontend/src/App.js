@@ -42,6 +42,12 @@ import OperationsDashboard from './pages/OperationsDashboard';
 import SalesManagerDashboard from './pages/SalesManagerDashboard';
 import ProductionOpsDashboard from './pages/ProductionOpsDashboard';
 
+// Warranty & Service Module
+import Warranty from './pages/Warranty';
+import ServiceRequests from './pages/ServiceRequests';
+import ServiceRequestDetails from './pages/ServiceRequestDetails';
+import Technicians from './pages/Technicians';
+
 import './App.css';
 
 // Router component that handles session_id detection synchronously
