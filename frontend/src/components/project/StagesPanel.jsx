@@ -26,9 +26,6 @@ export const StagesPanel = ({
   isUpdating,
   userRole 
 }) => {
-  // Debug log
-  console.log('StagesPanel render - completedSubStages:', completedSubStages);
-  
   const [expandedGroups, setExpandedGroups] = useState(() => {
     // Auto-expand the current active group
     const currentGroup = getCurrentMilestoneGroup(completedSubStages);
@@ -55,7 +52,6 @@ export const StagesPanel = ({
   };
 
   const handleSubStageClick = (subStage, groupName) => {
-    console.log('handleSubStageClick:', subStage.id, 'canComplete:', canCompleteSubStage(subStage.id, completedSubStages));
     if (!canChangeStage || isUpdating) return;
     if (!canCompleteSubStage(subStage.id, completedSubStages)) return;
     
