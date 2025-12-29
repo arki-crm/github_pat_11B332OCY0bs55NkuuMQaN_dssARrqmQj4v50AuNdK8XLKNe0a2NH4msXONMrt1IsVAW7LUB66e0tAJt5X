@@ -5691,6 +5691,21 @@ def main():
         tester.test_get_available_users()
         tester.test_get_available_users_designer()
         
+        # Pre-Sales Module Tests
+        print("\n🎯 Testing Pre-Sales Module...")
+        tester.test_create_presales_lead_admin()
+        tester.test_create_presales_lead_validation()
+        tester.test_create_presales_lead_designer_denied()
+        tester.test_get_presales_detail_admin()
+        tester.test_update_presales_status_forward_progression()
+        tester.test_update_presales_status_backward_denied()
+        tester.test_update_presales_status_dropped_from_any()
+        tester.test_update_presales_status_admin_skip_stages()
+        tester.test_update_presales_status_presales_cannot_skip()
+        tester.test_convert_presales_to_lead_qualified_only()
+        tester.test_convert_presales_to_lead_not_qualified_denied()
+        tester.test_presales_role_based_access()
+
         # TAT System Tests
         print("\n⏰ Testing TAT (Time-to-Action) System...")
         tester.test_seed_leads_admin()
