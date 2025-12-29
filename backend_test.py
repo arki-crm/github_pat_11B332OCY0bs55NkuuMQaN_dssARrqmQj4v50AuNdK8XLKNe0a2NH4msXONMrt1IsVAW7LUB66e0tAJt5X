@@ -4994,13 +4994,13 @@ print("HybridDesigner user ID: {hybrid_designer_user_id}");
             # ProductionManager should have access
             success1, _ = self.run_test("Validate Design Project (ProductionManager)", "POST", 
                                        f"api/validation-pipeline/{project_id}/validate", 200,
-                                       data={"validation_notes": "Test validation"},
+                                       data={"validation_notes": "Test validation", "status": "approved"},
                                        auth_token=self.production_manager_token)
             
             # DesignManager should NOT have access
             success2, _ = self.run_test("Validate Design Project (DesignManager - Should Fail)", "POST", 
                                        f"api/validation-pipeline/{project_id}/validate", 403,
-                                       data={"validation_notes": "Test validation"},
+                                       data={"validation_notes": "Test validation", "status": "approved"},
                                        auth_token=self.design_manager_token)
             
             return success1 and success2, {}
