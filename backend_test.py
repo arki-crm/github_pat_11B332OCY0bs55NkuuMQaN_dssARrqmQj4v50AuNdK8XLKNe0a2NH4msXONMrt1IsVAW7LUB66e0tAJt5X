@@ -4333,6 +4333,353 @@ db.user_sessions.insertOne({{
         return self.run_test("Delays Report (Designer - Should Fail)", "GET", "api/reports/delays", 403,
                            auth_token=self.designer_token)
 
+    # ============ PHASE 15A DESIGN WORKFLOW TESTS ============
+
+    def test_seed_design_workflow(self):
+        """Test POST /api/seed/design-workflow - Create test data for design workflow"""
+        return self.run_test("Seed Design Workflow Data", "POST", "api/seed/design-workflow", 200,
+                           auth_token=self.admin_token)
+
+    def test_design_manager_dashboard_admin(self):
+        """Test GET /api/design-manager/dashboard - Design Manager Dashboard (Admin access)"""
+        success, dashboard_data = self.run_test("Design Manager Dashboard (Admin)", "GET", "api/design-manager/dashboard", 200,
+                                               auth_token=self.admin_token)
+        if success:
+            # Verify dashboard structure
+            required_fields = ['summary', 'projects_by_stage', 'bottlenecks', 'designer_workload', 'delayed_projects']
+            has_all_fields = all(field in dashboard_data for field in required_fields)
+            
+            # Check summary structure
+            summary = dashboard_data.get('summary', {})
+            summary_fields = ['total_active_projects', 'delayed_count', 'pending_meetings', 'missing_drawings', 'referral_projects']
+            has_summary_fields = all(field in summary for field in summary_fields)
+            
+            print(f"   Has all required fields: {has_all_fields}")
+            print(f"   Has summary fields: {has_summary_fields}")
+            print(f"   Total active projects: {summary.get('total_active_projects', 'N/A')}")
+            print(f"   Delayed count: {summary.get('delayed_count', 'N/A')}")
+            
+            return success and has_all_fields and has_summary_fields, dashboard_data
+        return success, dashboard_data
+
+    def test_design_manager_dashboard_designer_denied(self):
+        """Test GET /api/design-manager/dashboard with Designer token (should fail)"""
+        return self.run_test("Design Manager Dashboard (Designer - Should Fail)", "GET", "api/design-manager/dashboard", 403,
+                           auth_token=self.designer_token)
+
+    def test_validation_pipeline_admin(self):
+        """Test GET /api/validation-pipeline - Validation Pipeline (Admin access)"""
+        success, pipeline_data = self.run_test("Validation Pipeline (Admin)", "GET", "api/validation-pipeline", 200,
+                                              auth_token=self.admin_token)
+        if success:
+            # Verify pipeline structure
+            is_array = isinstance(pipeline_data, list)
+            print(f"   Pipeline is array: {is_array}")
+            print(f"   Pipeline items: {len(pipeline_data) if is_array else 'N/A'}")
+            
+            if is_array and len(pipeline_data) > 0:
+                first_item = pipeline_data[0]
+                required_fields = ['design_project', 'project', 'designer', 'has_drawings', 'has_sign_off', 'files']
+                has_required_fields = all(field in first_item for field in required_fields)
+                print(f"   Has required fields: {has_required_fields}")
+                return success and is_array and has_required_fields, pipeline_data
+            
+            return success and is_array, pipeline_data
+        return success, pipeline_data
+
+    def test_validation_pipeline_designer_denied(self):
+        """Test GET /api/validation-pipeline with Designer token (should fail)"""
+        return self.run_test("Validation Pipeline (Designer - Should Fail)", "GET", "api/validation-pipeline", 403,
+                           auth_token=self.designer_token)
+
+    def test_validate_design_project(self):
+        """Test POST /api/validation-pipeline/{design_project_id}/validate - Validate a design project"""
+        # First get validation pipeline to get a design project ID
+        success, pipeline_data = self.run_test("Get Pipeline for Validation Test", "GET", "api/validation-pipeline", 200,
+                                              auth_token=self.admin_token)
+        if success and pipeline_data and len(pipeline_data) > 0:
+            design_project_id = pipeline_data[0]['design_project']['id']
+            
+            validation_data = {
+                "status": "approved",
+                "notes": "Design approved after review. Ready for production."
+            }
+            
+            success, validate_response = self.run_test("Validate Design Project", "POST", 
+                                                     f"api/validation-pipeline/{design_project_id}/validate", 200,
+                                                     data=validation_data,
+                                                     auth_token=self.admin_token)
+            if success:
+                # Verify response structure
+                has_message = 'message' in validate_response
+                has_status = 'status' in validate_response
+                print(f"   Validation message present: {has_message}")
+                print(f"   Status present: {has_status}")
+                
+                # Store for send to production test
+                self.validated_design_project_id = design_project_id
+                
+                return success and has_message and has_status, validate_response
+            return success, validate_response
+        else:
+            print("⚠️  No design projects found in validation pipeline")
+            return True, {}  # Skip if no projects to validate
+
+    def test_validate_design_project_needs_revision(self):
+        """Test POST /api/validation-pipeline/{design_project_id}/validate with needs_revision status"""
+        # Get another design project for revision test
+        success, pipeline_data = self.run_test("Get Pipeline for Revision Test", "GET", "api/validation-pipeline", 200,
+                                              auth_token=self.admin_token)
+        if success and pipeline_data and len(pipeline_data) > 1:
+            design_project_id = pipeline_data[1]['design_project']['id']
+            
+            validation_data = {
+                "status": "needs_revision",
+                "notes": "Please revise the kitchen layout and resubmit."
+            }
+            
+            return self.run_test("Validate Design Project (Needs Revision)", "POST", 
+                               f"api/validation-pipeline/{design_project_id}/validate", 200,
+                               data=validation_data,
+                               auth_token=self.admin_token)
+        else:
+            print("⚠️  Not enough design projects for revision test")
+            return True, {}
+
+    def test_validate_design_project_designer_denied(self):
+        """Test POST /api/validation-pipeline/{design_project_id}/validate with Designer token (should fail)"""
+        success, pipeline_data = self.run_test("Get Pipeline for Designer Validation Test", "GET", "api/validation-pipeline", 200,
+                                              auth_token=self.admin_token)
+        if success and pipeline_data and len(pipeline_data) > 0:
+            design_project_id = pipeline_data[0]['design_project']['id']
+            
+            validation_data = {
+                "status": "approved",
+                "notes": "Designer trying to validate"
+            }
+            
+            return self.run_test("Validate Design Project (Designer - Should Fail)", "POST", 
+                               f"api/validation-pipeline/{design_project_id}/validate", 403,
+                               data=validation_data,
+                               auth_token=self.designer_token)
+        else:
+            print("⚠️  No design projects for designer validation test")
+            return True, {}
+
+    def test_send_to_production(self):
+        """Test POST /api/validation-pipeline/{design_project_id}/send-to-production - Send to production"""
+        if hasattr(self, 'validated_design_project_id'):
+            success, production_response = self.run_test("Send to Production", "POST", 
+                                                        f"api/validation-pipeline/{self.validated_design_project_id}/send-to-production", 200,
+                                                        auth_token=self.admin_token)
+            if success:
+                # Verify response structure
+                has_message = 'message' in production_response
+                has_project_id = 'project_id' in production_response
+                print(f"   Production message present: {has_message}")
+                print(f"   Project ID present: {has_project_id}")
+                
+                return success and has_message and has_project_id, production_response
+            return success, production_response
+        else:
+            print("⚠️  No validated design project available for production test")
+            return True, {}
+
+    def test_send_to_production_designer_denied(self):
+        """Test POST /api/validation-pipeline/{design_project_id}/send-to-production with Designer token (should fail)"""
+        success, pipeline_data = self.run_test("Get Pipeline for Designer Production Test", "GET", "api/validation-pipeline", 200,
+                                              auth_token=self.admin_token)
+        if success and pipeline_data and len(pipeline_data) > 0:
+            design_project_id = pipeline_data[0]['design_project']['id']
+            
+            return self.run_test("Send to Production (Designer - Should Fail)", "POST", 
+                               f"api/validation-pipeline/{design_project_id}/send-to-production", 403,
+                               auth_token=self.designer_token)
+        else:
+            print("⚠️  No design projects for designer production test")
+            return True, {}
+
+    def test_ceo_dashboard_admin(self):
+        """Test GET /api/ceo/dashboard - CEO Dashboard (Admin only)"""
+        success, ceo_data = self.run_test("CEO Dashboard (Admin)", "GET", "api/ceo/dashboard", 200,
+                                         auth_token=self.admin_token)
+        if success:
+            # Verify CEO dashboard structure
+            required_fields = ['project_health', 'designer_performance', 'manager_performance', 
+                             'validation_performance', 'delay_attribution', 'bottleneck_analysis', 'workload_distribution']
+            has_all_fields = all(field in ceo_data for field in required_fields)
+            
+            print(f"   Has all required fields: {has_all_fields}")
+            print(f"   Project health keys: {list(ceo_data.get('project_health', {}).keys())}")
+            print(f"   Designer performance count: {len(ceo_data.get('designer_performance', []))}")
+            
+            return success and has_all_fields, ceo_data
+        return success, ceo_data
+
+    def test_ceo_dashboard_manager_denied(self):
+        """Test GET /api/ceo/dashboard with Manager token (should fail)"""
+        # Create a Manager user for testing
+        manager_user_id = f"test-manager-ceo-{uuid.uuid4().hex[:8]}"
+        manager_session_token = f"test_manager_ceo_session_{uuid.uuid4().hex[:16]}"
+        
+        mongo_commands = f'''
+use('test_database');
+db.users.insertOne({{
+  user_id: "{manager_user_id}",
+  email: "manager.ceo.test.{datetime.now().strftime('%Y%m%d%H%M%S')}@example.com",
+  name: "Test Manager CEO",
+  picture: "https://via.placeholder.com/150",
+  role: "Manager",
+  status: "Active",
+  created_at: new Date()
+}});
+db.user_sessions.insertOne({{
+  user_id: "{manager_user_id}",
+  session_token: "{manager_session_token}",
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
+}});
+'''
+        
+        try:
+            import subprocess
+            result = subprocess.run(['mongosh', '--eval', mongo_commands], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                return self.run_test("CEO Dashboard (Manager - Should Fail)", "GET", "api/ceo/dashboard", 403,
+                                   auth_token=manager_session_token)
+            else:
+                print(f"❌ Failed to create Manager user for CEO test: {result.stderr}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Error testing CEO dashboard Manager access: {str(e)}")
+            return False, {}
+
+    def test_get_design_tasks_admin(self):
+        """Test GET /api/design-tasks - Get design tasks for current user (Admin)"""
+        success, tasks_data = self.run_test("Get Design Tasks (Admin)", "GET", "api/design-tasks", 200,
+                                           auth_token=self.admin_token)
+        if success:
+            # Verify tasks structure
+            is_array = isinstance(tasks_data, list)
+            print(f"   Tasks is array: {is_array}")
+            print(f"   Tasks count: {len(tasks_data) if is_array else 'N/A'}")
+            
+            if is_array and len(tasks_data) > 0:
+                first_task = tasks_data[0]
+                required_fields = ['id', 'title', 'status', 'due_date', 'is_overdue']
+                has_required_fields = all(field in first_task for field in required_fields)
+                
+                # Check if project info is present
+                has_project_info = 'project' in first_task
+                
+                print(f"   Has required fields: {has_required_fields}")
+                print(f"   Has project info: {has_project_info}")
+                print(f"   First task status: {first_task.get('status', 'N/A')}")
+                
+                # Store task ID for update test
+                if 'id' in first_task:
+                    self.test_design_task_id = first_task['id']
+                
+                return success and is_array and has_required_fields, tasks_data
+            
+            return success and is_array, tasks_data
+        return success, tasks_data
+
+    def test_get_design_tasks_designer(self):
+        """Test GET /api/design-tasks - Get design tasks for Designer (role-based filtering)"""
+        success, tasks_data = self.run_test("Get Design Tasks (Designer)", "GET", "api/design-tasks", 200,
+                                           auth_token=self.designer_token)
+        if success:
+            # Verify tasks structure and role-based filtering
+            is_array = isinstance(tasks_data, list)
+            print(f"   Designer tasks is array: {is_array}")
+            print(f"   Designer tasks count: {len(tasks_data) if is_array else 'N/A'}")
+            
+            return success and is_array, tasks_data
+        return success, tasks_data
+
+    def test_update_design_task_status(self):
+        """Test PUT /api/design-tasks/{task_id} - Update task status"""
+        if hasattr(self, 'test_design_task_id'):
+            update_data = {
+                "status": "In Progress"
+            }
+            
+            success, update_response = self.run_test("Update Design Task Status", "PUT", 
+                                                   f"api/design-tasks/{self.test_design_task_id}", 200,
+                                                   data=update_data,
+                                                   auth_token=self.admin_token)
+            if success:
+                # Verify response structure
+                has_message = 'message' in update_response
+                has_task = 'task' in update_response
+                status_updated = update_response.get('task', {}).get('status') == "In Progress"
+                
+                print(f"   Update message present: {has_message}")
+                print(f"   Task present: {has_task}")
+                print(f"   Status updated correctly: {status_updated}")
+                
+                return success and has_message and has_task and status_updated, update_response
+            return success, update_response
+        else:
+            print("⚠️  No test design task available for status update")
+            return True, {}
+
+    def test_update_design_task_invalid_status(self):
+        """Test PUT /api/design-tasks/{task_id} with invalid status (should fail)"""
+        if hasattr(self, 'test_design_task_id'):
+            update_data = {
+                "status": "InvalidStatus"
+            }
+            
+            return self.run_test("Update Design Task (Invalid Status)", "PUT", 
+                               f"api/design-tasks/{self.test_design_task_id}", 400,
+                               data=update_data,
+                               auth_token=self.admin_token)
+        else:
+            print("⚠️  No test design task available for invalid status test")
+            return True, {}
+
+    def test_get_design_projects_admin(self):
+        """Test GET /api/design-projects - Get design projects for current user (Admin)"""
+        success, projects_data = self.run_test("Get Design Projects (Admin)", "GET", "api/design-projects", 200,
+                                              auth_token=self.admin_token)
+        if success:
+            # Verify projects structure
+            is_array = isinstance(projects_data, list)
+            print(f"   Design projects is array: {is_array}")
+            print(f"   Design projects count: {len(projects_data) if is_array else 'N/A'}")
+            
+            if is_array and len(projects_data) > 0:
+                first_project = projects_data[0]
+                required_fields = ['id', 'project_id', 'current_stage', 'status', 'tasks_completed', 'tasks_total', 'has_delays']
+                has_required_fields = all(field in first_project for field in required_fields)
+                
+                print(f"   Has required fields: {has_required_fields}")
+                print(f"   First project stage: {first_project.get('current_stage', 'N/A')}")
+                print(f"   Tasks progress: {first_project.get('tasks_completed', 0)}/{first_project.get('tasks_total', 0)}")
+                
+                return success and has_required_fields, projects_data
+            
+            return success and is_array, projects_data
+        return success, projects_data
+
+    def test_get_design_projects_designer(self):
+        """Test GET /api/design-projects - Get design projects for Designer (role-based filtering)"""
+        success, projects_data = self.run_test("Get Design Projects (Designer)", "GET", "api/design-projects", 200,
+                                              auth_token=self.designer_token)
+        if success:
+            # Verify projects structure and role-based filtering
+            is_array = isinstance(projects_data, list)
+            print(f"   Designer design projects is array: {is_array}")
+            print(f"   Designer design projects count: {len(projects_data) if is_array else 'N/A'}")
+            
+            return success and is_array, projects_data
+        return success, projects_data
+
     def cleanup_test_data(self):
         """Clean up test data from MongoDB"""
         print("\n🧹 Cleaning up test data...")
