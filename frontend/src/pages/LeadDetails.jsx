@@ -594,6 +594,7 @@ const LeadDetails = () => {
     if (id) {
       fetchLead();
       fetchMeetings();
+      fetchCollaborators();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
