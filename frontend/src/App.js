@@ -106,6 +106,12 @@ const AppRouter = () => {
         <Route path="/sales-manager" element={<SalesManagerDashboard />} />
         <Route path="/production-ops" element={<ProductionOpsDashboard />} />
         <Route path="/ceo-dashboard" element={<CEODashboard />} />
+        
+        {/* Warranty & Service Routes */}
+        <Route path="/warranty" element={<Warranty />} />
+        <Route path="/service-requests" element={<ServiceRequests />} />
+        <Route path="/service-requests/:id" element={<ServiceRequestDetails />} />
+        <Route path="/technicians" element={<Technicians />} />
       </Route>
 
       {/* Redirect root to dashboard */}
