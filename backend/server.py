@@ -2175,9 +2175,15 @@ async def create_lead(lead_data: LeadCreate, request: Request):
     
     new_lead = {
         "lead_id": lead_id,
+        # Customer Details (persistent across all stages)
         "customer_name": lead_data.customer_name,
         "customer_phone": lead_data.customer_phone,
+        "customer_email": lead_data.customer_email,
+        "customer_address": lead_data.customer_address,
+        "customer_requirements": lead_data.customer_requirements,
         "source": lead_data.source,
+        "budget": lead_data.budget,
+        # Lead Status
         "status": lead_data.status,
         "stage": "BC Call Done",
         "assigned_to": user.user_id if user.role == "PreSales" else None,
@@ -2194,6 +2200,7 @@ async def create_lead(lead_data: LeadCreate, request: Request):
             "is_system": True,
             "created_at": now.isoformat()
         }],
+        "created_by": user.user_id,
         "updated_at": now.isoformat(),
         "created_at": now.isoformat()
     }
