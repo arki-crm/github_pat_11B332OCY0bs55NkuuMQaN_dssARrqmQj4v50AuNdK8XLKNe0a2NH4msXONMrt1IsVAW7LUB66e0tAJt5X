@@ -882,10 +882,10 @@ async def list_all_users(
     role: Optional[str] = None,
     search: Optional[str] = None
 ):
-    """List all users (Admin and Manager only)"""
+    """List all users (Admin and SalesManager only)"""
     user = await get_current_user(request)
     
-    if user.role not in ["Admin", "Manager"]:
+    if user.role not in ["Admin", "SalesManager"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
     # Build query
