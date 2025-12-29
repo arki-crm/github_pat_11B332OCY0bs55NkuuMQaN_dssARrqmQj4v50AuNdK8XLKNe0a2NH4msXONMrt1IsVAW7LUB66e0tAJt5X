@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, History } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { formatRelativeTime, getInitials, getAvatarColor, ROLE_BADGE_STYLES } from './utils';
 
-export const CommentsPanel = ({ comments, onAddComment, isSubmitting }) => {
+export const CommentsPanel = ({ comments, onAddComment, isSubmitting, showLeadHistory = false, leadId = null }) => {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef(null);
 
@@ -24,6 +24,20 @@ export const CommentsPanel = ({ comments, onAddComment, isSubmitting }) => {
     }
   }, [comments]);
 
+  // Find the index where project-specific comments start (after conversion message)
+  const findLeadHistoryEnd = () => {
+    if (!showLeadHistory) return -1;
+    for (let i = 0; i < comments.length; i++) {
+      const msg = comments[i].message?.toLowerCase() || '';
+      if (msg.includes('project created from lead') || msg.includes('converted to project')) {
+        return i;
+      }
+    }
+    return -1;
+  };
+
+  const leadHistoryEndIndex = findLeadHistoryEnd();
+
   return (
     <div className="flex flex-col h-full" data-testid="comments-panel">
       <h3 className="text-sm font-semibold text-slate-900 mb-4" style={{ fontFamily: 'Manrope, sans-serif' }}>
@@ -36,57 +50,85 @@ export const CommentsPanel = ({ comments, onAddComment, isSubmitting }) => {
           {comments.length === 0 ? (
             <p className="text-sm text-slate-500 text-center py-8">No comments yet</p>
           ) : (
-            comments.map((comment, index) => (
-              <div 
-                key={comment.id || index} 
-                className={cn(
-                  "rounded-lg p-3",
-                  comment.is_system ? "bg-amber-50 border border-amber-200" : "bg-slate-50"
-                )}
-                data-testid={`comment-${comment.id || index}`}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  {!comment.is_system && (
-                    <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium text-white flex-shrink-0",
-                      getAvatarColor(comment.user_name)
-                    )}>
-                      {getInitials(comment.user_name)}
+            <>
+              {/* Lead History Header - Show at top if there's lead history */}
+              {showLeadHistory && leadHistoryEndIndex > 0 && (
+                <div className="flex items-center gap-2 py-2 mb-2">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <div className="flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                    <History className="w-3 h-3" />
+                    <span>Lead Activity History (Carried Forward)</span>
+                  </div>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+              )}
+              
+              {comments.map((comment, index) => (
+                <React.Fragment key={comment.id || index}>
+                  {/* Divider after lead history */}
+                  {showLeadHistory && index === leadHistoryEndIndex && (
+                    <div className="flex items-center gap-2 py-2 my-2">
+                      <div className="flex-1 h-px bg-green-300" />
+                      <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-200">
+                        <span>↑ Lead History</span>
+                        <span className="font-medium">|</span>
+                        <span>Project Activity ↓</span>
+                      </div>
+                      <div className="flex-1 h-px bg-green-300" />
                     </div>
                   )}
                   
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {comment.is_system ? (
-                        <span className="text-xs font-medium text-amber-700">System</span>
-                      ) : (
-                        <>
-                          <span className="text-sm font-medium text-slate-900">
-                            {comment.user_name}
-                          </span>
-                          <span className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                            ROLE_BADGE_STYLES[comment.role] || 'bg-slate-100 text-slate-600'
-                          )}>
-                            {comment.role}
-                          </span>
-                        </>
+                  <div 
+                    className={cn(
+                      "rounded-lg p-3",
+                      comment.is_system ? "bg-amber-50 border border-amber-200" : "bg-slate-50"
+                    )}
+                    data-testid={`comment-${comment.id || index}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Avatar */}
+                      {!comment.is_system && (
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium text-white flex-shrink-0",
+                          getAvatarColor(comment.user_name)
+                        )}>
+                          {getInitials(comment.user_name)}
+                        </div>
                       )}
-                      <span className="text-xs text-slate-400">
-                        {formatRelativeTime(comment.created_at)}
-                      </span>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {comment.is_system ? (
+                            <span className="text-xs font-medium text-amber-700">System</span>
+                          ) : (
+                            <>
+                              <span className="text-sm font-medium text-slate-900">
+                                {comment.user_name}
+                              </span>
+                              <span className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                                ROLE_BADGE_STYLES[comment.role] || 'bg-slate-100 text-slate-600'
+                              )}>
+                                {comment.role}
+                              </span>
+                            </>
+                          )}
+                          <span className="text-xs text-slate-400">
+                            {formatRelativeTime(comment.created_at)}
+                          </span>
+                        </div>
+                        <p className={cn(
+                          "text-sm mt-1",
+                          comment.is_system ? "text-amber-800" : "text-slate-700"
+                        )}>
+                          {comment.message}
+                        </p>
+                      </div>
                     </div>
-                    <p className={cn(
-                      "text-sm mt-1",
-                      comment.is_system ? "text-amber-800" : "text-slate-700"
-                    )}>
-                      {comment.message}
-                    </p>
                   </div>
-                </div>
-              </div>
-            ))
+                </React.Fragment>
+              ))}
+            </>
           )}
         </div>
       </ScrollArea>
