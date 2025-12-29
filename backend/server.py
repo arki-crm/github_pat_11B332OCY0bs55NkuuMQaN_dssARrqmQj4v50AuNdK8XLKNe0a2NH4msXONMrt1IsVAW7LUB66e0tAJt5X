@@ -2109,6 +2109,111 @@ async def update_percentage_substage(project_id: str, request: Request):
         "percentage_substages": percentage_substages
     }
 
+# ============ HOLD/ACTIVATE/DEACTIVATE SYSTEM FOR PROJECTS ============
+
+@api_router.put("/projects/{project_id}/hold-status")
+async def update_project_hold_status(project_id: str, status_update: HoldStatusUpdate, request: Request):
+    """Update project hold status (Hold/Activate/Deactivate)"""
+    user = await get_current_user(request)
+    
+    # Permission check
+    action = status_update.action
+    allowed_actions = ["Hold", "Activate", "Deactivate"]
+    
+    if action not in allowed_actions:
+        raise HTTPException(status_code=400, detail=f"Invalid action. Must be one of: {allowed_actions}")
+    
+    # Role-based permissions:
+    # - Admin, Manager can Hold/Activate/Deactivate
+    # - Designer can only Hold
+    if user.role not in ["Admin", "Manager", "DesignManager", "ProductionManager", "Designer"]:
+        raise HTTPException(status_code=403, detail="You don't have permission to change project status")
+    
+    if user.role == "Designer" and action != "Hold":
+        raise HTTPException(status_code=403, detail="Designers can only place projects on Hold")
+    
+    # Validate reason
+    reason = status_update.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Reason is required for this action")
+    
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    current_hold_status = project.get("hold_status", "Active")
+    
+    # Validate state transitions
+    if action == "Hold" and current_hold_status == "Hold":
+        raise HTTPException(status_code=400, detail="Project is already on Hold")
+    
+    if action == "Activate":
+        if current_hold_status == "Active":
+            raise HTTPException(status_code=400, detail="Project is already Active")
+    
+    if action == "Deactivate" and current_hold_status == "Deactivated":
+        raise HTTPException(status_code=400, detail="Project is already Deactivated")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Determine new status
+    new_status = action if action in ["Hold", "Deactivated"] else "Active"
+    if action == "Deactivate":
+        new_status = "Deactivated"
+    
+    # Create history entry
+    history_entry = {
+        "id": f"hold_{uuid.uuid4().hex[:8]}",
+        "action": action,
+        "previous_status": current_hold_status,
+        "new_status": new_status,
+        "reason": reason,
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "timestamp": now.isoformat()
+    }
+    
+    # Create activity log comment
+    pid_str = f" (PID: {project.get('pid')})" if project.get('pid') else ""
+    action_messages = {
+        "Hold": f"Project placed on HOLD{pid_str} by {user.name} – Reason: {reason}",
+        "Activate": f"Project Activated again{pid_str} by {user.name} – Reason: {reason}",
+        "Deactivate": f"Project Deactivated{pid_str} by {user.name} – Reason: {reason}"
+    }
+    
+    comment = {
+        "id": f"comment_{uuid.uuid4().hex[:8]}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "role": user.role,
+        "message": action_messages[action],
+        "is_system": True,
+        "type": "hold_status_change",
+        "created_at": now.isoformat()
+    }
+    
+    await db.projects.update_one(
+        {"project_id": project_id},
+        {
+            "$set": {
+                "hold_status": new_status,
+                "updated_at": now.isoformat()
+            },
+            "$push": {
+                "hold_history": history_entry,
+                "comments": comment
+            }
+        }
+    )
+    
+    return {
+        "message": f"Project {action.lower()}d successfully",
+        "project_id": project_id,
+        "hold_status": new_status,
+        "history_entry": history_entry
+    }
+
 # ============ FILES ENDPOINTS ============
 
 @api_router.get("/projects/{project_id}/files")
