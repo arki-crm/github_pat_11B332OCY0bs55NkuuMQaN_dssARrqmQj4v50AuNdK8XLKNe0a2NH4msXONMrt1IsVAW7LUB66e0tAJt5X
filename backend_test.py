@@ -6459,6 +6459,19 @@ def main():
         tester.test_get_design_projects_admin()
         tester.test_get_design_projects_designer()
         
+        # Production Milestone + Percentage System Tests
+        print("\n🏭 Testing Production Milestone + Percentage System...")
+        tester.test_production_milestone_structure()
+        tester.test_complete_design_finalization_substages()
+        tester.test_complete_production_substages_sequence()
+        tester.test_percentage_endpoint_basic_functionality()
+        tester.test_percentage_endpoint_forward_only_validation()
+        tester.test_percentage_endpoint_auto_completion()
+        tester.test_percentage_endpoint_activity_logging()
+        tester.test_percentage_endpoint_validation()
+        tester.test_percentage_endpoint_access_control()
+        tester.test_production_milestone_full_flow()
+        
         # Logout test (do this last as it invalidates session)
         tester.test_logout()
         
