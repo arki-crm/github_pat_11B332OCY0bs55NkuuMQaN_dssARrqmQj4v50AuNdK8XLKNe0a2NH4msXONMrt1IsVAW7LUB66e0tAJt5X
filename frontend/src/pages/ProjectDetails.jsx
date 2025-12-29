@@ -394,6 +394,15 @@ const ProjectDetails = () => {
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
+            {/* PID Badge - Always visible if exists */}
+            {project?.pid && (
+              <span 
+                className="inline-flex items-center rounded-md bg-slate-900 px-2.5 py-1 text-sm font-mono font-bold text-white"
+                data-testid="project-pid-badge"
+              >
+                {project.pid}
+              </span>
+            )}
             <h1 
               className="text-2xl font-bold tracking-tight text-slate-900"
               style={{ fontFamily: 'Manrope, sans-serif' }}
@@ -413,6 +422,7 @@ const ProjectDetails = () => {
             )}
           </div>
           <p className="text-slate-500 mt-1">
+            {project?.pid && <span className="font-medium text-slate-700">{project.pid} • </span>}
             Client: {project?.client_name} • Last updated {formatRelativeTime(project?.updated_at)}
           </p>
         </div>
