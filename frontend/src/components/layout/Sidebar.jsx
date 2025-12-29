@@ -20,7 +20,10 @@ import {
   Crown,
   Truck,
   Target,
-  FileText
+  FileText,
+  Shield,
+  Wrench,
+  HardHat
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
