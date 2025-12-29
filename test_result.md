@@ -285,6 +285,21 @@ backend:
         agent: "testing"
         comment: "✅ VERIFIED: Dashboard API endpoint working perfectly! All 84 tests passed including 6 comprehensive dashboard tests. Role-based data structure validated: Admin (7 KPIs + all data), Manager (3 KPIs + project data), PreSales (6 lead-specific KPIs), Designer (3 project KPIs). Milestone structure verified with proper fields (id, name, milestone, expectedDate, daysDelayed, stage, designer). Performance data arrays working correctly. Authentication properly enforced."
 
+  - task: "Sub-Stage Progression System"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented sub-stage progression system with individual sub-stage completion instead of group-level milestones. Added POST /api/projects/{id}/substage/complete and GET /api/projects/{id}/substages endpoints with forward-only validation, activity logging, and role-based access control."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Sub-Stage Progression System working perfectly! All 12 tests passed (100% success rate). Key functionality verified: 1) GET /api/projects/{id}/substages returns proper structure (completed_substages array, group_progress array), 2) POST /api/projects/{id}/substage/complete works correctly for first sub-stage (site_measurement), 3) Forward-only validation enforced - cannot skip sub-stages (design_meeting_2 fails without design_meeting_1), 4) Sequential completion working (site_measurement → design_meeting_1 → design_meeting_2), 5) Duplicate completion blocked with proper error message, 6) Invalid sub-stage IDs rejected with appropriate error, 7) Designer role can complete sub-stages for assigned projects, 8) PreSales role properly denied access (403 errors), 9) Response structure includes success, substage_id, substage_name, group_name, group_complete, completed_substages, current_stage fields. System enforces proper progression through 11 Design Finalization sub-stages with activity logging."
+
 frontend:
   - task: "Project Timeline UI with TAT Display"
     implemented: true
