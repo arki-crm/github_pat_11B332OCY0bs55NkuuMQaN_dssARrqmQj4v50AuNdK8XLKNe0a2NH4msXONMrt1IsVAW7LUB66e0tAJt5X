@@ -2387,11 +2387,11 @@ async def update_lead_customer_details(lead_id: str, request: Request):
 
 @api_router.put("/leads/{lead_id}/stage")
 async def update_lead_stage(lead_id: str, stage_update: LeadStageUpdate, request: Request):
-    """Update lead stage"""
+    """Update lead stage - forward-only progression (except Admin)"""
     user = await get_current_user(request)
     
-    # Only PreSales, Manager, Admin can change lead stages
-    if user.role not in ["Admin", "Manager", "PreSales"]:
+    # Only Designer, SalesManager, Manager, Admin can change lead stages
+    if user.role not in ["Admin", "Manager", "SalesManager", "Designer"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
     if stage_update.stage not in LEAD_STAGES:
@@ -2402,15 +2402,34 @@ async def update_lead_stage(lead_id: str, stage_update: LeadStageUpdate, request
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
-    # PreSales can only change their own leads
-    if user.role == "PreSales" and lead.get("assigned_to") != user.user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Non-Admin users can only change leads they're assigned to or collaborating on
+    if user.role not in ["Admin", "Manager", "SalesManager"]:
+        is_assigned = lead.get("assigned_to") == user.user_id or lead.get("designer_id") == user.user_id
+        is_collaborator = any(c.get("user_id") == user.user_id for c in lead.get("collaborators", []))
+        if not is_assigned and not is_collaborator:
+            raise HTTPException(status_code=403, detail="Access denied")
     
     old_stage = lead.get("stage", "BC Call Done")
     new_stage = stage_update.stage
     
     if old_stage == new_stage:
         return {"message": "Stage unchanged", "stage": new_stage}
+    
+    # FORWARD-ONLY VALIDATION (except Admin)
+    old_index = LEAD_STAGES.index(old_stage) if old_stage in LEAD_STAGES else 0
+    new_index = LEAD_STAGES.index(new_stage)
+    
+    if new_index < old_index:
+        # Backward movement requested
+        if user.role != "Admin":
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot move backward from '{old_stage}' to '{new_stage}'. Stage progression is forward-only. Only Admin can rollback stages."
+            )
+        # Admin can rollback - add special comment
+        rollback_note = f" (Admin rollback from '{old_stage}')"
+    else:
+        rollback_note = ""
     
     now = datetime.now(timezone.utc)
     
@@ -2420,7 +2439,7 @@ async def update_lead_stage(lead_id: str, stage_update: LeadStageUpdate, request
         "user_id": user.user_id,
         "user_name": user.name,
         "role": user.role,
-        "message": f"Stage updated from \"{old_stage}\" to \"{new_stage}\"",
+        "message": f"Stage updated from \"{old_stage}\" to \"{new_stage}\"{rollback_note}",
         "is_system": True,
         "created_at": now.isoformat()
     }
