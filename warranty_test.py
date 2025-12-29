@@ -271,15 +271,35 @@ db.user_sessions.insertOne({{
     def test_update_service_request_stage(self):
         """Test PUT /api/service-requests/{request_id}/stage"""
         if self.test_service_request_id:
-            stage_data = {
-                "stage": "Assigned to Technician",
-                "notes": "Technician has been assigned to handle this request"
-            }
+            # First get the current service request to see its stage
+            success, sr_data = self.run_test("Get Service Request Details", "GET", 
+                                            f"api/service-requests/{self.test_service_request_id}", 200,
+                                            auth_token=self.admin_token)
             
-            success, _ = self.run_test("Update Service Request Stage", "PUT", 
-                                     f"api/service-requests/{self.test_service_request_id}/stage", 200,
-                                     data=stage_data, auth_token=self.admin_token)
-            return success
+            if success:
+                current_stage = sr_data.get('stage', 'Unknown')
+                print(f"   Current stage: {current_stage}")
+                
+                # Try to move to the next stage based on current stage
+                if current_stage == "New":
+                    next_stage = "Assigned to Technician"
+                elif current_stage == "Assigned to Technician":
+                    next_stage = "Technician Visit Scheduled"
+                else:
+                    next_stage = "Technician Visit Scheduled"  # Default next stage
+                
+                stage_data = {
+                    "stage": next_stage,
+                    "notes": f"Moving from {current_stage} to {next_stage}"
+                }
+                
+                success, _ = self.run_test("Update Service Request Stage", "PUT", 
+                                         f"api/service-requests/{self.test_service_request_id}/stage", 200,
+                                         data=stage_data, auth_token=self.admin_token)
+                return success
+            else:
+                print("⚠️  Could not get service request details")
+                return False
         else:
             print("⚠️  No test service request available for stage update test")
             return True
