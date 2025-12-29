@@ -13,6 +13,7 @@ import PreSales from './pages/PreSales';
 import PreSalesDetail from './pages/PreSalesDetail';
 import Leads from './pages/Leads';
 import LeadDetails from './pages/LeadDetails';
+import CreateLead from './pages/CreateLead';
 import Projects from './pages/Projects';
 import ProjectDetails from './pages/ProjectDetails';
 import Academy from './pages/Academy';
