@@ -40,17 +40,14 @@ import { cn } from '../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Sales funnel stages
+// V1 Sales Stages (6 stages - simplified)
 const FUNNEL_STAGES = [
-  { key: "New Lead", label: "New", color: "slate" },
-  { key: "BC Call Scheduled", label: "BC Scheduled", color: "blue" },
-  { key: "BC Call Done", label: "BC Done", color: "blue" },
-  { key: "Site Visit Scheduled", label: "SV Scheduled", color: "purple" },
-  { key: "Site Visit Done", label: "SV Done", color: "purple" },
-  { key: "Tentative BOQ Sent", label: "BOQ (Tent.)", color: "amber" },
-  { key: "Revised BOQ Sent", label: "BOQ (Rev.)", color: "amber" },
-  { key: "Negotiation", label: "Negotiation", color: "orange" },
-  { key: "Waiting for Booking", label: "Waiting", color: "emerald" }
+  { key: "BC Call Done", label: "BC Call", color: "blue" },
+  { key: "Quotation Shared", label: "Quotation", color: "purple" },
+  { key: "Revised Quotation", label: "Revised", color: "purple" },
+  { key: "Site Visit", label: "Site Visit", color: "amber" },
+  { key: "Waiting for Booking", label: "Waiting", color: "orange" },
+  { key: "Booking Completed", label: "Booked", color: "emerald" }
 ];
 
 const SalesManagerDashboard = () => {
