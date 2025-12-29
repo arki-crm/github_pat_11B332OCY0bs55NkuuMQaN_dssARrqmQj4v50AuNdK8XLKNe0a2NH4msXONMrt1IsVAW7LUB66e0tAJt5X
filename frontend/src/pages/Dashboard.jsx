@@ -279,9 +279,23 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // Role-based dashboard redirect
   useEffect(() => {
+    if (user?.role === 'DesignManager') {
+      navigate('/design-manager', { replace: true });
+      return;
+    }
+    if (user?.role === 'ProductionManager') {
+      navigate('/validation-pipeline', { replace: true });
+      return;
+    }
+  }, [user, navigate]);
+  
+  useEffect(() => {
+    // Don't fetch if redirecting
+    if (user?.role === 'DesignManager' || user?.role === 'ProductionManager') return;
     fetchDashboardData();
-  }, []);
+  }, [user]);
   
   const fetchDashboardData = async () => {
     try {
