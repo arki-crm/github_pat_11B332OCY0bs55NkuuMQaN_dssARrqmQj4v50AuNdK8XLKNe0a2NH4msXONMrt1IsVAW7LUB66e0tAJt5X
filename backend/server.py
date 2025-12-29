@@ -1469,6 +1469,34 @@ async def update_stage(project_id: str, stage_update: StageUpdate, request: Requ
         }
     )
     
+    # Auto-add collaborators based on new stage (Livspace-style)
+    try:
+        await auto_add_stage_collaborators(
+            project_id, 
+            new_stage,
+            f"Stage changed from {old_stage} to {new_stage}"
+        )
+    except Exception as e:
+        print(f"Error auto-adding collaborators: {e}")
+    
+    # Add activity entry for stage change
+    activity_entry = {
+        "id": str(uuid.uuid4()),
+        "type": "stage_change",
+        "message": f"Stage updated: {old_stage} → {new_stage}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "timestamp": now.isoformat(),
+        "metadata": {
+            "old_stage": old_stage,
+            "new_stage": new_stage
+        }
+    }
+    await db.projects.update_one(
+        {"project_id": project_id},
+        {"$push": {"activity": activity_entry}}
+    )
+    
     # Send notifications to relevant users
     try:
         relevant_users = await get_relevant_users_for_project(project)
