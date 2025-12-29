@@ -581,6 +581,12 @@ const LeadDetails = () => {
   const [addingCollaborator, setAddingCollaborator] = useState(false);
   const [selectedCollaborator, setSelectedCollaborator] = useState('');
   const [collaboratorReason, setCollaboratorReason] = useState('');
+  
+  // Hold/Activate/Deactivate state
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdAction, setHoldAction] = useState(null); // 'Hold', 'Activate', 'Deactivate'
+  const [holdReason, setHoldReason] = useState('');
+  const [isUpdatingHoldStatus, setIsUpdatingHoldStatus] = useState(false);
 
   // Fetch lead
   const fetchLead = async () => {
