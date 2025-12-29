@@ -63,12 +63,14 @@ const getRoleNavItems = (role, hasSeniorManagerView = false) => {
         { path: '/settings', label: 'Settings', icon: Settings }
       ];
 
-    // 2. PRE-SALES - Lead creation, qualification, handover
+    // 2. PRE-SALES - Lead creation, qualification, handover (SEPARATE ROLE)
     case 'PreSales':
       return [
         { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        ...commonItems,
+        { path: '/presales', label: 'Pre-Sales', icon: UserPlus },
         { path: '/leads', label: 'My Leads', icon: Users },
+        { path: '/leads/create', label: 'Create Lead', icon: FileText },
+        ...commonItems,
         { path: '/reports', label: 'Reports', icon: BarChart3 },
         ...seniorManagerItems
       ];
