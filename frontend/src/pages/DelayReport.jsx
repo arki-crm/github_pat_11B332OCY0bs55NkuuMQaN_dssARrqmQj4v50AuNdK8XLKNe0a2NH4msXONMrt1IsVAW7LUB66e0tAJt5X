@@ -239,12 +239,12 @@ const DelayReport = () => {
                     <div className="flex items-center gap-4">
                       <Badge className={cn(
                         'text-xs',
-                        designer.count > 5 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                        designer.delay_count > 5 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                       )}>
-                        {designer.count} delays
+                        {designer.delay_count} delays
                       </Badge>
                       <span className="text-sm text-slate-600">
-                        avg {designer.avg_delay_days} days
+                        {designer.total_delay_days} days total
                       </span>
                     </div>
                   </div>
