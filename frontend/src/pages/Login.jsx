@@ -12,7 +12,7 @@ import axios from 'axios';
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const Login = () => {
-  const { isAuthenticated, loading, refreshUser } = useAuth();
+  const { isAuthenticated, loading, checkAuth } = useAuth();
   const navigate = useNavigate();
   
   // Local login state
