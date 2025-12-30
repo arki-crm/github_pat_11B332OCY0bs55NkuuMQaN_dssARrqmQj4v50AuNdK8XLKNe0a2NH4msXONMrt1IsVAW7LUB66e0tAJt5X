@@ -52,10 +52,11 @@ const Login = () => {
       if (response.data.success) {
         toast.success('Login successful!');
         // Refresh user context and navigate
-        if (checkAuth) {
-          await checkAuth();
-        }
-        navigate('/dashboard', { replace: true });
+        await checkAuth();
+        // Force navigation after a short delay to ensure state is updated
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 100);
       }
     } catch (err) {
       console.error('Local login failed:', err);
