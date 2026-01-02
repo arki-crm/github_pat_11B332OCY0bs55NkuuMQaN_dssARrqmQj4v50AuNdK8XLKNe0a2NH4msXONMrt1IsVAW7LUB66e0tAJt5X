@@ -3139,11 +3139,18 @@ def update_timeline_on_stage_change(timeline: list, old_stage: str, new_stage: s
 
 @api_router.get("/leads")
 async def list_leads(request: Request, status: Optional[str] = None, search: Optional[str] = None):
-    """List leads based on role permissions"""
+    """List leads based on role permissions - shows only actual leads (not pre-sales)"""
     user = await get_current_user(request)
     
-    # Build query based on role
-    query = {"is_converted": False}
+    # Build query based on role - ONLY show leads (not presales)
+    # lead_type = "lead" means it's a proper lead (either direct created or promoted from presales)
+    query = {
+        "is_converted": False,
+        "$or": [
+            {"lead_type": "lead"},
+            {"lead_type": {"$exists": False}, "stage": {"$nin": ["New", "Contacted", "Waiting", "Qualified", "Dropped"]}}
+        ]
+    }
     
     if user.role == "Designer":
         # Designer sees only leads assigned to them
