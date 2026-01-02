@@ -2218,6 +2218,150 @@ async def update_stage(project_id: str, stage_update: StageUpdate, request: Requ
         "system_comment": system_comment
     }
 
+
+# ============ TIMELINE REGENERATION ============
+
+class TimelineRegenerationRequest(BaseModel):
+    """Request to regenerate timeline from a specific stage"""
+    from_stage: str  # Stage ID to regenerate from
+    reason: str  # "customer_delay", "site_delay", "payment_delay", "vendor_delay", "other"
+    notes: Optional[str] = None
+
+VALID_DELAY_REASONS = [
+    "customer_delay",
+    "site_delay", 
+    "payment_delay",
+    "vendor_delay",
+    "material_delay",
+    "other"
+]
+
+@api_router.post("/projects/{project_id}/regenerate-timeline")
+async def regenerate_project_timeline(project_id: str, regen_data: TimelineRegenerationRequest, request: Request):
+    """
+    Regenerate remaining timeline from a specific stage onwards.
+    This is used when external delays (customer, site, payment) push the schedule.
+    Original delays remain visible in activity log.
+    """
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin", "Manager", "ProductionOpsManager", "DesignManager"]:
+        raise HTTPException(status_code=403, detail="Only managers can regenerate timeline")
+    
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if regen_data.reason not in VALID_DELAY_REASONS:
+        raise HTTPException(status_code=400, detail=f"Invalid reason. Must be one of: {VALID_DELAY_REASONS}")
+    
+    now = datetime.now(timezone.utc)
+    timeline = project.get("timeline", [])
+    
+    # Find the starting point for regeneration
+    from_stage = regen_data.from_stage
+    found_stage = False
+    stages_to_regenerate = []
+    
+    for item in timeline:
+        if item.get("stage_ref") == from_stage or item.get("id") == from_stage:
+            found_stage = True
+        
+        if found_stage and item.get("status") != "completed":
+            stages_to_regenerate.append(item)
+    
+    if not found_stage:
+        raise HTTPException(status_code=400, detail="Stage not found in timeline")
+    
+    if not stages_to_regenerate:
+        raise HTTPException(status_code=400, detail="No pending stages to regenerate from this point")
+    
+    # Calculate new expected dates based on today
+    current_date = now
+    updated_count = 0
+    
+    for i, item in enumerate(timeline):
+        if item in stages_to_regenerate:
+            # Get TAT for this stage (default 3 days)
+            tat_days = DEFAULT_TAT_DAYS.get(item.get("stage_ref") or item.get("id"), 3)
+            
+            # Calculate new expected date
+            new_expected = current_date + timedelta(days=tat_days)
+            
+            # Store original expected date for reference
+            original_expected = item.get("expected_date")
+            
+            # Update the timeline item
+            item["expected_date"] = new_expected.isoformat()
+            item["regenerated"] = True
+            item["regenerated_at"] = now.isoformat()
+            item["regenerated_reason"] = regen_data.reason
+            item["original_expected_date"] = original_expected
+            
+            current_date = new_expected
+            updated_count += 1
+    
+    # Create activity entry
+    reason_labels = {
+        "customer_delay": "Customer Delay",
+        "site_delay": "Site Not Ready",
+        "payment_delay": "Payment Delay",
+        "vendor_delay": "Vendor Delay",
+        "material_delay": "Material Delay",
+        "other": "Other"
+    }
+    
+    activity_entry = {
+        "id": str(uuid.uuid4()),
+        "type": "timeline_regeneration",
+        "message": f"Timeline regenerated from '{from_stage}' onwards. Reason: {reason_labels.get(regen_data.reason, regen_data.reason)}. {updated_count} stages updated.",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "timestamp": now.isoformat(),
+        "metadata": {
+            "from_stage": from_stage,
+            "reason": regen_data.reason,
+            "notes": regen_data.notes,
+            "stages_updated": updated_count
+        }
+    }
+    
+    # Update project
+    await db.projects.update_one(
+        {"project_id": project_id},
+        {
+            "$set": {
+                "timeline": timeline,
+                "updated_at": now.isoformat()
+            },
+            "$push": {"activity": activity_entry}
+        }
+    )
+    
+    # Add system comment
+    system_comment = {
+        "id": f"comment_{uuid.uuid4().hex[:8]}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "role": user.role,
+        "message": f"📅 Timeline regenerated from '{from_stage}'. Reason: {reason_labels.get(regen_data.reason)}. {regen_data.notes or 'No additional notes.'}",
+        "is_system": True,
+        "created_at": now.isoformat()
+    }
+    
+    await db.projects.update_one(
+        {"project_id": project_id},
+        {"$push": {"comments": system_comment}}
+    )
+    
+    return {
+        "success": True,
+        "message": f"Timeline regenerated. {updated_count} stages updated.",
+        "stages_updated": updated_count,
+        "from_stage": from_stage,
+        "reason": regen_data.reason
+    }
+
 # ============ SUB-STAGE PROGRESSION SYSTEM ============
 
 # Milestone groups with sub-stages (matching frontend)
