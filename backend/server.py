@@ -3161,11 +3161,11 @@ async def get_project_collaborators(project_id: str, request: Request):
 
 @api_router.post("/projects/{project_id}/collaborators")
 async def add_collaborator(project_id: str, collab_data: CollaboratorAdd, request: Request):
-    """Add a collaborator (Admin or Manager only)"""
+    """Add a collaborator (Admin or Manager roles)"""
     user = await get_current_user(request)
     
-    if user.role not in ["Admin", "Manager"]:
-        raise HTTPException(status_code=403, detail="Admin or Manager access required")
+    if user.role not in ["Admin", "Manager", "SalesManager", "DesignManager", "ProductionOpsManager"]:
+        raise HTTPException(status_code=403, detail="Manager access required")
     
     project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
     
