@@ -6729,7 +6729,7 @@ async def list_meetings(
     lead_id: Optional[str] = None,
     scheduled_for: Optional[str] = None,
     status: Optional[str] = None,
-    filter_type: Optional[str] = None  # "today", "this_week", "upcoming", "missed"
+    filter_type: Optional[str] = None  # "today", "this_week", "this_month", "upcoming", "missed", "old", "all"
 ):
     """List meetings with filters - role-based access"""
     user = await get_current_user(request)
@@ -6739,6 +6739,7 @@ async def list_meetings(
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + timedelta(days=1)
     week_end = today_start + timedelta(days=7)
+    month_end = today_start + timedelta(days=30)
     
     # Role-based filtering
     if user.role == "Designer":
@@ -6763,16 +6764,36 @@ async def list_meetings(
     if status and status != "all":
         query["status"] = status
     
-    # Date-based filters
+    # Date-based filters - use proper datetime comparison
     if filter_type == "today":
-        query["date"] = {"$gte": today_start.isoformat(), "$lt": today_end.isoformat()}
+        # Meetings scheduled for today
+        query["date"] = {
+            "$gte": today_start.strftime("%Y-%m-%d"),
+            "$lt": today_end.strftime("%Y-%m-%d")
+        }
     elif filter_type == "this_week":
-        query["date"] = {"$gte": today_start.isoformat(), "$lt": week_end.isoformat()}
+        # Meetings scheduled for this week (from today)
+        query["date"] = {
+            "$gte": today_start.strftime("%Y-%m-%d"),
+            "$lt": week_end.strftime("%Y-%m-%d")
+        }
+    elif filter_type == "this_month":
+        # Meetings scheduled for this month
+        query["date"] = {
+            "$gte": today_start.strftime("%Y-%m-%d"),
+            "$lt": month_end.strftime("%Y-%m-%d")
+        }
     elif filter_type == "upcoming":
-        query["date"] = {"$gte": today_start.isoformat()}
-        query["status"] = "Scheduled"
+        # Future meetings from today onwards
+        query["date"] = {"$gte": today_start.strftime("%Y-%m-%d")}
+        if "status" not in query:
+            query["status"] = "Scheduled"
     elif filter_type == "missed":
         query["status"] = "Missed"
+    elif filter_type == "old":
+        # Past meetings (before today)
+        query["date"] = {"$lt": today_start.strftime("%Y-%m-%d")}
+    # "all" filter - no date restriction
     
     meetings = await db.meetings.find(query, {"_id": 0}).to_list(1000)
     
