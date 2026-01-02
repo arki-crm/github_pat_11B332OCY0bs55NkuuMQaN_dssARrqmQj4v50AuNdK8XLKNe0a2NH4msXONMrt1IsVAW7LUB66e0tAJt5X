@@ -7531,6 +7531,7 @@ async def create_presales_lead(request: Request):
     
     new_lead = {
         "lead_id": lead_id,
+        "lead_type": "presales",  # Mark as pre-sales lead
         "customer_name": customer_name,
         "customer_phone": customer_phone,
         "customer_email": body.get("customer_email", ""),
