@@ -1443,6 +1443,153 @@ async def invite_user(invite_data: UserInvite, request: Request):
         "user": format_user_response(new_user)
     }
 
+
+# ============ LOCAL USER MANAGEMENT ============
+
+class LocalUserCreate(BaseModel):
+    """Create user with local password for testing"""
+    email: str
+    name: str
+    password: str
+    role: str
+    phone: Optional[str] = None
+
+class PasswordChange(BaseModel):
+    """Password change request"""
+    current_password: Optional[str] = None  # Optional for admin reset
+    new_password: str
+
+class PasswordReset(BaseModel):
+    """Password reset by admin"""
+    email: str
+    new_password: str
+
+
+@api_router.post("/users/create-local")
+async def create_local_user(user_data: LocalUserCreate, request: Request):
+    """Create a new user with local password (Admin only) - for testing"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Validate role
+    if user_data.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {VALID_ROLES}")
+    
+    # Check if email already exists
+    existing = await db.users.find_one({"email": user_data.email}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    # Validate password
+    if len(user_data.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    now = datetime.now(timezone.utc)
+    new_user_id = f"user_{uuid.uuid4().hex[:12]}"
+    
+    # Generate avatar from initials
+    initials = "".join([n[0].upper() for n in user_data.name.split()[:2]]) if user_data.name else "U"
+    
+    new_user = {
+        "user_id": new_user_id,
+        "email": user_data.email,
+        "name": user_data.name,
+        "picture": f"https://ui-avatars.com/api/?name={user_data.name.replace(' ', '+')}&background=2563eb&color=fff",
+        "role": user_data.role,
+        "phone": user_data.phone,
+        "status": "Active",
+        "local_password": hash_password(user_data.password),  # Hash password
+        "initials": initials,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "last_login": None,
+        "created_by": user.user_id
+    }
+    
+    await db.users.insert_one(new_user)
+    
+    # Don't return password in response
+    new_user.pop("local_password", None)
+    new_user.pop("_id", None)
+    
+    return {
+        "success": True,
+        "message": f"User {user_data.email} created with local login",
+        "user": new_user
+    }
+
+
+@api_router.put("/users/{user_id}/password")
+async def change_user_password(user_id: str, pwd_data: PasswordChange, request: Request):
+    """Change user password (self or Admin)"""
+    user = await get_current_user(request)
+    
+    # Find target user
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Permission check
+    is_self = user.user_id == user_id
+    is_admin = user.role == "Admin"
+    
+    if not is_self and not is_admin:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # If self-change, verify current password
+    if is_self and not is_admin:
+        if not pwd_data.current_password:
+            raise HTTPException(status_code=400, detail="Current password required")
+        if not verify_password(pwd_data.current_password, target_user.get("local_password", "")):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Validate new password
+    if len(pwd_data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    # Update password
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "local_password": hash_password(pwd_data.new_password),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"success": True, "message": "Password updated successfully"}
+
+
+@api_router.post("/auth/reset-password")
+async def admin_reset_password(reset_data: PasswordReset, request: Request):
+    """Admin resets user password"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Find user by email
+    target_user = await db.users.find_one({"email": reset_data.email}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Validate new password
+    if len(reset_data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Update password
+    await db.users.update_one(
+        {"email": reset_data.email},
+        {"$set": {
+            "local_password": hash_password(reset_data.new_password),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"success": True, "message": f"Password reset for {reset_data.email}"}
+
+
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, update_data: UserUpdate, request: Request):
     """Update user details (Admin and Manager with restrictions)"""
