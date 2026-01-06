@@ -122,7 +122,8 @@ const PreSales = () => {
         params.append('status', activeFilter);
       }
       
-      const response = await axios.get(`${API}/leads?${params.toString()}`, {
+      // Use /api/presales endpoint for pre-sales leads only
+      const response = await axios.get(`${API}/presales?${params.toString()}`, {
         withCredentials: true
       });
       setLeads(response.data);
