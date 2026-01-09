@@ -1,0 +1,2394 @@
+<analysis>**original_problem_statement:**
+The user's initial goal was to add several new features to their full-stack CRM application, including new milestone workflows, a project Hold system, a Warranty/Service module, a global search, and an Academy training module.
+
+Throughout the session, the focus shifted to stabilization due to multiple regressions and data consistency issues. The user's most recent requests are:
+1.  **Stabilize the Core Pipeline (CRITICAL):** Fix all bugs related to the Pre-Sales -> Lead -> Project data flow, including creation, state transitions, and visibility.
+2.  **Fix PID Regression:** Ensure the Project ID (PID) is generated once and persists visibly throughout the entire CRM lifecycle.
+3.  **Fix Milestone Persistence:** Solve issues where milestone progress is lost after navigating away from the project details page.
+4.  **Implement Permission-Based Access Control:** Instead of hard-coded roles, create a fine-grained permission system where an Admin can assign specific capabilities (e.g., create_lead, update_design_milestones) to any user via a checklist.
+5.  **Expose User Management in UI:** Make the new user creation and permission management system accessible to Admins through the UI.
+
+**User's preferred language**: English
+
+**what currently exists?**
+A full-stack CRM application (React, FastAPI, MongoDB) with a stabilized core workflow for managing clients from pre-sales to project completion. The application features Google OAuth and a local password-based authentication system for testing.
+
+Key modules implemented and stabilized include:
+- **Core Pipeline:** Pre-Sales, Leads, Projects with correct data flow and state transitions.
+- **Project Milestones:** A multi-stage workflow with persistent state.
+- **Advanced Modules:** Foundations for Warranty, Service Requests, and a functional Academy with direct video uploads.
+- **Access Control:** A complete, fine-grained, permission-based system has been implemented on the backend, allowing admins to assign specific permissions to users. The UI for managing users and their permissions has also been wired up.
+- **Local Testing:** A local admin user and instructions () are available for testing outside the Emergent environment.
+
+The backend remains a large monolithic  file, now exceeding 11,000 lines.
+
+**Last working item**:
+    - Last item agent was working: Exposing the existing permission-based access control system in the Admin UI. This involved adding a Create User button to the  page, which opens a dialog to create a new user with a local password, and ensuring the Manage Permissions action on the user list navigates to the  page with the correct tab active.
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y (Verified via screenshots that the Create User button, its dialog, and the navigation to the user edit page with permissions tabs are all present and functioning in the UI.)
+    - Which testing method agent to use? frontend testing agent
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:
+  - Issue 1:  (P1) Minor Python Linting Errors in 
+  
+  Issues Detail:
+  - Issue 1: 
+     - **Description:**  contains numerous non-critical linting errors (e.g., unused local variables). The agent has acknowledged these errors multiple times but has deferred fixing them to prioritize functional bug fixes.
+     - **Attempted fixes:** None. The agent has only run F401 [*] `json` imported but unused
+ --> activity_log_test.py:5:8
+  |
+3 | import requests
+4 | import sys
+5 | import json
+  |        ^^^^
+6 | from datetime import datetime, timezone, timedelta
+7 | import uuid
+  |
+help: Remove unused import: `json`
+
+F401 [*] `datetime.timezone` imported but unused
+ --> activity_log_test.py:6:32
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> activity_log_test.py:6:42
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timezone` imported but unused
+  --> arkiflo_integration_test.py:29:32
+   |
+27 | import sys
+28 | import json
+29 | from datetime import datetime, timezone, timedelta
+   |                                ^^^^^^^^
+30 | import uuid
+31 | import subprocess
+   |
+help: Remove unused import: `datetime.timezone`
+
+E722 Do not use bare `except`
+  --> arkiflo_integration_test.py:84:17
+   |
+82 |                     response_data = response.json()
+83 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+84 |                 except:
+   |                 ^^^^^^
+85 |                     print(f"   Response: {response.text[:200]}...")
+86 |             else:
+   |
+
+F541 [*] f-string without any placeholders
+   --> arkiflo_integration_test.py:785:23
+    |
+783 |             if not success:
+784 |                 all_collections_exist = False
+785 |                 print(f"   ❌ Collection presales test failed")
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+786 |             else:
+787 |                 print(f"   ✅ Collection presales accessible")
+    |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+   --> arkiflo_integration_test.py:787:23
+    |
+785 |                 print(f"   ❌ Collection presales test failed")
+786 |             else:
+787 |                 print(f"   ✅ Collection presales accessible")
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+788 |         
+789 |         # Check PID consistency
+    |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+   --> arkiflo_integration_test.py:848:19
+    |
+847 |         if self.failed_tests:
+848 |             print(f"\n❌ Failed Integration Tests:")
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+849 |             for i, failure in enumerate(self.failed_tests, 1):
+850 |                 print(f"{i}. {failure['test']}")
+    |
+help: Remove extraneous `f` prefix
+
+F401 [*] `typing.Optional` imported but unused
+ --> backend/models/project.py:4:26
+  |
+3 | from pydantic import BaseModel, ConfigDict
+4 | from typing import List, Optional
+  |                          ^^^^^^^^
+5 | from datetime import datetime
+  |
+help: Remove unused import: `typing.Optional`
+
+F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:1554:5
+     |
+1552 | async def get_active_users(request: Request):
+1553 |     """Get list of active users (for collaborator dropdowns)"""
+1554 |     user = await get_current_user(request)
+     |     ^^^^
+1555 |     
+1556 |     users = await db.users.find(
+     |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:1566:5
+     |
+1564 | async def get_active_designers(request: Request):
+1565 |     """Get list of active designers (for assignment dropdowns)"""
+1566 |     user = await get_current_user(request)
+     |     ^^^^
+1567 |     
+1568 |     designers = await db.users.find(
+     |
+help: Remove assignment to unused variable `user`
+
+E722 Do not use bare `except`
+    --> backend/server.py:2467:25
+     |
+2465 |                             else:
+2466 |                                 item["status"] = "pending"
+2467 |                         except:
+     |                         ^^^^^^
+2468 |                             item["status"] = "pending"
+2469 |                     else:
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:2483:21
+     |
+2481 |                         else:
+2482 |                             item["status"] = "pending"
+2483 |                     except:
+     |                     ^^^^^^
+2484 |                         item["status"] = "pending"
+2485 |                 else:
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:3736:17
+     |
+3734 |                     elif item["status"] not in ["completed", "delayed"]:
+3735 |                         item["status"] = "pending"
+3736 |                 except:
+     |                 ^^^^^^
+3737 |                     if item["status"] != "completed":
+3738 |                         item["status"] = "pending"
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:3755:17
+     |
+3753 |                     else:
+3754 |                         item["status"] = "pending"
+3755 |                 except:
+     |                 ^^^^^^
+3756 |                     item["status"] = "pending"
+3757 |             else:
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:3796:19
+     |
+3794 |         search_lower = search.lower()
+3795 |         leads = [
+3796 |             l for l in leads 
+     |                   ^
+3797 |             if search_lower in l.get("customer_name", "").lower() 
+3798 |             or search_lower in l.get("customer_phone", "").replace(" ", "")
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:4128:21
+     |
+4126 |                         else:
+4127 |                             item["status"] = "pending"
+4128 |                     except:
+     |                     ^^^^^^
+4129 |                         item["status"] = "pending"
+4130 |                 else:
+     |
+
+F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:4235:5
+     |
+4233 | async def get_lead_collaborators(lead_id: str, request: Request):
+4234 |     """Get collaborators for a lead"""
+4235 |     user = await get_current_user(request)
+     |     ^^^^
+4236 |     
+4237 |     lead = await db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
+     |
+help: Remove assignment to unused variable `user`
+
+E722 Do not use bare `except`
+    --> backend/server.py:5473:25
+     |
+5471 |                                 expected = expected.replace(tzinfo=timezone.utc)
+5472 |                             days_delayed = (now - expected).days
+5473 |                         except:
+     |                         ^^^^^^
+5474 |                             pass
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5545:25
+     |
+5543 |                                     "designer": designer_name
+5544 |                                 })
+5545 |                         except:
+     |                         ^^^^^^
+5546 |                             pass
+5547 |         # Sort by expected date
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5563:38
+     |
+5561 |         # Lead metrics
+5562 |         total_leads = len(all_leads)
+5563 |         qualified_leads = len([l for l in all_leads if l.get("status") == "Qualified"])
+     |                                      ^
+5564 |         converted_leads_count = await db.leads.count_documents({"is_converted": True})
+5565 |         booking_conversion_rate = round((converted_leads_count / max(total_leads + converted_leads_count, 1)) * 100, 1)
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5582:21
+     |
+5580 |                         total_days += (updated_dt - created_dt).days
+5581 |                         count += 1
+5582 |                     except:
+     |                     ^^^^^^
+5583 |                         pass
+5584 |             if count > 0:
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5627:37
+     |
+5625 |             if u.get("role") == "PreSales":
+5626 |                 user_id = u.get("user_id")
+5627 |                 user_leads = [l for l in all_leads if l.get("assigned_to") == user_id]
+     |                                     ^
+5628 |                 converted = await db.leads.count_documents({"assigned_to": user_id, "is_converted": True})
+5629 |                 presales_performance.append({
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5708:27
+     |
+5706 |     elif user.role == "PreSales":
+5707 |         # My leads only
+5708 |         my_leads = [l for l in all_leads if l.get("assigned_to") == user.user_id]
+     |                           ^
+5709 |         
+5710 |         # Stage counts
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5711:35
+     |
+5710 |         # Stage counts
+5711 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+     |                                   ^
+5712 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+5713 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5712:33
+     |
+5710 |         # Stage counts
+5711 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+5712 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+     |                                 ^
+5713 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5713:38
+     |
+5711 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+5712 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+5713 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |                                      ^
+5714 |         
+5715 |         # Follow-ups due today (leads with milestones expected today)
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5727:25
+     |
+5725 |                                 followups_today += 1
+5726 |                                 break
+5727 |                         except:
+     |                         ^^^^^^
+5728 |                             pass
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5771:25
+     |
+5769 |                             if exp_dt.date() == now.date():
+5770 |                                 milestones_today += 1
+5771 |                         except:
+     |                         ^^^^^^
+5772 |                             pass
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:7310:42
+     |
+7308 |             {"_id": 0, "lead_id": 1, "customer_name": 1, "customer_phone": 1}
+7309 |         ).to_list(1000)
+7310 |         leads_map = {l["lead_id"]: l for l in leads_list}
+     |                                          ^
+7311 |     
+7312 |     # Enrich meetings
+     |
+
+F841 Local variable `users_map` is assigned to but never used
+    --> backend/server.py:8049:5
+     |
+8047 |     # Get all users
+8048 |     users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "role": 1}).to_list(1000)
+8049 |     users_map = {u["user_id"]: u for u in users}
+     |     ^^^^^^^^^
+8050 |     presales_users = [u for u in users if u.get("role") == "PreSales"]
+     |
+help: Remove assignment to unused variable `users_map`
+
+F841 Local variable `now` is assigned to but never used
+    --> backend/server.py:8656:5
+     |
+8654 |         raise HTTPException(status_code=403, detail="Access denied")
+8655 |     
+8656 |     now = datetime.now(timezone.utc)
+     |     ^^^
+8657 |     
+8658 |     # Get all designers
+     |
+help: Remove assignment to unused variable `now`
+
+F841 Local variable `delayed_project_count` is assigned to but never used
+     --> backend/server.py:10282:9
+      |
+10280 |         # Get total design projects under management
+10281 |         total_projects = await db.design_projects.count_documents({"status": "active"})
+10282 |         delayed_project_count = await db.design_projects.count_documents({
+      |         ^^^^^^^^^^^^^^^^^^^^^
+10283 |             "status": "active",
+10284 |             "current_stage": {"$ne": "Validation & Kickoff"}
+      |
+help: Remove assignment to unused variable `delayed_project_count`
+
+E722 Do not use bare `except`
+     --> backend/server.py:10559:21
+      |
+10557 |                                 "days_delayed": days_delayed
+10558 |                             })
+10559 |                     except:
+      |                     ^^^^^^
+10560 |                         pass
+      |
+
+F841 Local variable `week_end` is assigned to but never used
+     --> backend/server.py:10580:5
+      |
+10579 |     # Due this week
+10580 |     week_end = (now + timedelta(days=7)).isoformat()
+      |     ^^^^^^^^
+10581 |     due_this_week = len([p for p in upcoming_deliveries])
+      |
+help: Remove assignment to unused variable `week_end`
+
+E722 Do not use bare `except`
+     --> backend/server.py:10703:13
+      |
+10701 |                         "days_inactive": days_inactive
+10702 |                     })
+10703 |             except:
+      |             ^^^^^^
+10704 |                 pass
+      |
+
+F841 Local variable `old_assignee_id` is assigned to but never used
+     --> backend/server.py:10821:5
+      |
+10819 |         raise HTTPException(status_code=404, detail="New assignee not found")
+10820 |     
+10821 |     old_assignee_id = lead.get("assigned_to")
+      |     ^^^^^^^^^^^^^^^
+10822 |     now = datetime.now(timezone.utc)
+      |
+help: Remove assignment to unused variable `old_assignee_id`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11150:5
+      |
+11148 | async def get_warranty(warranty_id: str, request: Request):
+11149 |     """Get a single warranty by ID"""
+11150 |     user = await get_current_user(request)
+      |     ^^^^
+11151 |     
+11152 |     warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11161:5
+      |
+11159 | async def get_warranty_by_pid(pid: str, request: Request):
+11160 |     """Get warranty by PID"""
+11161 |     user = await get_current_user(request)
+      |     ^^^^
+11162 |     
+11163 |     warranty = await db.warranties.find_one({"pid": pid}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11172:5
+      |
+11170 | async def get_warranty_by_project(project_id: str, request: Request):
+11171 |     """Get warranty by project ID"""
+11172 |     user = await get_current_user(request)
+      |     ^^^^
+11173 |     
+11174 |     warranty = await db.warranties.find_one({"project_id": project_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11354:5
+      |
+11352 | async def get_service_requests_by_pid(pid: str, request: Request):
+11353 |     """Get all service requests for a PID"""
+11354 |     user = await get_current_user(request)
+      |     ^^^^
+11355 |     
+11356 |     requests = await db.service_requests.find({"pid": pid}, {"_id": 0}).sort("created_at", -1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11362:5
+      |
+11360 | async def get_service_requests_by_project(project_id: str, request: Request):
+11361 |     """Get all service requests for a project"""
+11362 |     user = await get_current_user(request)
+      |     ^^^^
+11363 |     
+11364 |     requests = await db.service_requests.find({"project_id": project_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11899:5
+      |
+11897 | async def list_technicians(request: Request):
+11898 |     """List all technicians"""
+11899 |     user = await get_current_user(request)
+      |     ^^^^
+11900 |     
+11901 |     technicians = await db.users.find(
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12098:5
+      |
+12096 | async def list_academy_categories(request: Request):
+12097 |     """List all academy categories"""
+12098 |     user = await get_current_user(request)
+      |     ^^^^
+12099 |     
+12100 |     categories = await db.academy_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12112:5
+      |
+12110 | async def get_academy_category(category_id: str, request: Request):
+12111 |     """Get a single academy category with its lessons"""
+12112 |     user = await get_current_user(request)
+      |     ^^^^
+12113 |     
+12114 |     category = await db.academy_categories.find_one({"category_id": category_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12215:5
+      |
+12213 | async def list_academy_lessons(request: Request, category_id: Optional[str] = None):
+12214 |     """List all lessons, optionally filtered by category"""
+12215 |     user = await get_current_user(request)
+      |     ^^^^
+12216 |     
+12217 |     query = {}
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12227:5
+      |
+12225 | async def get_academy_lesson(lesson_id: str, request: Request):
+12226 |     """Get a single lesson"""
+12227 |     user = await get_current_user(request)
+      |     ^^^^
+12228 |     
+12229 |     lesson = await db.academy_lessons.find_one({"lesson_id": lesson_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12435:5
+      |
+12433 |     """
+12434 |     # Authenticate user
+12435 |     user = await get_current_user(request)
+      |     ^^^^
+12436 |     
+12437 |     # Validate filename (prevent directory traversal)
+      |
+help: Remove assignment to unused variable `user`
+
+F401 [*] `datetime.timezone` imported but unused
+ --> backend_test.py:4:32
+  |
+2 | import sys
+3 | import json
+4 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+5 | import uuid
+  |
+help: Remove unused import: `datetime.timezone`
+
+E722 Do not use bare `except`
+  --> backend_test.py:50:17
+   |
+48 |                     response_data = response.json()
+49 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+50 |                 except:
+   |                 ^^^^^^
+51 |                     print(f"   Response: {response.text[:200]}...")
+52 |             else:
+   |
+
+E712 Avoid equality comparisons to `True`; use `convert_response.get('success'):` for truth checks
+    --> backend_test.py:1182:35
+     |
+1180 |                 if success3:
+1181 |                     # Verify response structure
+1182 |                     has_success = convert_response.get('success') == True
+     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1183 |                     has_lead_id = 'lead_id' in convert_response
+1184 |                     has_pid = 'pid' in convert_response
+     |
+help: Replace with `convert_response.get('success')`
+
+E712 Avoid equality comparisons to `False`; use `not response.get('is_converted'):` for false checks
+    --> backend_test.py:1453:32
+     |
+1451 |             has_customer_phone = response.get('customer_phone') == lead_data['customer_phone']
+1452 |             has_assigned_to = 'assigned_to' in response
+1453 |             has_is_converted = response.get('is_converted') == False
+     |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1454 |             
+1455 |             print(f"   Lead ID present: {has_lead_id}")
+     |
+help: Replace with `not response.get('is_converted')`
+
+E712 Avoid equality comparisons to `True`; use `response1.get('success'):` for truth checks
+    --> backend_test.py:1729:31
+     |
+1728 |             if success1:
+1729 |                 has_success = response1.get('success') == True
+     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1730 |                 has_lead_id = 'lead_id' in response1
+1731 |                 print(f"   Conversion success: {has_success}")
+     |
+help: Replace with `response1.get('success')`
+
+E712 Avoid equality comparisons to `True`; use `lead_detail.get('is_converted'):` for truth checks
+    --> backend_test.py:1740:36
+     |
+1739 |                 if success2:
+1740 |                     is_converted = lead_detail.get('is_converted') == True
+     |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1741 |                     stage_updated = lead_detail.get('stage') == 'BC Call Done'
+1742 |                     print(f"   Is converted: {is_converted}")
+     |
+help: Replace with `lead_detail.get('is_converted')`
+
+E712 Avoid equality comparisons to `True`; use `settings_data.get('can_edit'):` for truth checks
+    --> backend_test.py:3742:29
+     |
+3740 |             has_all_sections = all(section in settings_data for section in expected_sections)
+3741 |             has_can_edit = 'can_edit' in settings_data
+3742 |             can_edit_true = settings_data.get('can_edit') == True
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3743 |             
+3744 |             print(f"   Has all settings sections: {has_all_sections}")
+     |
+help: Replace with `settings_data.get('can_edit')`
+
+E712 Avoid equality comparisons to `False`; use `not settings_data.get('can_edit'):` for false checks
+    --> backend_test.py:3790:38
+     |
+3788 |                     has_all_sections = all(section in settings_data for section in expected_sections)
+3789 |                     has_can_edit = 'can_edit' in settings_data
+3790 |                     can_edit_false = settings_data.get('can_edit') == False
+     |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3791 |                     
+3792 |                     print(f"   Has all settings sections: {has_all_sections}")
+     |
+help: Replace with `not settings_data.get('can_edit')`
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:4067:24
+     |
+4065 |         # Add comment with @mention
+4066 |         comment_data = {
+4067 |             "message": f"@Test Designer please review this project update"
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+4068 |         }
+     |
+help: Remove extraneous `f` prefix
+
+F811 Redefinition of unused `test_get_email_templates_admin` from line 4094
+    --> backend_test.py:5016:9
+     |
+5014 |     # ============ EMAIL TEMPLATES TESTS ============
+5015 |     
+5016 |     def test_get_email_templates_admin(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_get_email_templates_admin` redefined here
+5017 |         """Test GET /api/settings/email-templates (Admin access)"""
+5018 |         success, templates_data = self.run_test("Get Email Templates (Admin)", "GET", "api/settings/email-templates", 200,
+     |
+    ::: backend_test.py:4094:9
+     |
+4092 |     # ============ EMAIL TEMPLATES TESTS ============
+4093 |
+4094 |     def test_get_email_templates_admin(self):
+     |         ------------------------------ previous definition of `test_get_email_templates_admin` here
+4095 |         """Test GET /api/settings/email-templates (Admin only)"""
+4096 |         success, templates_data = self.run_test("Get Email Templates (Admin)", "GET", 
+     |
+help: Remove definition: `test_get_email_templates_admin`
+
+F811 Redefinition of unused `test_get_email_templates_designer_denied` from line 4118
+    --> backend_test.py:5039:9
+     |
+5037 |         return success, templates_data
+5038 |
+5039 |     def test_get_email_templates_designer_denied(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_get_email_templates_designer_denied` redefined here
+5040 |         """Test GET /api/settings/email-templates (Designer access - should fail)"""
+5041 |         return self.run_test("Get Email Templates (Designer - Should Fail)", "GET", "api/settings/email-templates", 403,
+     |
+    ::: backend_test.py:4118:9
+     |
+4116 |         return success, templates_data
+4117 |
+4118 |     def test_get_email_templates_designer_denied(self):
+     |         ---------------------------------------- previous definition of `test_get_email_templates_designer_denied` here
+4119 |         """Test GET /api/settings/email-templates with Designer token (should fail)"""
+4120 |         return self.run_test("Get Email Templates (Designer - Should Fail)", "GET", 
+     |
+help: Remove definition: `test_get_email_templates_designer_denied`
+
+F811 Redefinition of unused `test_get_single_email_template` from line 4124
+    --> backend_test.py:5044:9
+     |
+5042 |                            auth_token=self.designer_token)
+5043 |
+5044 |     def test_get_single_email_template(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_get_single_email_template` redefined here
+5045 |         """Test GET /api/settings/email-templates/{template_id}"""
+5046 |         template_id = "template_stage_change"
+     |
+    ::: backend_test.py:4124:9
+     |
+4122 |                            auth_token=self.pure_designer_token)
+4123 |
+4124 |     def test_get_single_email_template(self):
+     |         ------------------------------ previous definition of `test_get_single_email_template` here
+4125 |         """Test GET /api/settings/email-templates/:id"""
+4126 |         if hasattr(self, 'test_template_id'):
+     |
+help: Remove definition: `test_get_single_email_template`
+
+F811 Redefinition of unused `test_update_email_template` from line 4136
+    --> backend_test.py:5061:9
+     |
+5059 |         return success, template_data
+5060 |
+5061 |     def test_update_email_template(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_update_email_template` redefined here
+5062 |         """Test PUT /api/settings/email-templates/{template_id}"""
+5063 |         template_id = "template_stage_change"
+     |
+    ::: backend_test.py:4136:9
+     |
+4134 |                                auth_token=self.admin_token)
+4135 |
+4136 |     def test_update_email_template(self):
+     |         -------------------------- previous definition of `test_update_email_template` here
+4137 |         """Test PUT /api/settings/email-templates/:id"""
+4138 |         template_id = getattr(self, 'test_template_id', 'template_stage_change')
+     |
+help: Remove definition: `test_update_email_template`
+
+F811 Redefinition of unused `test_reset_email_template` from line 4167
+    --> backend_test.py:5091:9
+     |
+5089 |         return success, response_data
+5090 |
+5091 |     def test_reset_email_template(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^ `test_reset_email_template` redefined here
+5092 |         """Test POST /api/settings/email-templates/{template_id}/reset"""
+5093 |         template_id = "template_stage_change"
+     |
+    ::: backend_test.py:4167:9
+     |
+4165 |         return success, response_data
+4166 |
+4167 |     def test_reset_email_template(self):
+     |         ------------------------- previous definition of `test_reset_email_template` here
+4168 |         """Test POST /api/settings/email-templates/:id/reset"""
+4169 |         template_id = getattr(self, 'test_template_id', 'template_stage_change')
+     |
+help: Remove definition: `test_reset_email_template`
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:5325:23
+     |
+5323 |             else:
+5324 |                 has_stage_structure = True  # Empty is valid
+5325 |                 print(f"   Stage analysis is empty (valid)")
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5326 |             
+5327 |             # Check top delayed projects structure
+     |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:5336:23
+     |
+5334 |             else:
+5335 |                 has_project_structure = True  # Empty is valid
+5336 |                 print(f"   Top delayed projects is empty (valid)")
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5337 |             
+5338 |             return success and has_all_fields and has_stage_structure and has_project_structure, delays_data
+     |
+help: Remove extraneous `f` prefix
+
+E712 Avoid equality comparisons to `True`; use `response.get('success'):` for truth checks
+    --> backend_test.py:5735:35
+     |
+5733 |                 # Verify response structure
+5734 |                 if success:
+5735 |                     has_success = response.get('success') == True
+     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5736 |                     has_substage_id = response.get('substage_id') == substage_id
+5737 |                     has_group_name = response.get('group_name') == "Delivery"
+     |
+help: Replace with `response.get('success')`
+
+E712 Avoid equality comparisons to `True`; use `response.get('success'):` for truth checks
+    --> backend_test.py:5783:35
+     |
+5781 |                 # Verify response structure
+5782 |                 if success:
+5783 |                     has_success = response.get('success') == True
+     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5784 |                     has_substage_id = response.get('substage_id') == substage_id
+5785 |                     has_group_name = response.get('group_name') == "Handover"
+     |
+help: Replace with `response.get('success')`
+
+E712 Avoid equality comparisons to `True`; use `percentage_response.get('success'):` for truth checks
+    --> backend_test.py:6126:31
+     |
+6124 |             if success:
+6125 |                 # Verify response structure
+6126 |                 has_success = percentage_response.get('success') == True
+     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6127 |                 has_substage_id = percentage_response.get('substage_id') == 'non_modular_dependency'
+6128 |                 has_percentage = percentage_response.get('percentage') == 30
+     |
+help: Replace with `percentage_response.get('success')`
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:6480:28
+     |
+6478 |           print("\n🧹 Cleaning up test data...")
+6479 |           
+6480 |           cleanup_commands = f'''
+     |  ____________________________^
+6481 | | use('test_database');
+6482 | | db.users.deleteMany({{user_id: {{$regex: "^test-"}}}});
+6483 | | db.user_sessions.deleteMany({{user_id: {{$regex: "^test-"}}}});
+6484 | | db.projects.deleteMany({{project_id: {{$regex: "^proj_"}}}});
+6485 | | db.leads.deleteMany({{lead_id: {{$regex: "^lead_"}}}});
+6486 | | db.notifications.deleteMany({{user_id: {{$regex: "^test-"}}}});
+6487 | | db.email_templates.deleteMany({{updated_at: {{$exists: true}}}});
+6488 | | print("Test data cleaned up");
+6489 | | '''
+     | |___^
+6490 |           
+6491 |           try:
+     |
+help: Remove extraneous `f` prefix
+
+F811 Redefinition of unused `test_seed_design_workflow` from line 5348
+    --> backend_test.py:6611:9
+     |
+6609 |     # ============ DESIGN WORKFLOW TESTS ============
+6610 |
+6611 |     def test_seed_design_workflow(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^ `test_seed_design_workflow` redefined here
+6612 |         """Test POST /api/design-workflow/seed - Seed design workflow data"""
+6613 |         return self.run_test("Seed Design Workflow Data", "POST", "api/design-workflow/seed", 200,
+     |
+    ::: backend_test.py:5348:9
+     |
+5346 |     # ============ PHASE 15A DESIGN WORKFLOW TESTS ============
+5347 |
+5348 |     def test_seed_design_workflow(self):
+     |         ------------------------- previous definition of `test_seed_design_workflow` here
+5349 |         """Test POST /api/design-workflow/seed - Create test data for design workflow"""
+5350 |         return self.run_test("Seed Design Workflow Data", "POST", "api/design-workflow/seed", 200,
+     |
+help: Remove definition: `test_seed_design_workflow`
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:6942:15
+     |
+6941 |         # Print summary
+6942 |         print(f"\n📊 Design Workflow Test Summary:")
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6943 |         print(f"   Total tests: {self.tests_run}")
+6944 |         print(f"   Passed: {self.tests_passed}")
+     |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:6948:19
+     |
+6947 |         if self.failed_tests:
+6948 |             print(f"\n❌ Failed Tests:")
+     |                   ^^^^^^^^^^^^^^^^^^^^^
+6949 |             for failed in self.failed_tests:
+6950 |                 print(f"   - {failed['test']}: {failed.get('error', 'Status mismatch')}")
+     |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:6952:19
+     |
+6950 |                 print(f"   - {failed['test']}: {failed.get('error', 'Status mismatch')}")
+6951 |         else:
+6952 |             print(f"\n✅ All Design Workflow tests passed!")
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6953 |         
+6954 |         return len(self.failed_tests) == 0
+     |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:7356:15
+     |
+7355 |         self.tests_run += 1
+7356 |         print(f"\n🔍 Testing Academy File Upload (Valid MP4)...")
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7357 |         print(f"   URL: {url}")
+     |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:7402:15
+     |
+7401 |         self.tests_run += 1
+7402 |         print(f"\n🔍 Testing Academy File Upload (Invalid Type)...")
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7403 |         
+7404 |         try:
+     |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:7437:15
+     |
+7436 |         self.tests_run += 1
+7437 |         print(f"\n🔍 Testing Academy File Upload (No Auth)...")
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7438 |         
+7439 |         try:
+     |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+    --> backend_test.py:7473:15
+     |
+7472 |         self.tests_run += 1
+7473 |         print(f"\n🔍 Testing Academy File Upload (Non-Admin)...")
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7474 |         
+7475 |         try:
+     |
+help: Remove extraneous `f` prefix
+
+F811 Redefinition of unused `test_list_warranties_technician_denied` from line 6963
+    --> backend_test.py:7692:9
+     |
+7690 |                            auth_token=self.admin_token)
+7691 |
+7692 |     def test_list_warranties_technician_denied(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_list_warranties_technician_denied` redefined here
+7693 |         """Test GET /api/warranties - Technician should fail with 403"""
+7694 |         if not self.setup_technician_user():
+     |
+    ::: backend_test.py:6963:9
+     |
+6961 |                            auth_token=self.admin_token)
+6962 |     
+6963 |     def test_list_warranties_technician_denied(self):
+     |         -------------------------------------- previous definition of `test_list_warranties_technician_denied` here
+6964 |         """Test GET /api/warranties with Technician token (should fail)"""
+6965 |         # Create technician user for testing
+     |
+help: Remove definition: `test_list_warranties_technician_denied`
+
+F811 Redefinition of unused `test_get_warranty_by_id` from line 7004
+    --> backend_test.py:7700:9
+     |
+7698 |                            auth_token=self.technician_token)
+7699 |
+7700 |     def test_get_warranty_by_id(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ `test_get_warranty_by_id` redefined here
+7701 |         """Test GET /api/warranties/{warranty_id} - Get single warranty"""
+7702 |         # First create a warranty by completing a project handover
+     |
+    ::: backend_test.py:7004:9
+     |
+7002 |             return False, {}
+7003 |     
+7004 |     def test_get_warranty_by_id(self):
+     |         ----------------------- previous definition of `test_get_warranty_by_id` here
+7005 |         """Test GET /api/warranties/{warranty_id} - Get single warranty"""
+7006 |         # First get list of warranties to get a warranty ID
+     |
+help: Remove definition: `test_get_warranty_by_id`
+
+F811 Redefinition of unused `test_get_warranty_by_pid` from line 7025
+    --> backend_test.py:7723:9
+     |
+7721 |             return False, {}
+7722 |
+7723 |     def test_get_warranty_by_pid(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^ `test_get_warranty_by_pid` redefined here
+7724 |         """Test GET /api/warranties/by-pid/{pid} - Get warranty by PID"""
+7725 |         # First get a lead with PID
+     |
+    ::: backend_test.py:7025:9
+     |
+7023 |             return False, {}
+7024 |     
+7025 |     def test_get_warranty_by_pid(self):
+     |         ------------------------ previous definition of `test_get_warranty_by_pid` here
+7026 |         """Test GET /api/warranties/by-pid/{pid} - Get warranty by PID"""
+7027 |         # First get list of warranties to get a PID
+     |
+help: Remove definition: `test_get_warranty_by_pid`
+
+F811 Redefinition of unused `test_get_warranty_by_project` from line 7038
+    --> backend_test.py:7741:9
+     |
+7739 |             return False, {}
+7740 |
+7741 |     def test_get_warranty_by_project(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_get_warranty_by_project` redefined here
+7742 |         """Test GET /api/warranties/by-project/{project_id} - Get warranty by project ID"""
+7743 |         success, projects_data = self.run_test("Get Projects for Warranty Project Test", "GET", "api/projects", 200,
+     |
+    ::: backend_test.py:7038:9
+     |
+7036 |             return False, {}
+7037 |     
+7038 |     def test_get_warranty_by_project(self):
+     |         ---------------------------- previous definition of `test_get_warranty_by_project` here
+7039 |         """Test GET /api/warranties/by-project/{project_id} - Get warranty by project"""
+7040 |         # First get list of warranties to get a project ID
+     |
+help: Remove definition: `test_get_warranty_by_project`
+
+F811 Redefinition of unused `test_update_warranty_details` from line 7051
+    --> backend_test.py:7754:9
+     |
+7752 |             return False, {}
+7753 |
+7754 |     def test_update_warranty_details(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_update_warranty_details` redefined here
+7755 |         """Test PUT /api/warranties/{warranty_id} - Update warranty details"""
+7756 |         # First try to get a warranty
+     |
+    ::: backend_test.py:7051:9
+     |
+7049 |             return False, {}
+7050 |     
+7051 |     def test_update_warranty_details(self):
+     |         ---------------------------- previous definition of `test_update_warranty_details` here
+7052 |         """Test PUT /api/warranties/{warranty_id} - Update warranty details"""
+7053 |         # First get list of warranties to get a warranty ID
+     |
+help: Remove definition: `test_update_warranty_details`
+
+F811 Redefinition of unused `test_list_service_requests` from line 7080
+    --> backend_test.py:7775:9
+     |
+7773 |             return True, {}
+7774 |
+7775 |     def test_list_service_requests(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_list_service_requests` redefined here
+7776 |         """Test GET /api/service-requests - List all service requests"""
+7777 |         return self.run_test("List Service Requests", "GET", "api/service-requests", 200,
+     |
+    ::: backend_test.py:7080:9
+     |
+7078 |             return False, {}
+7079 |     
+7080 |     def test_list_service_requests(self):
+     |         -------------------------- previous definition of `test_list_service_requests` here
+7081 |         """Test GET /api/service-requests - List all service requests"""
+7082 |         return self.run_test("List All Service Requests", "GET", "api/service-requests", 200,
+     |
+help: Remove definition: `test_list_service_requests`
+
+F811 Redefinition of unused `test_get_service_request_by_id` from line 7094
+    --> backend_test.py:7802:9
+     |
+7800 |         return success1 and success2 and success3, {}
+7801 |
+7802 |     def test_get_service_request_by_id(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_get_service_request_by_id` redefined here
+7803 |         """Test GET /api/service-requests/{request_id} - Get single service request"""
+7804 |         # First create a service request
+     |
+    ::: backend_test.py:7094:9
+     |
+7092 |             return True, {}
+7093 |     
+7094 |     def test_get_service_request_by_id(self):
+     |         ------------------------------ previous definition of `test_get_service_request_by_id` here
+7095 |         """Test GET /api/service-requests/{request_id} - Get single service request"""
+7096 |         # First get list of service requests to get a request ID
+     |
+help: Remove definition: `test_get_service_request_by_id`
+
+F811 Redefinition of unused `test_assign_technician_to_service_request` from line 7158
+    --> backend_test.py:7903:9
+     |
+7901 |         return success, create_response
+7902 |
+7903 |     def test_assign_technician_to_service_request(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_assign_technician_to_service_request` redefined here
+7904 |         """Test PUT /api/service-requests/{request_id}/assign - Assign technician (Admin/SalesManager only)"""
+7905 |         if hasattr(self, 'test_service_request_id') and hasattr(self, 'technician_user_id'):
+     |
+    ::: backend_test.py:7158:9
+     |
+7156 |                            data=form_data)  # No auth token for Google Form endpoint
+7157 |     
+7158 |     def test_assign_technician_to_service_request(self):
+     |         ----------------------------------------- previous definition of `test_assign_technician_to_service_request` here
+7159 |         """Test PUT /api/service-requests/{request_id}/assign - Assign technician"""
+7160 |         if hasattr(self, 'test_service_request_id') and hasattr(self, 'technician_user_id'):
+     |
+help: Remove definition: `test_assign_technician_to_service_request`
+
+F811 Redefinition of unused `test_update_service_request_stage` from line 7185
+    --> backend_test.py:7917:9
+     |
+7915 |             return True, {}
+7916 |
+7917 |     def test_update_service_request_stage(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_update_service_request_stage` redefined here
+7918 |         """Test PUT /api/service-requests/{request_id}/stage - Update stage (forward-only)"""
+7919 |         if hasattr(self, 'test_service_request_id'):
+     |
+    ::: backend_test.py:7185:9
+     |
+7183 |             return True, {}
+7184 |     
+7185 |     def test_update_service_request_stage(self):
+     |         --------------------------------- previous definition of `test_update_service_request_stage` here
+7186 |         """Test PUT /api/service-requests/{request_id}/stage - Update stage (forward-only)"""
+7187 |         if hasattr(self, 'test_service_request_id'):
+     |
+help: Remove definition: `test_update_service_request_stage`
+
+F811 Redefinition of unused `test_set_expected_closure_date` from line 7198
+    --> backend_test.py:7932:9
+     |
+7930 |             return True, {}
+7931 |
+7932 |     def test_set_expected_closure_date(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_set_expected_closure_date` redefined here
+7933 |         """Test PUT /api/service-requests/{request_id}/expected-closure - Set expected closure date"""
+7934 |         if hasattr(self, 'test_service_request_id'):
+     |
+    ::: backend_test.py:7198:9
+     |
+7196 |             return True, {}
+7197 |     
+7198 |     def test_set_expected_closure_date(self):
+     |         ------------------------------ previous definition of `test_set_expected_closure_date` here
+7199 |         """Test PUT /api/service-requests/{request_id}/expected-closure - Set expected closure date"""
+7200 |         if hasattr(self, 'test_service_request_id'):
+     |
+help: Remove definition: `test_set_expected_closure_date`
+
+F811 Redefinition of unused `test_log_service_request_delay` from line 7211
+    --> backend_test.py:7946:9
+     |
+7944 |             return True, {}
+7945 |
+7946 |     def test_log_service_request_delay(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_log_service_request_delay` redefined here
+7947 |         """Test POST /api/service-requests/{request_id}/delay - Log delay with reason"""
+7948 |         if hasattr(self, 'test_service_request_id'):
+     |
+    ::: backend_test.py:7211:9
+     |
+7209 |             return True, {}
+7210 |     
+7211 |     def test_log_service_request_delay(self):
+     |         ------------------------------ previous definition of `test_log_service_request_delay` here
+7212 |         """Test POST /api/service-requests/{request_id}/delay - Log delay"""
+7213 |         if hasattr(self, 'test_service_request_id'):
+     |
+help: Remove definition: `test_log_service_request_delay`
+
+F811 Redefinition of unused `test_upload_service_request_photos` from line 7229
+    --> backend_test.py:7963:9
+     |
+7961 |             return True, {}
+7962 |
+7963 |     def test_upload_service_request_photos(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_upload_service_request_photos` redefined here
+7964 |         """Test POST /api/service-requests/{request_id}/photos - Upload before/after photos"""
+7965 |         if hasattr(self, 'test_service_request_id'):
+     |
+    ::: backend_test.py:7229:9
+     |
+7227 |             return True, {}
+7228 |     
+7229 |     def test_upload_service_request_photos(self):
+     |         ---------------------------------- previous definition of `test_upload_service_request_photos` here
+7230 |         """Test POST /api/service-requests/{request_id}/photos - Upload photos"""
+7231 |         if hasattr(self, 'test_service_request_id'):
+     |
+help: Remove definition: `test_upload_service_request_photos`
+
+F811 Redefinition of unused `test_add_technician_notes` from line 7248
+    --> backend_test.py:7987:9
+     |
+7985 |             return True, {}
+7986 |
+7987 |     def test_add_technician_notes(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^ `test_add_technician_notes` redefined here
+7988 |         """Test POST /api/service-requests/{request_id}/notes - Add technician notes"""
+7989 |         if hasattr(self, 'test_service_request_id'):
+     |
+    ::: backend_test.py:7248:9
+     |
+7246 |             return True, {}
+7247 |     
+7248 |     def test_add_technician_notes(self):
+     |         ------------------------- previous definition of `test_add_technician_notes` here
+7249 |         """Test POST /api/service-requests/{request_id}/notes - Add technician notes"""
+7250 |         if hasattr(self, 'test_service_request_id'):
+     |
+help: Remove definition: `test_add_technician_notes`
+
+F811 Redefinition of unused `test_add_service_request_comments` from line 7265
+    --> backend_test.py:8002:9
+     |
+8000 |             return True, {}
+8001 |
+8002 |     def test_add_service_request_comments(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_add_service_request_comments` redefined here
+8003 |         """Test POST /api/service-requests/{request_id}/comments - Add comments"""
+8004 |         if hasattr(self, 'test_service_request_id'):
+     |
+    ::: backend_test.py:7265:9
+     |
+7263 |             return True, {}
+7264 |     
+7265 |     def test_add_service_request_comments(self):
+     |         --------------------------------- previous definition of `test_add_service_request_comments` here
+7266 |         """Test POST /api/service-requests/{request_id}/comments - Add comments"""
+7267 |         if hasattr(self, 'test_service_request_id'):
+     |
+help: Remove definition: `test_add_service_request_comments`
+
+F811 Redefinition of unused `test_list_technicians` from line 7278
+    --> backend_test.py:8016:9
+     |
+8014 |             return True, {}
+8015 |
+8016 |     def test_list_technicians(self):
+     |         ^^^^^^^^^^^^^^^^^^^^^ `test_list_technicians` redefined here
+8017 |         """Test GET /api/technicians - List all technicians with open_requests count"""
+8018 |         return self.run_test("List Technicians", "GET", "api/technicians", 200,
+     |
+    ::: backend_test.py:7278:9
+     |
+7276 |             return True, {}
+7277 |     
+7278 |     def test_list_technicians(self):
+     |         --------------------- previous definition of `test_list_technicians` here
+7279 |         """Test GET /api/technicians - List all technicians with open request counts"""
+7280 |         success, technicians_data = self.run_test("List All Technicians", "GET", "api/technicians", 200,
+     |
+help: Remove definition: `test_list_technicians`
+
+E722 Do not use bare `except`
+  --> calendar_test.py:53:17
+   |
+51 |                     response_data = response.json()
+52 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+53 |                 except:
+   |                 ^^^^^^
+54 |                     print(f"   Response: {response.text[:200]}...")
+55 |             else:
+   |
+
+F541 [*] f-string without any placeholders
+   --> calendar_test.py:570:15
+    |
+569 |         # Print summary
+570 |         print(f"\n📊 Calendar System Test Summary:")
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+571 |         print(f"   Total tests: {self.tests_run}")
+572 |         print(f"   Passed: {self.tests_passed}")
+    |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+   --> calendar_test.py:577:19
+    |
+576 |         if self.failed_tests:
+577 |             print(f"\n❌ Failed tests:")
+    |                   ^^^^^^^^^^^^^^^^^^^^^
+578 |             for failure in self.failed_tests:
+579 |                 print(f"   - {failure['test']}")
+    |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+   --> calendar_test.py:587:19
+    |
+585 |                     print(f"     Response: {failure['response'][:100]}...")
+586 |         else:
+587 |             print(f"\n🎉 All Calendar System tests passed!")
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+588 |
+589 | if __name__ == "__main__":
+    |
+help: Remove extraneous `f` prefix
+
+F401 [*] `datetime.timezone` imported but unused
+ --> production_test.py:6:32
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> production_test.py:6:42
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> production_test.py:52:17
+   |
+50 |                     response_data = response.json()
+51 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+52 |                 except:
+   |                 ^^^^^^
+53 |                     print(f"   Response: {response.text[:200]}...")
+54 |             else:
+   |
+
+E712 Avoid equality comparisons to `True`; use `percentage_response.get('success'):` for truth checks
+   --> production_test.py:283:31
+    |
+281 |             if success:
+282 |                 # Verify response structure
+283 |                 has_success = percentage_response.get('success') == True
+    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+284 |                 has_substage_id = percentage_response.get('substage_id') == 'non_modular_dependency'
+285 |                 has_percentage = percentage_response.get('percentage') == 30
+    |
+help: Replace with `percentage_response.get('success')`
+
+F401 [*] `datetime.timezone` imported but unused
+ --> rbac_test.py:4:32
+  |
+2 | import sys
+3 | import json
+4 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+5 | import uuid
+6 | import subprocess
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> rbac_test.py:4:42
+  |
+2 | import sys
+3 | import json
+4 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+5 | import uuid
+6 | import subprocess
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> rbac_test.py:55:17
+   |
+53 |                     response_data = response.json()
+54 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+55 |                 except:
+   |                 ^^^^^^
+56 |                     print(f"   Response: {response.text[:200]}...")
+57 |             else:
+   |
+
+F401 [*] `datetime.timezone` imported but unused
+ --> rbac_test_fixed.py:4:32
+  |
+2 | import sys
+3 | import json
+4 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+5 | import uuid
+6 | import subprocess
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> rbac_test_fixed.py:4:42
+  |
+2 | import sys
+3 | import json
+4 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+5 | import uuid
+6 | import subprocess
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> rbac_test_fixed.py:55:17
+   |
+53 |                     response_data = response.json()
+54 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+55 |                 except:
+   |                 ^^^^^^
+56 |                     print(f"   Response: {response.text[:200]}...")
+57 |             else:
+   |
+
+F401 [*] `datetime.timezone` imported but unused
+ --> substage_test.py:6:32
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> substage_test.py:6:42
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> substage_test.py:52:17
+   |
+50 |                     response_data = response.json()
+51 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+52 |                 except:
+   |                 ^^^^^^
+53 |                     print(f"   Response: {response.text[:200]}...")
+54 |             else:
+   |
+
+F401 [*] `os` imported but unused
+ --> test_design_workflow.py:4:8
+  |
+3 | import sys
+4 | import os
+  |        ^^
+5 | sys.path.append('/app')
+  |
+help: Remove unused import: `os`
+
+F401 [*] `datetime.timezone` imported but unused
+ --> test_new_features.py:6:32
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> test_new_features.py:6:42
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> test_new_features.py:52:17
+   |
+50 |                     response_data = response.json()
+51 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+52 |                 except:
+   |                 ^^^^^^
+53 |                     print(f"   Response: {response.text[:200]}...")
+54 |             else:
+   |
+
+E712 Avoid equality comparisons to `True`; use `response.get('success'):` for truth checks
+   --> test_new_features.py:180:35
+    |
+178 |                 # Verify response structure
+179 |                 if success:
+180 |                     has_success = response.get('success') == True
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+181 |                     has_substage_id = response.get('substage_id') == substage_id
+182 |                     has_group_name = response.get('group_name') == "Delivery"
+    |
+help: Replace with `response.get('success')`
+
+E712 Avoid equality comparisons to `True`; use `response.get('success'):` for truth checks
+   --> test_new_features.py:228:35
+    |
+226 |                 # Verify response structure
+227 |                 if success:
+228 |                     has_success = response.get('success') == True
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+229 |                     has_substage_id = response.get('substage_id') == substage_id
+230 |                     has_group_name = response.get('group_name') == "Handover"
+    |
+help: Replace with `response.get('success')`
+
+F541 [*] f-string without any placeholders
+   --> test_new_features.py:468:11
+    |
+466 |     # Print summary
+467 |     print(f"\n{'='*60}")
+468 |     print(f"🏁 NEW FEATURES TEST SUMMARY")
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+469 |     print(f"{'='*60}")
+470 |     print(f"Total Tests: {tester.tests_run}")
+    |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+   --> test_new_features.py:476:15
+    |
+475 |     if tester.failed_tests:
+476 |         print(f"\n❌ FAILED TESTS:")
+    |               ^^^^^^^^^^^^^^^^^^^^^
+477 |         for i, failure in enumerate(tester.failed_tests, 1):
+478 |             print(f"{i}. {failure['test']}")
+    |
+help: Remove extraneous `f` prefix
+
+F401 [*] `datetime.timezone` imported but unused
+ --> test_phase15a.py:6:32
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> test_phase15a.py:6:42
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> test_phase15a.py:50:17
+   |
+48 |                     response_data = response.json()
+49 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+50 |                 except:
+   |                 ^^^^^^
+51 |                     print(f"   Response: {response.text[:200]}...")
+52 |             else:
+   |
+
+F541 [*] f-string without any placeholders
+   --> test_phase15a.py:273:28
+    |
+271 |           print("\n🧹 Cleaning up test data...")
+272 |           
+273 |           cleanup_commands = f'''
+    |  ____________________________^
+274 | | use('test_database');
+275 | | db.users.deleteMany({{user_id: /^test-/}});
+276 | | db.user_sessions.deleteMany({{user_id: /^test-/}});
+277 | | print("Cleanup completed");
+278 | | '''
+    | |___^
+279 |           
+280 |           try:
+    |
+help: Remove extraneous `f` prefix
+
+F401 [*] `datetime.timezone` imported but unused
+ --> test_phase15a_complete.py:6:32
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> test_phase15a_complete.py:6:42
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> test_phase15a_complete.py:50:17
+   |
+48 |                     response_data = response.json()
+49 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+50 |                 except:
+   |                 ^^^^^^
+51 |                     print(f"   Response: {response.text[:200]}...")
+52 |             else:
+   |
+
+F541 [*] f-string without any placeholders
+   --> test_phase15a_complete.py:332:28
+    |
+330 |           print("\n🧹 Cleaning up test data...")
+331 |           
+332 |           cleanup_commands = f'''
+    |  ____________________________^
+333 | | use('test_database');
+334 | | db.users.deleteMany({{user_id: /^test-/}});
+335 | | db.user_sessions.deleteMany({{user_id: /^test-/}});
+336 | | print("Cleanup completed");
+337 | | '''
+    | |___^
+338 |           
+339 |           try:
+    |
+help: Remove extraneous `f` prefix
+
+F401 [*] `datetime.timezone` imported but unused
+ --> test_phase15a_full.py:6:32
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> test_phase15a_full.py:6:42
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+7 | import uuid
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> test_phase15a_full.py:50:17
+   |
+48 |                     response_data = response.json()
+49 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+50 |                 except:
+   |                 ^^^^^^
+51 |                     print(f"   Response: {response.text[:200]}...")
+52 |             else:
+   |
+
+F541 [*] f-string without any placeholders
+   --> test_phase15a_full.py:364:28
+    |
+362 |           print("\n🧹 Cleaning up test data...")
+363 |           
+364 |           cleanup_commands = f'''
+    |  ____________________________^
+365 | | use('test_database');
+366 | | db.users.deleteMany({{user_id: /^test-/}});
+367 | | db.user_sessions.deleteMany({{user_id: /^test-/}});
+368 | | print("Cleanup completed");
+369 | | '''
+    | |___^
+370 |           
+371 |           try:
+    |
+help: Remove extraneous `f` prefix
+
+F401 [*] `datetime.timezone` imported but unused
+ --> user_management_test.py:6:32
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                ^^^^^^^^
+7 | import uuid
+8 | import subprocess
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> user_management_test.py:6:42
+  |
+4 | import sys
+5 | import json
+6 | from datetime import datetime, timezone, timedelta
+  |                                          ^^^^^^^^^
+7 | import uuid
+8 | import subprocess
+  |
+help: Remove unused import
+
+E722 Do not use bare `except`
+  --> user_management_test.py:51:17
+   |
+49 |                     response_data = response.json()
+50 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+51 |                 except:
+   |                 ^^^^^^
+52 |                     print(f"   Response: {response.text[:200]}...")
+53 |             else:
+   |
+
+F541 [*] f-string without any placeholders
+   --> user_management_test.py:231:26
+    |
+229 |           print("\n🧹 Cleaning up test data...")
+230 |           
+231 |           mongo_commands = f'''
+    |  __________________________^
+232 | | use('test_database');
+233 | | db.users.deleteMany({{email: /test\\..*@example\\.com/}});
+234 | | db.user_sessions.deleteMany({{session_token: /test_.*_session_.*/}});
+235 | | print("Test data cleaned up");
+236 | | '''
+    | |___^
+237 |           
+238 |           try:
+    |
+help: Remove extraneous `f` prefix
+
+F401 [*] `datetime.timedelta` imported but unused
+  --> warranty_test.py:10:32
+   |
+ 8 | import json
+ 9 | import uuid
+10 | from datetime import datetime, timedelta
+   |                                ^^^^^^^^^
+11 | import subprocess
+   |
+help: Remove unused import: `datetime.timedelta`
+
+E722 Do not use bare `except`
+   --> warranty_test.py:119:17
+    |
+117 |                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
+118 |                     return True, response_data
+119 |                 except:
+    |                 ^^^^^^
+120 |                     return True, {}
+121 |             else:
+    |
+
+E722 Do not use bare `except`
+   --> warranty_test.py:133:17
+    |
+131 |                     })
+132 |                     return False, response_data
+133 |                 except:
+    |                 ^^^^^^
+134 |                     self.failed_tests.append({
+135 |                         "test": test_name,
+    |
+
+F541 [*] f-string without any placeholders
+   --> warranty_test.py:367:15
+    |
+365 |         ]
+366 |         
+367 |         print(f"\n🛡️ Warranty & After-Service Module Tests")
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+368 |         print("=" * 50)
+    |
+help: Remove extraneous `f` prefix
+
+Found 136 errors.
+[*] 50 fixable with the `--fix` option (31 hidden fixes can be enabled with the `--unsafe-fixes` option). to identify them.
+     - **Next debug checklist:** Run F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:1554:5
+     |
+1552 | async def get_active_users(request: Request):
+1553 |     """Get list of active users (for collaborator dropdowns)"""
+1554 |     user = await get_current_user(request)
+     |     ^^^^
+1555 |     
+1556 |     users = await db.users.find(
+     |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:1566:5
+     |
+1564 | async def get_active_designers(request: Request):
+1565 |     """Get list of active designers (for assignment dropdowns)"""
+1566 |     user = await get_current_user(request)
+     |     ^^^^
+1567 |     
+1568 |     designers = await db.users.find(
+     |
+help: Remove assignment to unused variable `user`
+
+E722 Do not use bare `except`
+    --> backend/server.py:2467:25
+     |
+2465 |                             else:
+2466 |                                 item["status"] = "pending"
+2467 |                         except:
+     |                         ^^^^^^
+2468 |                             item["status"] = "pending"
+2469 |                     else:
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:2483:21
+     |
+2481 |                         else:
+2482 |                             item["status"] = "pending"
+2483 |                     except:
+     |                     ^^^^^^
+2484 |                         item["status"] = "pending"
+2485 |                 else:
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:3736:17
+     |
+3734 |                     elif item["status"] not in ["completed", "delayed"]:
+3735 |                         item["status"] = "pending"
+3736 |                 except:
+     |                 ^^^^^^
+3737 |                     if item["status"] != "completed":
+3738 |                         item["status"] = "pending"
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:3755:17
+     |
+3753 |                     else:
+3754 |                         item["status"] = "pending"
+3755 |                 except:
+     |                 ^^^^^^
+3756 |                     item["status"] = "pending"
+3757 |             else:
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:3796:19
+     |
+3794 |         search_lower = search.lower()
+3795 |         leads = [
+3796 |             l for l in leads 
+     |                   ^
+3797 |             if search_lower in l.get("customer_name", "").lower() 
+3798 |             or search_lower in l.get("customer_phone", "").replace(" ", "")
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:4128:21
+     |
+4126 |                         else:
+4127 |                             item["status"] = "pending"
+4128 |                     except:
+     |                     ^^^^^^
+4129 |                         item["status"] = "pending"
+4130 |                 else:
+     |
+
+F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:4235:5
+     |
+4233 | async def get_lead_collaborators(lead_id: str, request: Request):
+4234 |     """Get collaborators for a lead"""
+4235 |     user = await get_current_user(request)
+     |     ^^^^
+4236 |     
+4237 |     lead = await db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
+     |
+help: Remove assignment to unused variable `user`
+
+E722 Do not use bare `except`
+    --> backend/server.py:5473:25
+     |
+5471 |                                 expected = expected.replace(tzinfo=timezone.utc)
+5472 |                             days_delayed = (now - expected).days
+5473 |                         except:
+     |                         ^^^^^^
+5474 |                             pass
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5545:25
+     |
+5543 |                                     "designer": designer_name
+5544 |                                 })
+5545 |                         except:
+     |                         ^^^^^^
+5546 |                             pass
+5547 |         # Sort by expected date
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5563:38
+     |
+5561 |         # Lead metrics
+5562 |         total_leads = len(all_leads)
+5563 |         qualified_leads = len([l for l in all_leads if l.get("status") == "Qualified"])
+     |                                      ^
+5564 |         converted_leads_count = await db.leads.count_documents({"is_converted": True})
+5565 |         booking_conversion_rate = round((converted_leads_count / max(total_leads + converted_leads_count, 1)) * 100, 1)
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5582:21
+     |
+5580 |                         total_days += (updated_dt - created_dt).days
+5581 |                         count += 1
+5582 |                     except:
+     |                     ^^^^^^
+5583 |                         pass
+5584 |             if count > 0:
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5627:37
+     |
+5625 |             if u.get("role") == "PreSales":
+5626 |                 user_id = u.get("user_id")
+5627 |                 user_leads = [l for l in all_leads if l.get("assigned_to") == user_id]
+     |                                     ^
+5628 |                 converted = await db.leads.count_documents({"assigned_to": user_id, "is_converted": True})
+5629 |                 presales_performance.append({
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5708:27
+     |
+5706 |     elif user.role == "PreSales":
+5707 |         # My leads only
+5708 |         my_leads = [l for l in all_leads if l.get("assigned_to") == user.user_id]
+     |                           ^
+5709 |         
+5710 |         # Stage counts
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5711:35
+     |
+5710 |         # Stage counts
+5711 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+     |                                   ^
+5712 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+5713 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5712:33
+     |
+5710 |         # Stage counts
+5711 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+5712 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+     |                                 ^
+5713 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5713:38
+     |
+5711 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+5712 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+5713 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |                                      ^
+5714 |         
+5715 |         # Follow-ups due today (leads with milestones expected today)
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5727:25
+     |
+5725 |                                 followups_today += 1
+5726 |                                 break
+5727 |                         except:
+     |                         ^^^^^^
+5728 |                             pass
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5771:25
+     |
+5769 |                             if exp_dt.date() == now.date():
+5770 |                                 milestones_today += 1
+5771 |                         except:
+     |                         ^^^^^^
+5772 |                             pass
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:7310:42
+     |
+7308 |             {"_id": 0, "lead_id": 1, "customer_name": 1, "customer_phone": 1}
+7309 |         ).to_list(1000)
+7310 |         leads_map = {l["lead_id"]: l for l in leads_list}
+     |                                          ^
+7311 |     
+7312 |     # Enrich meetings
+     |
+
+F841 Local variable `users_map` is assigned to but never used
+    --> backend/server.py:8049:5
+     |
+8047 |     # Get all users
+8048 |     users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "role": 1}).to_list(1000)
+8049 |     users_map = {u["user_id"]: u for u in users}
+     |     ^^^^^^^^^
+8050 |     presales_users = [u for u in users if u.get("role") == "PreSales"]
+     |
+help: Remove assignment to unused variable `users_map`
+
+F841 Local variable `now` is assigned to but never used
+    --> backend/server.py:8656:5
+     |
+8654 |         raise HTTPException(status_code=403, detail="Access denied")
+8655 |     
+8656 |     now = datetime.now(timezone.utc)
+     |     ^^^
+8657 |     
+8658 |     # Get all designers
+     |
+help: Remove assignment to unused variable `now`
+
+F841 Local variable `delayed_project_count` is assigned to but never used
+     --> backend/server.py:10282:9
+      |
+10280 |         # Get total design projects under management
+10281 |         total_projects = await db.design_projects.count_documents({"status": "active"})
+10282 |         delayed_project_count = await db.design_projects.count_documents({
+      |         ^^^^^^^^^^^^^^^^^^^^^
+10283 |             "status": "active",
+10284 |             "current_stage": {"$ne": "Validation & Kickoff"}
+      |
+help: Remove assignment to unused variable `delayed_project_count`
+
+E722 Do not use bare `except`
+     --> backend/server.py:10559:21
+      |
+10557 |                                 "days_delayed": days_delayed
+10558 |                             })
+10559 |                     except:
+      |                     ^^^^^^
+10560 |                         pass
+      |
+
+F841 Local variable `week_end` is assigned to but never used
+     --> backend/server.py:10580:5
+      |
+10579 |     # Due this week
+10580 |     week_end = (now + timedelta(days=7)).isoformat()
+      |     ^^^^^^^^
+10581 |     due_this_week = len([p for p in upcoming_deliveries])
+      |
+help: Remove assignment to unused variable `week_end`
+
+E722 Do not use bare `except`
+     --> backend/server.py:10703:13
+      |
+10701 |                         "days_inactive": days_inactive
+10702 |                     })
+10703 |             except:
+      |             ^^^^^^
+10704 |                 pass
+      |
+
+F841 Local variable `old_assignee_id` is assigned to but never used
+     --> backend/server.py:10821:5
+      |
+10819 |         raise HTTPException(status_code=404, detail="New assignee not found")
+10820 |     
+10821 |     old_assignee_id = lead.get("assigned_to")
+      |     ^^^^^^^^^^^^^^^
+10822 |     now = datetime.now(timezone.utc)
+      |
+help: Remove assignment to unused variable `old_assignee_id`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11150:5
+      |
+11148 | async def get_warranty(warranty_id: str, request: Request):
+11149 |     """Get a single warranty by ID"""
+11150 |     user = await get_current_user(request)
+      |     ^^^^
+11151 |     
+11152 |     warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11161:5
+      |
+11159 | async def get_warranty_by_pid(pid: str, request: Request):
+11160 |     """Get warranty by PID"""
+11161 |     user = await get_current_user(request)
+      |     ^^^^
+11162 |     
+11163 |     warranty = await db.warranties.find_one({"pid": pid}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11172:5
+      |
+11170 | async def get_warranty_by_project(project_id: str, request: Request):
+11171 |     """Get warranty by project ID"""
+11172 |     user = await get_current_user(request)
+      |     ^^^^
+11173 |     
+11174 |     warranty = await db.warranties.find_one({"project_id": project_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11354:5
+      |
+11352 | async def get_service_requests_by_pid(pid: str, request: Request):
+11353 |     """Get all service requests for a PID"""
+11354 |     user = await get_current_user(request)
+      |     ^^^^
+11355 |     
+11356 |     requests = await db.service_requests.find({"pid": pid}, {"_id": 0}).sort("created_at", -1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11362:5
+      |
+11360 | async def get_service_requests_by_project(project_id: str, request: Request):
+11361 |     """Get all service requests for a project"""
+11362 |     user = await get_current_user(request)
+      |     ^^^^
+11363 |     
+11364 |     requests = await db.service_requests.find({"project_id": project_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11899:5
+      |
+11897 | async def list_technicians(request: Request):
+11898 |     """List all technicians"""
+11899 |     user = await get_current_user(request)
+      |     ^^^^
+11900 |     
+11901 |     technicians = await db.users.find(
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12098:5
+      |
+12096 | async def list_academy_categories(request: Request):
+12097 |     """List all academy categories"""
+12098 |     user = await get_current_user(request)
+      |     ^^^^
+12099 |     
+12100 |     categories = await db.academy_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12112:5
+      |
+12110 | async def get_academy_category(category_id: str, request: Request):
+12111 |     """Get a single academy category with its lessons"""
+12112 |     user = await get_current_user(request)
+      |     ^^^^
+12113 |     
+12114 |     category = await db.academy_categories.find_one({"category_id": category_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12215:5
+      |
+12213 | async def list_academy_lessons(request: Request, category_id: Optional[str] = None):
+12214 |     """List all lessons, optionally filtered by category"""
+12215 |     user = await get_current_user(request)
+      |     ^^^^
+12216 |     
+12217 |     query = {}
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12227:5
+      |
+12225 | async def get_academy_lesson(lesson_id: str, request: Request):
+12226 |     """Get a single lesson"""
+12227 |     user = await get_current_user(request)
+      |     ^^^^
+12228 |     
+12229 |     lesson = await db.academy_lessons.find_one({"lesson_id": lesson_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12435:5
+      |
+12433 |     """
+12434 |     # Authenticate user
+12435 |     user = await get_current_user(request)
+      |     ^^^^
+12436 |     
+12437 |     # Validate filename (prevent directory traversal)
+      |
+help: Remove assignment to unused variable `user`
+
+Found 39 errors.
+No fixes available (19 hidden fixes can be enabled with the `--unsafe-fixes` option). and manually resolve any remaining issues.
+     - **Why fix this issue and what will be achieved with the fix?** To improve code quality, maintainability, and clear out technical debt before the  refactoring task.
+     - **Status:**  NOT STARTED
+     - **Is recurring issue?** Y
+     - **Should Test frontend/backend/both after fix?** backend
+     - **Blocked on other issue:** No
+
+**In progress Task List**:
+  - None.
+
+**Upcoming and Future Tasks**
+
+Upcoming Tasks:
+- **(P0) User Verification:** Get user confirmation for the newly exposed User Management and Permissions UI.
+- **(P1) Backend Refactoring:** **CRITICAL**. The monolithic  file is now over 11,000 lines and poses a significant stability and maintenance risk. It MUST be broken down into a  directory structure.
+- **(P2) Implement :** The placeholder page and backend endpoint exist, but the UI needs to be built.
+
+Future Tasks:
+- Add a Quick Add button to the main dashboard.
+- Implement drag-and-drop for stage changes in Project/Lead details.
+- Implement file versioning.
+- Add rich text (markdown) support to the Notes editor.
+
+**Completed work in this session**
+- **Core Pipeline Stabilization:** Fixed critical bugs in the Pre-Sales → Lead → Project flow, ensuring correct data creation, state transitions, and visibility.
+- **PID Visibility Restored:** Fixed bugs where the PID was not being returned by API endpoints, ensuring it is now visible across leads and projects.
+- **Milestone Persistence Fixed:** Resolved the issue where milestone progress was lost on navigation by adding  to the project detail API response.
+- **Permission-Based Access Control System:** Implemented a full-featured, fine-grained permission system on the backend and wired it up to the frontend UI in .
+- **User Management UI:** Exposed the user management and permission system in the Admin UI, adding a Create User (with local password) flow and ensuring user profiles and permission settings are accessible.
+- **Local Login System:** Implemented a parallel local email/password authentication system for testing, complete with a seeded admin user and documentation.
+- **Academy Module with Video Upload:** Completed the Academy module, adding direct, authenticated video upload and playback functionality.
+- **Multiple High-Priority Bug Fixes:** Resolved issues with the notification dropdown, calendar filters, collaborator logic, and backend test failures.
+
+**Earlier issues found/mentioned but not fixed**
+   - Issue 1: **Minor Python Linting Errors**
+     - See details in the All Pending/In progress Issue list section above.
+
+**Known issue recurrence from previous fork**
+  - **Issue recurrence in previous fork:** Backend test suite instability.
+  - **Recurrence count:** 2
+  - **Status:** IN PROGRESS (The agent fixed several specific test failures that were blocking progress, but a full audit of the entire test suite to guarantee a 100% pass rate has not been performed. The underlying instability and test debt likely remain.)
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Backend:** FastAPI, MongoDB (async with ),  for password hashing,  for async file I/O.
+- **Frontend:** React, React Router, Axios, TailwindCSS, Shadcn/UI,  for toasts.
+- **Core Logic:**
+  - **Stabilized CRM Pipeline:** A verified, forward-only workflow from Pre-Sales to Lead to Project.
+  - **Permission-Based Access Control:** User capabilities are now determined by a flexible list of assigned permissions, not a single hard-coded role.
+  - **Authenticated File I/O:** Direct video/PDF uploads to a protected local directory, served via an authenticated endpoint.
+
+**key DB schema**
+  - **users:**
+    -  - Added for local authentication.
+    -  - Added to store fine-grained user permissions.
+  - **leads:**
+    -  - Added to distinguish between  and  types.
+
+**changes in tech stack**
+  - ** & **: Added to the backend for password hashing.
+  - ****: Added to the backend for handling asynchronous file uploads for the Academy module.
+
+**All files of reference**
+- **Heavily Modified:**
+  -  (Stabilization, local auth, permissions, file uploads)
+  -  (UI for creating users)
+  -  (UI for managing permissions)
+  -  (Fixed to use correct API endpoint)
+  -  (Fixed milestone state persistence)
+  -  (Added local login form)
+  -  (Added file upload)
+  -  (Fixed failing tests)
+- **Newly Created:**
+  - 
+  -  (directory)
+
+**Areas that need refactoring**:
+- **/app/backend/server.py**: **CRITICAL**. This monolithic file is now over 11,000 lines. It has been stabilized but remains a major maintenance bottleneck. It must be broken down into a routes-based structure as the highest priority refactoring task.
+
+**key api endpoints**
+- **Local Auth & User Management:**
+  - 
+  - 
+  - 
+- **Permissions:**
+  -  (Lists all available permissions)
+  - 
+- **Pre-Sales:**
+  -  (New list endpoint for pre-sales leads)
+- **File Uploads:**
+  - 
+  -  (Authenticated file serving)
+
+**Critical Info for New Agent**
+- **PIPELINE IS STABLE - DO NOT MODIFY:** The core Pre-Sales -> Lead -> Project flow, PID persistence, and Milestone progression have been extensively debugged and validated. Treat this part of the application as locked and avoid any changes that could cause regressions.
+- **FOCUS ON USER VERIFICATION:** The immediate next step is to confirm with the user that the new User Management and Permissions UI works as expected.
+- **PERMISSIONS OVER ROLES:** The application has moved to a fine-grained permission system. All new access control logic should leverage this by checking for specific permissions (e.g., ) rather than relying on hard-coded roles.
+- **USE LOCAL LOGIN FOR TESTING:** A local admin user has been created for robust end-to-end testing. Use the credentials provided and the  guide.
+
+**documents and test reports created in this job**
+  - 
+
+**Last 10 User Messages and any pending HUMAN messages** 
+- 10. **User:** Requested a complete UI to expose the backend's new permission system for Admins. (Status: **Implemented, Awaiting Verification**)
+- 9. **Agent:** Confirmed implementation of the permission-based access control backend. (Status: Addressed)
+- 8. **User:** Requested a fine-grained, permission-based access control system as an additive layer. (Status: **Addressed**)
+- 7. **Agent:** Confirmed fix for the project milestone persistence issue. (Status: Addressed)
+- 6. **User:** Reported a critical bug where milestone progression was inconsistent after navigation. (Status: **Addressed**)
+- 5. **Agent:** Confirmed fix for the entire core CRM pipeline after discovering the missing Pre-Sales list endpoint. (Status: Addressed)
+- 4. **User:** Reported a hard blocker: newly created Pre-Sales leads were not appearing in the UI. (Status: **Addressed**)
+- 3. **Agent:** Confirmed stabilization of the core pipeline. (Status: Addressed, but user found another issue)
+- 2. **User:** Sent a Hard Stabilization prompt, demanding a focus on fixing the core CRM pipeline (Pre-Sales -> Lead -> Project) with fresh data. (Status: **Addressed**)
+- 1. **Agent:** Provided a summary of 10 bug fixes implemented. (Status: Addressed)
+
+**Project Health Check:**
+- **Broken:** None currently identified; the last session was focused on stabilization.
+- **Mocked:** The Google Form integration for creating Service Requests exists as a backend endpoint but is not connected to a live form.
+- **Technical Debt:**
+    - The  monolith is a critical risk.
+    - Widespread minor linting errors in backend code.
+    - The backend test suite's overall health is unknown, though specific blocking tests were fixed.
+
+**3rd Party Integrations**
+	 •	**Emergent-managed Google Auth**: Used for production user login.
+	 •	**Google Forms (Planned)**: A backend endpoint () exists to receive data, but the integration from the Google side is not set up.
+
+**Testing status**
+  - Testing agent used after significant changes: NO (Agent performed extensive manual testing and stabilization via curl scripts, which proved more effective for the specific data flow bugs).
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: None.  was modified to fix failing tests.
+  - Known regressions: None active. The last session fixed several major regressions related to PID visibility and core data flow.
+
+**Credentials to test flow:**
+- **Role:** Admin (Local)
+- **Email:** 
+- **Password:** 
+
+**What agent forgot to execute**
+- The agent consistently acknowledged but did not fix the minor linting errors reported by  in .
+- While specific failing tests were fixed, a comprehensive run of the entire test suite to ensure 100% pass rate and clear the original test debt was not completed.</analysis>
