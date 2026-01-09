@@ -291,13 +291,22 @@ const Users = () => {
           </p>
         </div>
         {user?.role === 'Admin' && (
-          <Button 
-            onClick={() => navigate('/users/invite')}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Invite User
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setCreateDialogOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Create User
+            </Button>
+            <Button 
+              onClick={() => navigate('/users/invite')}
+              variant="outline"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Invite User
+            </Button>
+          </div>
         )}
       </div>
 
