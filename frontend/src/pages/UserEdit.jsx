@@ -86,6 +86,8 @@ const UserEdit = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'profile';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [targetUser, setTargetUser] = useState(null);
