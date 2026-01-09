@@ -1764,6 +1764,128 @@ async def admin_reset_password(reset_data: PasswordReset, request: Request):
     return {"success": True, "message": f"Password reset for {reset_data.email}"}
 
 
+# ============ PERMISSIONS MANAGEMENT ENDPOINTS ============
+
+@api_router.get("/permissions/available")
+async def get_available_permissions(request: Request):
+    """Get all available permissions grouped by category"""
+    user = await get_current_user(request)
+    
+    if user.role not in ["Admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return {
+        "permission_groups": AVAILABLE_PERMISSIONS,
+        "default_role_permissions": DEFAULT_ROLE_PERMISSIONS
+    }
+
+
+@api_router.get("/users/{user_id}/permissions")
+async def get_user_permissions_endpoint(user_id: str, request: Request):
+    """Get a user's current permissions"""
+    user = await get_current_user(request)
+    
+    # Users can view their own permissions, Admin can view anyone's
+    if user.user_id != user_id and user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    effective_permissions = get_user_permissions(target_user)
+    
+    return {
+        "user_id": user_id,
+        "role": target_user.get("role"),
+        "custom_permissions": target_user.get("custom_permissions", False),
+        "permissions": target_user.get("permissions", []),
+        "effective_permissions": effective_permissions,
+        "default_role_permissions": DEFAULT_ROLE_PERMISSIONS.get(target_user.get("role"), [])
+    }
+
+
+class PermissionsUpdate(BaseModel):
+    permissions: List[str]
+    custom_permissions: bool = True  # True = use custom, False = use role defaults
+
+
+@api_router.put("/users/{user_id}/permissions")
+async def update_user_permissions(user_id: str, perm_data: PermissionsUpdate, request: Request):
+    """Update a user's permissions (Admin only)"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required to modify permissions")
+    
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Cannot modify another Admin's permissions
+    if target_user.get("role") == "Admin" and user.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another Admin's permissions")
+    
+    # Validate permissions
+    all_valid_permissions = []
+    for group in AVAILABLE_PERMISSIONS.values():
+        for perm in group["permissions"]:
+            all_valid_permissions.append(perm["id"])
+    
+    invalid_perms = [p for p in perm_data.permissions if p not in all_valid_permissions]
+    if invalid_perms:
+        raise HTTPException(status_code=400, detail=f"Invalid permissions: {invalid_perms}")
+    
+    now = datetime.now(timezone.utc)
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "permissions": perm_data.permissions,
+            "custom_permissions": perm_data.custom_permissions,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "message": "Permissions updated",
+        "permissions": perm_data.permissions,
+        "custom_permissions": perm_data.custom_permissions
+    }
+
+
+@api_router.post("/users/{user_id}/permissions/reset-to-role")
+async def reset_user_permissions_to_role(user_id: str, request: Request):
+    """Reset a user's permissions to their role defaults"""
+    user = await get_current_user(request)
+    
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    role = target_user.get("role")
+    default_perms = DEFAULT_ROLE_PERMISSIONS.get(role, [])
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "permissions": default_perms,
+            "custom_permissions": False,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "message": f"Permissions reset to {role} defaults",
+        "permissions": default_perms
+    }
+
+
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, update_data: UserUpdate, request: Request):
     """Update user details (Admin and Manager with restrictions)"""
