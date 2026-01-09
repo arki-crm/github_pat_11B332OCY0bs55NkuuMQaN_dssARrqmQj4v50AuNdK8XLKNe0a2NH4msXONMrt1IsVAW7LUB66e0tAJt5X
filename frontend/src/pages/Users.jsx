@@ -543,6 +543,119 @@ const Users = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-blue-600" />
+              Create New User
+            </DialogTitle>
+            <DialogDescription>
+              Create a user with email and password for local authentication.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="create-name">Name <span className="text-red-500">*</span></Label>
+              <Input
+                id="create-name"
+                placeholder="Enter full name"
+                value={newUser.name}
+                onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            
+            {/* Email */}
+            <div className="space-y-2">
+              <Label htmlFor="create-email">Email <span className="text-red-500">*</span></Label>
+              <Input
+                id="create-email"
+                type="email"
+                placeholder="user@example.com"
+                value={newUser.email}
+                onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            
+            {/* Password */}
+            <div className="space-y-2">
+              <Label htmlFor="create-password">Password <span className="text-red-500">*</span></Label>
+              <Input
+                id="create-password"
+                type="password"
+                placeholder="Minimum 6 characters"
+                value={newUser.password}
+                onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+              />
+            </div>
+            
+            {/* Role */}
+            <div className="space-y-2">
+              <Label htmlFor="create-role">Role</Label>
+              <Select 
+                value={newUser.role} 
+                onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                  <SelectItem value="PreSales">Pre-Sales</SelectItem>
+                  <SelectItem value="SalesManager">Sales Manager</SelectItem>
+                  <SelectItem value="Designer">Designer</SelectItem>
+                  <SelectItem value="DesignManager">Design Manager</SelectItem>
+                  <SelectItem value="ProductionOpsManager">Production Ops Manager</SelectItem>
+                  <SelectItem value="Technician">Technician</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Phone (Optional) */}
+            <div className="space-y-2">
+              <Label htmlFor="create-phone">Phone (Optional)</Label>
+              <Input
+                id="create-phone"
+                type="tel"
+                placeholder="Phone number"
+                value={newUser.phone}
+                onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setCreateDialogOpen(false)}
+              disabled={creating}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleCreateUser}
+              disabled={creating}
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Create User
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
