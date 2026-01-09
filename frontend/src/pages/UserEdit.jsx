@@ -6,6 +6,8 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -25,15 +27,18 @@ import {
   Camera,
   UserCheck,
   UserX,
-  Clock
+  Clock,
+  Key,
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-// V1 SIMPLIFIED RBAC - 6 Core Roles Only
-const ROLES = ['Admin', 'PreSales', 'SalesManager', 'Designer', 'DesignManager', 'ProductionOpsManager'];
-const MANAGER_ALLOWED_ROLES = ['Designer', 'PreSales'];  // What non-Admin managers can assign
+// V1 SIMPLIFIED RBAC - 7 Core Roles
+const ROLES = ['Admin', 'PreSales', 'SalesManager', 'Designer', 'DesignManager', 'ProductionOpsManager', 'Technician'];
+const MANAGER_ALLOWED_ROLES = ['Designer', 'PreSales', 'Technician'];
 
 // Avatar component with initials fallback
 const UserAvatar = ({ user, size = 'lg', showEditOverlay = false, onClick }) => {
@@ -92,17 +97,31 @@ const UserEdit = () => {
     picture: ''
   });
   const [errors, setErrors] = useState({});
+  
+  // Permissions state
+  const [availablePermissions, setAvailablePermissions] = useState({});
+  const [defaultRolePermissions, setDefaultRolePermissions] = useState({});
+  const [userPermissions, setUserPermissions] = useState([]);
+  const [customPermissions, setCustomPermissions] = useState(false);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+  
+  // Password reset state
+  const [newPassword, setNewPassword] = useState('');
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   // Check permissions
   const isAdmin = user?.role === 'Admin';
-  const isManager = user?.role === 'Manager';
+  const isManager = ['Manager', 'SalesManager', 'DesignManager', 'ProductionOpsManager'].includes(user?.role);
 
   useEffect(() => {
-    if (user && !['Admin', 'Manager'].includes(user.role)) {
+    if (user && !['Admin', 'Manager', 'SalesManager', 'DesignManager', 'ProductionOpsManager'].includes(user.role)) {
       navigate('/dashboard');
       return;
     }
     fetchUser();
+    if (isAdmin) {
+      fetchAvailablePermissions();
+    }
   }, [user, id, navigate]);
 
   const fetchUser = async () => {
@@ -119,12 +138,26 @@ const UserEdit = () => {
         status: response.data.status || 'Active',
         picture: response.data.picture || ''
       });
+      setUserPermissions(response.data.permissions || []);
+      setCustomPermissions(response.data.custom_permissions || false);
     } catch (err) {
       console.error('Error fetching user:', err);
       toast.error('Failed to load user');
       navigate('/users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAvailablePermissions = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/permissions/available`, {
+        withCredentials: true
+      });
+      setAvailablePermissions(response.data.permission_groups || {});
+      setDefaultRolePermissions(response.data.default_role_permissions || {});
+    } catch (err) {
+      console.error('Error fetching permissions:', err);
     }
   };
 
@@ -136,15 +169,9 @@ const UserEdit = () => {
     }
     
     if (isManager) {
-      // Manager cannot edit Admin or other Managers
       if (['Admin', 'Manager'].includes(targetUser.role)) return false;
-      
-      // Manager cannot change status
       if (field === 'status') return false;
-      
-      // Manager can only assign certain roles
       if (field === 'role') return true;
-      
       return true;
     }
     
@@ -159,18 +186,15 @@ const UserEdit = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
     
     try {
@@ -217,6 +241,74 @@ const UserEdit = () => {
     }
   };
 
+  const handlePermissionToggle = (permissionId) => {
+    setUserPermissions(prev => {
+      if (prev.includes(permissionId)) {
+        return prev.filter(p => p !== permissionId);
+      } else {
+        return [...prev, permissionId];
+      }
+    });
+    setCustomPermissions(true);
+  };
+
+  const handleSavePermissions = async () => {
+    try {
+      setSavingPermissions(true);
+      await axios.put(`${API_URL}/api/users/${id}/permissions`, {
+        permissions: userPermissions,
+        custom_permissions: customPermissions
+      }, { withCredentials: true });
+      toast.success('Permissions updated successfully');
+    } catch (err) {
+      console.error('Error saving permissions:', err);
+      toast.error(err.response?.data?.detail || 'Failed to update permissions');
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
+  const handleResetToRoleDefaults = async () => {
+    try {
+      setSavingPermissions(true);
+      await axios.post(`${API_URL}/api/users/${id}/permissions/reset-to-role`, {}, { 
+        withCredentials: true 
+      });
+      // Refresh user data
+      const response = await axios.get(`${API_URL}/api/users/${id}`, { withCredentials: true });
+      setUserPermissions(response.data.permissions || []);
+      setCustomPermissions(false);
+      toast.success('Permissions reset to role defaults');
+    } catch (err) {
+      console.error('Error resetting permissions:', err);
+      toast.error(err.response?.data?.detail || 'Failed to reset permissions');
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    
+    try {
+      setResettingPassword(true);
+      await axios.post(`${API_URL}/api/auth/reset-password`, {
+        email: targetUser.email,
+        new_password: newPassword
+      }, { withCredentials: true });
+      toast.success('Password reset successfully');
+      setNewPassword('');
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      toast.error(err.response?.data?.detail || 'Failed to reset password');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Never';
     const date = new Date(dateStr);
@@ -227,6 +319,14 @@ const UserEdit = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Get effective permissions (custom or role defaults)
+  const getEffectivePermissions = () => {
+    if (customPermissions) {
+      return userPermissions;
+    }
+    return defaultRolePermissions[formData.role] || [];
   };
 
   if (loading) {
@@ -246,7 +346,7 @@ const UserEdit = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6" data-testid="user-edit-page">
+    <div className="max-w-4xl mx-auto space-y-6" data-testid="user-edit-page">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button 
@@ -260,220 +360,274 @@ const UserEdit = () => {
         </Button>
       </div>
 
-      <Card className="border-slate-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-slate-900">
-            <User className="w-5 h-5 text-blue-600" />
-            Edit User
-          </CardTitle>
-          <CardDescription>
-            Update user information and permissions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Avatar & Basic Info */}
-            <div className="flex items-start gap-6 pb-6 border-b border-slate-100">
-              <UserAvatar 
-                user={{ ...targetUser, name: formData.name, picture: formData.picture }} 
-                size="lg" 
-                showEditOverlay={canEditField('picture')}
-              />
-              <div className="flex-1 space-y-1">
-                <h3 className="text-lg font-semibold text-slate-900">{targetUser.name}</h3>
-                <p className="text-sm text-slate-500 flex items-center gap-1">
-                  <Mail className="w-4 h-4" />
-                  {targetUser.email}
-                </p>
-                <p className="text-xs text-slate-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  Last login: {formatDate(targetUser.last_login)}
-                </p>
-                <p className="text-xs text-slate-400">
-                  Created: {formatDate(targetUser.created_at)}
-                </p>
-              </div>
-            </div>
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          {isAdmin && <TabsTrigger value="permissions">Permissions</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="security">Security</TabsTrigger>}
+        </TabsList>
 
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium text-slate-700">
-                Display Name <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  id="name"
-                  placeholder="Enter display name"
-                  value={formData.name}
-                  onChange={(e) => handleChange('name', e.target.value)}
-                  className={`pl-9 ${errors.name ? 'border-red-500' : ''}`}
-                  disabled={!canEditField('name')}
-                />
-              </div>
-              {errors.name && (
-                <p className="text-xs text-red-500">{errors.name}</p>
-              )}
-            </div>
+        {/* Profile Tab */}
+        <TabsContent value="profile">
+          <Card className="border-slate-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-slate-900">
+                <User className="w-5 h-5 text-blue-600" />
+                Edit User Profile
+              </CardTitle>
+              <CardDescription>
+                Update user information and role
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Avatar & Basic Info */}
+                <div className="flex items-start gap-6 pb-6 border-b border-slate-100">
+                  <UserAvatar 
+                    user={{ ...targetUser, name: formData.name, picture: formData.picture }} 
+                    size="lg" 
+                    showEditOverlay={canEditField('picture')}
+                  />
+                  <div className="flex-1 space-y-1">
+                    <h3 className="text-lg font-semibold text-slate-900">{targetUser.name}</h3>
+                    <p className="text-sm text-slate-500 flex items-center gap-1">
+                      <Mail className="w-4 h-4" />
+                      {targetUser.email}
+                    </p>
+                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Last login: {formatDate(targetUser.last_login)}
+                    </p>
+                  </div>
+                </div>
 
-            {/* Phone */}
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium text-slate-700">
-                Phone Number
-              </Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="Enter phone number"
-                  value={formData.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  className="pl-9"
-                  disabled={!canEditField('phone')}
-                />
-              </div>
-            </div>
+                {/* Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium text-slate-700">
+                    Display Name <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      id="name"
+                      placeholder="Enter display name"
+                      value={formData.name}
+                      onChange={(e) => handleChange('name', e.target.value)}
+                      className={`pl-9 ${errors.name ? 'border-red-500' : ''}`}
+                      disabled={!canEditField('name')}
+                    />
+                  </div>
+                  {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+                </div>
 
-            {/* Role */}
-            <div className="space-y-2">
-              <Label htmlFor="role" className="text-sm font-medium text-slate-700">
-                Role
-              </Label>
-              <div className="relative">
-                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10 pointer-events-none" />
-                <Select 
-                  value={formData.role} 
-                  onValueChange={(value) => handleChange('role', value)}
-                  disabled={!canEditField('role')}
-                >
-                  <SelectTrigger className="pl-9">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableRoles().map(role => (
-                      <SelectItem key={role} value={role}>
-                        {role}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {!canEditField('role') && (
-                <p className="text-xs text-slate-400">
-                  You don&apos;t have permission to change this user&apos;s role
-                </p>
-              )}
-            </div>
+                {/* Phone */}
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-sm font-medium text-slate-700">Phone Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="Enter phone number"
+                      value={formData.phone}
+                      onChange={(e) => handleChange('phone', e.target.value)}
+                      className="pl-9"
+                      disabled={!canEditField('phone')}
+                    />
+                  </div>
+                </div>
 
-            {/* Status */}
-            <div className="space-y-2">
-              <Label htmlFor="status" className="text-sm font-medium text-slate-700">
-                Status
-              </Label>
-              <div className="flex items-center gap-4">
-                {canEditField('status') ? (
-                  <Select 
-                    value={formData.status} 
-                    onValueChange={(value) => handleChange('status', value)}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Active">
-                        <span className="flex items-center gap-2">
-                          <UserCheck className="w-4 h-4 text-green-600" />
-                          Active
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="Inactive">
-                        <span className="flex items-center gap-2">
-                          <UserX className="w-4 h-4 text-slate-400" />
-                          Inactive
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "text-sm",
-                      formData.status === 'Active' 
-                        ? 'bg-green-50 text-green-700 border-green-200' 
-                        : 'bg-slate-100 text-slate-500 border-slate-200'
-                    )}
-                  >
-                    {formData.status === 'Active' ? (
-                      <UserCheck className="w-4 h-4 mr-1" />
+                {/* Role */}
+                <div className="space-y-2">
+                  <Label htmlFor="role" className="text-sm font-medium text-slate-700">Role</Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10 pointer-events-none" />
+                    <Select 
+                      value={formData.role} 
+                      onValueChange={(value) => handleChange('role', value)}
+                      disabled={!canEditField('role')}
+                    >
+                      <SelectTrigger className="pl-9">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableRoles().map(role => (
+                          <SelectItem key={role} value={role}>{role}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="space-y-2">
+                  <Label htmlFor="status" className="text-sm font-medium text-slate-700">Status</Label>
+                  <div className="flex items-center gap-4">
+                    {canEditField('status') ? (
+                      <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Active">
+                            <span className="flex items-center gap-2">
+                              <UserCheck className="w-4 h-4 text-green-600" />
+                              Active
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="Inactive">
+                            <span className="flex items-center gap-2">
+                              <UserX className="w-4 h-4 text-slate-400" />
+                              Inactive
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     ) : (
-                      <UserX className="w-4 h-4 mr-1" />
+                      <Badge variant="outline" className={cn("text-sm",
+                        formData.status === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'
+                      )}>
+                        {formData.status === 'Active' ? <UserCheck className="w-4 h-4 mr-1" /> : <UserX className="w-4 h-4 mr-1" />}
+                        {formData.status}
+                      </Badge>
                     )}
-                    {formData.status}
-                  </Badge>
-                )}
-              </div>
-              {!canEditField('status') && (
-                <p className="text-xs text-slate-400">
-                  Only admins can change user status
-                </p>
-              )}
-            </div>
+                  </div>
+                </div>
 
-            {/* Avatar URL */}
-            <div className="space-y-2">
-              <Label htmlFor="picture" className="text-sm font-medium text-slate-700">
-                Avatar URL
-              </Label>
-              <div className="relative">
-                <Camera className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  id="picture"
-                  type="url"
-                  placeholder="Enter avatar image URL"
-                  value={formData.picture}
-                  onChange={(e) => handleChange('picture', e.target.value)}
-                  className="pl-9"
-                  disabled={!canEditField('picture')}
-                />
-              </div>
-              <p className="text-xs text-slate-500">
-                Leave empty to use auto-generated initials avatar
-              </p>
-            </div>
+                {/* Submit */}
+                <div className="flex gap-3 pt-4">
+                  <Button type="button" variant="outline" onClick={() => navigate('/users')}>Cancel</Button>
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={saving}>
+                    {saving ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Changes</>}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            {/* Submit Button */}
-            <div className="flex gap-3 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => navigate('/users')}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                className="bg-blue-600 hover:bg-blue-700 flex-1"
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        {/* Permissions Tab (Admin Only) */}
+        {isAdmin && (
+          <TabsContent value="permissions">
+            <Card className="border-slate-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <Key className="w-5 h-5 text-blue-600" />
+                  User Permissions
+                </CardTitle>
+                <CardDescription>
+                  Configure granular access permissions for this user
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Custom vs Role Defaults */}
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-slate-900">Permission Mode</p>
+                    <p className="text-sm text-slate-500">
+                      {customPermissions ? 'Using custom permissions' : `Using ${formData.role} role defaults`}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleResetToRoleDefaults} disabled={savingPermissions}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Reset to Role Defaults
+                  </Button>
+                </div>
+
+                {/* Permission Groups */}
+                <div className="space-y-6">
+                  {Object.entries(availablePermissions).map(([groupKey, group]) => (
+                    <div key={groupKey} className="border border-slate-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-slate-900 mb-3">{group.name}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {group.permissions.map((perm) => {
+                          const isChecked = customPermissions 
+                            ? userPermissions.includes(perm.id)
+                            : getEffectivePermissions().includes(perm.id);
+                          
+                          return (
+                            <div key={perm.id} className="flex items-start gap-3 p-2 rounded hover:bg-slate-50">
+                              <Checkbox
+                                id={perm.id}
+                                checked={isChecked}
+                                onCheckedChange={() => handlePermissionToggle(perm.id)}
+                              />
+                              <div className="flex-1">
+                                <Label htmlFor={perm.id} className="text-sm font-medium text-slate-700 cursor-pointer">
+                                  {perm.name}
+                                </Label>
+                                <p className="text-xs text-slate-500">{perm.description}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Save Permissions */}
+                <div className="flex justify-end pt-4 border-t border-slate-200">
+                  <Button onClick={handleSavePermissions} className="bg-blue-600 hover:bg-blue-700" disabled={savingPermissions}>
+                    {savingPermissions ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Permissions</>}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Security Tab (Admin Only) */}
+        {isAdmin && (
+          <TabsContent value="security">
+            <Card className="border-slate-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <Lock className="w-5 h-5 text-blue-600" />
+                  Security Settings
+                </CardTitle>
+                <CardDescription>
+                  Manage user password and authentication
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Password Reset */}
+                <div className="p-4 border border-slate-200 rounded-lg">
+                  <h4 className="font-semibold text-slate-900 mb-2">Reset Password</h4>
+                  <p className="text-sm text-slate-500 mb-4">Set a new password for this user</p>
+                  <div className="flex gap-3">
+                    <Input
+                      type="password"
+                      placeholder="Enter new password (min 6 characters)"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleResetPassword} 
+                      variant="outline"
+                      disabled={resettingPassword || !newPassword}
+                    >
+                      {resettingPassword ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Reset Password'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* User Info */}
+                <div className="p-4 bg-slate-50 rounded-lg">
+                  <h4 className="font-semibold text-slate-900 mb-2">Account Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="text-slate-500">Email:</span> <span className="text-slate-900">{targetUser.email}</span></p>
+                    <p><span className="text-slate-500">Created:</span> <span className="text-slate-900">{formatDate(targetUser.created_at)}</span></p>
+                    <p><span className="text-slate-500">Last Login:</span> <span className="text-slate-900">{formatDate(targetUser.last_login)}</span></p>
+                    <p><span className="text-slate-500">Status:</span> <Badge variant="outline" className={targetUser.status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}>{targetUser.status}</Badge></p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 };
