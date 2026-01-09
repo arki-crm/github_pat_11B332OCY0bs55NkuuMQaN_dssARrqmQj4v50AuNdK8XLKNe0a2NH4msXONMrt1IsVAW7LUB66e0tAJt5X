@@ -1236,6 +1236,144 @@ VALID_ROLES = [
     "Technician"              # Service requests, visit completion, SLA tracking
 ]
 
+# ============ PERMISSION SYSTEM ============
+
+# All available permissions (granular access control)
+AVAILABLE_PERMISSIONS = {
+    # Pre-Sales Permissions
+    "presales": {
+        "name": "Pre-Sales",
+        "permissions": [
+            {"id": "presales.view", "name": "View Pre-Sales", "description": "View pre-sales leads list and details"},
+            {"id": "presales.create", "name": "Create Pre-Sales", "description": "Create new pre-sales leads"},
+            {"id": "presales.update", "name": "Update Pre-Sales", "description": "Update pre-sales lead status"},
+            {"id": "presales.convert", "name": "Convert Pre-Sales", "description": "Convert pre-sales to leads"}
+        ]
+    },
+    # Leads Permissions
+    "leads": {
+        "name": "Leads",
+        "permissions": [
+            {"id": "leads.view", "name": "View Leads", "description": "View leads (assigned/collaborated only)"},
+            {"id": "leads.view_all", "name": "View All Leads", "description": "View all leads in the system"},
+            {"id": "leads.create", "name": "Create Leads", "description": "Create new leads directly"},
+            {"id": "leads.update", "name": "Update Leads", "description": "Update lead stages and details"},
+            {"id": "leads.convert", "name": "Convert Leads", "description": "Convert leads to projects"}
+        ]
+    },
+    # Projects Permissions
+    "projects": {
+        "name": "Projects",
+        "permissions": [
+            {"id": "projects.view", "name": "View Projects", "description": "View projects (assigned/collaborated only)"},
+            {"id": "projects.view_all", "name": "View All Projects", "description": "View all projects in the system"},
+            {"id": "projects.update_design", "name": "Update Design Milestones", "description": "Update design finalization milestones"},
+            {"id": "projects.update_production", "name": "Update Production Milestones", "description": "Update production milestones"},
+            {"id": "projects.update_delivery", "name": "Update Delivery/Handover", "description": "Update delivery and handover milestones"},
+            {"id": "projects.manage_collaborators", "name": "Manage Collaborators", "description": "Add/remove project collaborators"}
+        ]
+    },
+    # Warranty & Service Permissions
+    "warranty": {
+        "name": "Warranty & Service",
+        "permissions": [
+            {"id": "warranty.view", "name": "View Warranty", "description": "View warranty records"},
+            {"id": "warranty.update", "name": "Update Warranty", "description": "Update warranty details and dates"},
+            {"id": "service.view", "name": "View Service Requests", "description": "View service requests (assigned only for technicians)"},
+            {"id": "service.view_all", "name": "View All Service Requests", "description": "View all service requests"},
+            {"id": "service.create", "name": "Create Service Requests", "description": "Create new service requests"},
+            {"id": "service.update", "name": "Update Service Requests", "description": "Update service request status"}
+        ]
+    },
+    # Academy Permissions
+    "academy": {
+        "name": "Academy",
+        "permissions": [
+            {"id": "academy.view", "name": "View Academy", "description": "View training content"},
+            {"id": "academy.manage", "name": "Manage Academy", "description": "Create/edit categories and lessons"}
+        ]
+    },
+    # Admin Permissions
+    "admin": {
+        "name": "Administration",
+        "permissions": [
+            {"id": "admin.manage_users", "name": "Manage Users", "description": "Create, edit, and manage user accounts"},
+            {"id": "admin.assign_permissions", "name": "Assign Permissions", "description": "Modify user permissions"},
+            {"id": "admin.view_reports", "name": "View Reports", "description": "Access analytics and reports"},
+            {"id": "admin.system_settings", "name": "System Settings", "description": "Modify system configuration"}
+        ]
+    }
+}
+
+# Default permissions for each role (for backward compatibility)
+DEFAULT_ROLE_PERMISSIONS = {
+    "Admin": [
+        # Admin gets everything
+        "presales.view", "presales.create", "presales.update", "presales.convert",
+        "leads.view", "leads.view_all", "leads.create", "leads.update", "leads.convert",
+        "projects.view", "projects.view_all", "projects.update_design", "projects.update_production", 
+        "projects.update_delivery", "projects.manage_collaborators",
+        "warranty.view", "warranty.update", "service.view", "service.view_all", "service.create", "service.update",
+        "academy.view", "academy.manage",
+        "admin.manage_users", "admin.assign_permissions", "admin.view_reports", "admin.system_settings"
+    ],
+    "PreSales": [
+        "presales.view", "presales.create", "presales.update", "presales.convert",
+        "leads.view", "leads.create",
+        "academy.view"
+    ],
+    "SalesManager": [
+        "presales.view", "presales.create", "presales.update", "presales.convert",
+        "leads.view", "leads.view_all", "leads.create", "leads.update", "leads.convert",
+        "projects.view", "projects.view_all",
+        "warranty.view", "service.view", "service.view_all", "service.create",
+        "academy.view", "academy.manage",
+        "admin.view_reports"
+    ],
+    "Designer": [
+        "leads.view", "leads.update",
+        "projects.view", "projects.update_design",
+        "academy.view"
+    ],
+    "DesignManager": [
+        "leads.view", "leads.view_all", "leads.update",
+        "projects.view", "projects.view_all", "projects.update_design", "projects.manage_collaborators",
+        "academy.view", "academy.manage",
+        "admin.view_reports"
+    ],
+    "ProductionOpsManager": [
+        "projects.view", "projects.view_all", "projects.update_production", "projects.update_delivery",
+        "projects.manage_collaborators",
+        "warranty.view", "warranty.update", "service.view", "service.view_all", "service.create", "service.update",
+        "academy.view", "academy.manage",
+        "admin.view_reports"
+    ],
+    "Technician": [
+        "service.view", "service.update",
+        "academy.view"
+    ]
+}
+
+
+def get_user_permissions(user_doc: dict) -> list:
+    """Get user's effective permissions (custom or role-based defaults)"""
+    # If user has custom permissions, use those
+    if user_doc.get("custom_permissions"):
+        return user_doc.get("permissions", [])
+    # Otherwise use role-based defaults
+    role = user_doc.get("role", "")
+    return DEFAULT_ROLE_PERMISSIONS.get(role, [])
+
+
+def has_permission(user_doc: dict, permission: str) -> bool:
+    """Check if user has a specific permission"""
+    # Admin always has all permissions
+    if user_doc.get("role") == "Admin":
+        return True
+    permissions = get_user_permissions(user_doc)
+    return permission in permissions
+
+
 # Role categories for permission checks
 DESIGN_ROLES = ["Designer", "DesignManager"]
 SALES_ROLES = ["PreSales", "SalesManager", "Designer"]  # Designer handles sales stages too
