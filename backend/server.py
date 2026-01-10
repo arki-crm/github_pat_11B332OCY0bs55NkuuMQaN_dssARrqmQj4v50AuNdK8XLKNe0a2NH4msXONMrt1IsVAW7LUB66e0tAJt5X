@@ -1356,7 +1356,11 @@ AVAILABLE_PERMISSIONS = {
             {"id": "finance.edit_payment_schedule", "name": "Edit Payment Schedule", "description": "Modify project payment schedules"},
             {"id": "finance.create_invoice", "name": "Create Invoice", "description": "Generate GST invoices"},
             {"id": "finance.issue_refund", "name": "Issue Refund", "description": "Process refunds and cancellations"},
-            {"id": "finance.mark_cancellation", "name": "Mark Cancellation", "description": "Cancel projects and handle forfeitures"}
+            {"id": "finance.mark_cancellation", "name": "Mark Cancellation", "description": "Cancel projects and handle forfeitures"},
+            # Account Master permissions
+            {"id": "finance.view_vendors", "name": "View Vendors", "description": "View vendor master list"},
+            {"id": "finance.manage_vendors", "name": "Manage Vendors", "description": "Add/edit/deactivate vendors"},
+            {"id": "finance.view_audit_log", "name": "View Audit Log", "description": "View financial audit trail"}
         ]
     }
 }
