@@ -11328,13 +11328,24 @@ async def update_warranty(warranty_id: str, request: Request):
     """Update warranty details (files, materials, modules, notes, and dates for Admin)"""
     user = await get_current_user(request)
     
-    if user.role not in ["Admin", "SalesManager", "ProductionOpsManager"]:
-        raise HTTPException(status_code=403, detail="You don't have permission to update warranties")
-    
-    body = await request.json()
     warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
     if not warranty:
         raise HTTPException(status_code=404, detail="Warranty not found")
+    
+    # Get user document for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    # Permission check: Admin, ProductionOpsManager, SalesManager, OR collaborator with warranty.update
+    allowed_roles = ["Admin", "SalesManager", "ProductionOpsManager"]
+    is_collaborator = user.user_id in warranty.get("collaborators", [])
+    has_warranty_update = has_permission(user_doc, "warranty.update")
+    
+    if user.role not in allowed_roles and not (is_collaborator and has_warranty_update):
+        raise HTTPException(status_code=403, detail="You don't have permission to update warranties")
+    
+    body = await request.json()
     
     now = datetime.now(timezone.utc)
     update_fields = {"updated_at": now.isoformat()}
