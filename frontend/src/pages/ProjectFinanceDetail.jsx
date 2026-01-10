@@ -143,6 +143,84 @@ const ProjectFinanceDetail = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // Decision Shortcuts Handlers
+  const handleFreezeSpending = async () => {
+    try {
+      await axios.post(`${API}/finance/projects/${projectId}/freeze-spending`, {}, { withCredentials: true });
+      toast.success('Project spending frozen');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to freeze spending');
+    }
+  };
+
+  const handleUnfreezeSpending = async () => {
+    try {
+      await axios.post(`${API}/finance/projects/${projectId}/unfreeze-spending`, {}, { withCredentials: true });
+      toast.success('Project spending unfrozen');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to unfreeze spending');
+    }
+  };
+
+  const handleMarkExceptional = async () => {
+    const reason = prompt('Enter reason for marking as exceptional:');
+    if (!reason) return;
+    try {
+      await axios.post(`${API}/finance/projects/${projectId}/mark-exceptional`, null, { 
+        params: { reason },
+        withCredentials: true 
+      });
+      toast.success('Project marked as exceptional');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to mark as exceptional');
+    }
+  };
+
+  const handleAllowOverrun = async () => {
+    const amount = prompt('Enter additional amount to allow (₹):');
+    if (!amount || isNaN(parseFloat(amount))) return;
+    const reason = prompt('Enter reason for allowing overrun:');
+    if (!reason) return;
+    try {
+      await axios.post(`${API}/finance/projects/${projectId}/allow-overrun`, null, { 
+        params: { additional_amount: parseFloat(amount), reason },
+        withCredentials: true 
+      });
+      toast.success('Overrun allowed');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to allow overrun');
+    }
+  };
+
+  const handleAddAttribution = async () => {
+    if (!overrunForm.reason || !overrunForm.responsible_category) {
+      toast.error('Please select reason and responsible category');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await axios.post(`${API}/finance/overrun-attributions`, {
+        project_id: projectId,
+        reason: overrunForm.reason,
+        responsible_category: overrunForm.responsible_category,
+        notes: overrunForm.notes || null,
+        overrun_amount: parseFloat(overrunForm.overrun_amount) || (data?.summary?.actual_cost - data?.summary?.planned_cost)
+      }, { withCredentials: true });
+      toast.success('Overrun attribution recorded');
+      setIsOverrunDialogOpen(false);
+      setOverrunForm({ reason: '', responsible_category: '', notes: '', overrun_amount: '' });
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to record attribution');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleAddMapping = async () => {
     if (!newMapping.vendor_name.trim()) {
       toast.error('Vendor name is required');
