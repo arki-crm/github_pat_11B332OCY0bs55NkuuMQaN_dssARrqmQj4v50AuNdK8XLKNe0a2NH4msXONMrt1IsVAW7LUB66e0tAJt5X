@@ -33,7 +33,8 @@ import {
   PieChart,
   CalendarCheck,
   CalendarRange,
-  Gauge
+  Gauge,
+  RefreshCw
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
