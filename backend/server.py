@@ -1423,19 +1423,23 @@ DEFAULT_ROLE_PERMISSIONS = {
         "academy.view"
     ],
     "Accountant": [
-        # Basic finance access - add and view transactions
+        # Basic finance access - add and view transactions (CANNOT EDIT after save)
         "finance.view_dashboard", "finance.view_cashbook", "finance.view_bankbook",
         "finance.add_transaction", "finance.view_reports",
         # Project Finance - view only
-        "finance.view_project_finance"
+        "finance.view_project_finance",
+        # Daily closing - view only
+        "finance.daily_closing"
     ],
     "SeniorAccountant": [
-        # Extended finance access - verify, manage categories, all reports
+        # Extended finance access - verify, close day, manage categories, all reports
         "finance.view_dashboard", "finance.view_cashbook", "finance.view_bankbook",
         "finance.add_transaction", "finance.edit_transaction", "finance.verify_transaction",
-        "finance.view_reports", "finance.manage_categories", "finance.export_data",
+        "finance.close_day", "finance.view_reports", "finance.manage_categories", "finance.export_data",
         # Project Finance - view only
-        "finance.view_project_finance"
+        "finance.view_project_finance",
+        # Daily & Monthly closing
+        "finance.daily_closing", "finance.monthly_snapshot"
     ]
 }
 
