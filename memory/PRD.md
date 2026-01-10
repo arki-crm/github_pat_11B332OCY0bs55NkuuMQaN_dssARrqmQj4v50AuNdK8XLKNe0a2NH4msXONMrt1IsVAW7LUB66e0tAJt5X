@@ -321,20 +321,18 @@ Customer payment receipts with server-side PDF generation.
 - [x] **Balance Tracking** - Contract value, total received, balance remaining
 - [x] **Project Finance Receipts Section** - View all receipts for a project in Project Finance Detail page
 
-### Receipt PDF Contents:
-- Company Name (Arki Dots)
-- Company Logo (configurable via settings)
-- Receipt Number (auto-generated)
-- Receipt Date
-- Customer Name
-- Project ID (PID)
-- Payment Description (Booking / Design Payment / Final Payment / Custom)
-- Amount Paid
-- Payment Mode (Cash / Bank / UPI)
-- Account Received Into (Bank / Petty Cash)
-- Balance Remaining
-- "This is a payment receipt" note
-- Authorized Signatory (text only)
+### Receipt PDF Contents (Premium Design):
+- Company Name, Address, Email, Phone, GSTIN (from settings)
+- Primary Color accent (configurable)
+- Receipt Number, Date (clean two-column header)
+- "Received From" - Customer Name, Project Name
+- Project ID
+- Payment Description, Mode, Account
+- Amount Received (highlighted with primary color)
+- Contract Value, Total Received, Balance Due (summary)
+- Notes (optional)
+- Authorized Signatory
+- "This is a system-generated receipt" footer
 
 ### New Permissions:
 | Permission | Description |
