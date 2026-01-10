@@ -11385,6 +11385,148 @@ async def update_warranty(warranty_id: str, request: Request):
     updated = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
     return updated
 
+
+@api_router.get("/warranties/{warranty_id}/collaborators")
+async def get_warranty_collaborators(warranty_id: str, request: Request):
+    """Get list of collaborators for a warranty"""
+    user = await get_current_user(request)
+    
+    warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+    if not warranty:
+        raise HTTPException(status_code=404, detail="Warranty not found")
+    
+    # Get collaborator details
+    collaborator_ids = warranty.get("collaborators", [])
+    collaborators = []
+    
+    for collab_id in collaborator_ids:
+        user_doc = await db.users.find_one({"user_id": collab_id}, {"_id": 0, "user_id": 1, "name": 1, "email": 1, "role": 1, "picture": 1})
+        if user_doc:
+            collaborators.append(user_doc)
+    
+    return collaborators
+
+
+@api_router.post("/warranties/{warranty_id}/collaborators")
+async def add_warranty_collaborator(warranty_id: str, request: Request):
+    """Add a collaborator (typically Technician) to a warranty request"""
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    # Permission check: ProductionOpsManager, Admin, or user with warranty.update
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    allowed_roles = ["Admin", "ProductionOpsManager", "SalesManager"]
+    has_warranty_update = has_permission(user_doc, "warranty.update")
+    
+    if user.role not in allowed_roles and not has_warranty_update:
+        raise HTTPException(status_code=403, detail="Access denied - cannot manage warranty collaborators")
+    
+    warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+    if not warranty:
+        raise HTTPException(status_code=404, detail="Warranty not found")
+    
+    collaborator_user_id = body.get("user_id")
+    if not collaborator_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    
+    # Check if user exists
+    target_user = await db.users.find_one({"user_id": collaborator_user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if already a collaborator
+    collaborators = warranty.get("collaborators", [])
+    if collaborator_user_id in collaborators:
+        raise HTTPException(status_code=400, detail="User is already a collaborator")
+    
+    # Add collaborator
+    now = datetime.now(timezone.utc)
+    await db.warranties.update_one(
+        {"warranty_id": warranty_id},
+        {
+            "$push": {"collaborators": collaborator_user_id},
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    # Log activity
+    activity_entry = {
+        "id": str(uuid.uuid4()),
+        "type": "collaborator_added",
+        "message": f"{target_user.get('name')} ({target_user.get('role')}) added as collaborator by {user.name}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "timestamp": now.isoformat(),
+        "metadata": {"collaborator_id": collaborator_user_id, "collaborator_name": target_user.get("name")}
+    }
+    await db.warranties.update_one(
+        {"warranty_id": warranty_id},
+        {"$push": {"activity": activity_entry}}
+    )
+    
+    return {"message": f"Added {target_user.get('name')} as collaborator", "collaborator": target_user}
+
+
+@api_router.delete("/warranties/{warranty_id}/collaborators/{collaborator_user_id}")
+async def remove_warranty_collaborator(warranty_id: str, collaborator_user_id: str, request: Request):
+    """Remove a collaborator from a warranty"""
+    user = await get_current_user(request)
+    
+    # Permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    allowed_roles = ["Admin", "ProductionOpsManager", "SalesManager"]
+    has_warranty_update = has_permission(user_doc, "warranty.update")
+    
+    if user.role not in allowed_roles and not has_warranty_update:
+        raise HTTPException(status_code=403, detail="Access denied - cannot manage warranty collaborators")
+    
+    warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+    if not warranty:
+        raise HTTPException(status_code=404, detail="Warranty not found")
+    
+    # Check if user is a collaborator
+    collaborators = warranty.get("collaborators", [])
+    if collaborator_user_id not in collaborators:
+        raise HTTPException(status_code=400, detail="User is not a collaborator")
+    
+    # Get collaborator details for logging
+    target_user = await db.users.find_one({"user_id": collaborator_user_id}, {"_id": 0})
+    collaborator_name = target_user.get("name", "Unknown") if target_user else "Unknown"
+    
+    # Remove collaborator
+    now = datetime.now(timezone.utc)
+    await db.warranties.update_one(
+        {"warranty_id": warranty_id},
+        {
+            "$pull": {"collaborators": collaborator_user_id},
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    # Log activity
+    activity_entry = {
+        "id": str(uuid.uuid4()),
+        "type": "collaborator_removed",
+        "message": f"{collaborator_name} removed from collaborators by {user.name}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "timestamp": now.isoformat(),
+        "metadata": {"collaborator_id": collaborator_user_id, "collaborator_name": collaborator_name}
+    }
+    await db.warranties.update_one(
+        {"warranty_id": warranty_id},
+        {"$push": {"activity": activity_entry}}
+    )
+    
+    return {"message": f"Removed {collaborator_name} from collaborators"}
+
+
 async def create_warranty_for_project(project_id: str, user_id: str, user_name: str):
     """Auto-create warranty when project reaches Closed status"""
     project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
