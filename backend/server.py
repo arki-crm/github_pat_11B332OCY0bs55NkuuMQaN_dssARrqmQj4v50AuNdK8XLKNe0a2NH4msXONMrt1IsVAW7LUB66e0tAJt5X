@@ -2877,10 +2877,6 @@ async def complete_substage(project_id: str, request: Request):
     if not substage_id:
         raise HTTPException(status_code=400, detail="substage_id is required")
     
-    # PreSales cannot access projects
-    if user.role == "PreSales":
-        raise HTTPException(status_code=403, detail="Access denied")
-    
     project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -2892,9 +2888,15 @@ async def complete_substage(project_id: str, request: Request):
     if project.get("hold_status") == "Deactivated":
         raise HTTPException(status_code=400, detail="Cannot update milestones on a Deactivated project.")
     
-    # Check access
-    if user.role == "Designer" and user.user_id not in project.get("collaborators", []):
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Get user document for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    # PERMISSION CHECK: Explicit permission required - NO role-based fallback
+    has_perm, perm_error = check_milestone_permission(user_doc, substage_id)
+    if not has_perm:
+        raise HTTPException(status_code=403, detail=perm_error)
     
     completed_substages = project.get("completed_substages", [])
     
