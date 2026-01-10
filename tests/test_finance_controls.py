@@ -343,9 +343,10 @@ class TestProjectSurplusStatus:
         assert response.status_code == 200
         
         data = response.json()
-        assert "green" in data
-        assert "amber" in data
-        assert "red" in data
+        assert "projects" in data
+        assert "green" in data["projects"]
+        assert "amber" in data["projects"]
+        assert "red" in data["projects"]
         assert "summary" in data
     
     def test_project_surplus_status_summary(self, session):
@@ -366,10 +367,11 @@ class TestProjectSurplusStatus:
         assert response.status_code == 200
         
         data = response.json()
+        projects = data["projects"]
         # Check any non-empty category
         for category in ["green", "amber", "red"]:
-            if len(data[category]) > 0:
-                project = data[category][0]
+            if len(projects[category]) > 0:
+                project = projects[category][0]
                 assert "project_id" in project
                 assert "project_name" in project
                 assert "safe_surplus" in project
