@@ -44,6 +44,7 @@ const SIDEBAR_EXPANDED_KEY = 'arkiflo_sidebar_expanded_menus';
 const financeSubItems = [
   { path: '/finance/founder-dashboard', label: 'Overview', icon: Gauge },
   { path: '/finance/cashbook', label: 'Cash Book', icon: Wallet },
+  { path: '/finance/receipts', label: 'Receipts', icon: Receipt },
   { path: '/finance/project-finance', label: 'Project Finance', icon: FolderKanban },
   { path: '/finance/daily-closing', label: 'Daily Closing', icon: CalendarCheck },
   { path: '/finance/monthly-snapshot', label: 'Monthly Snapshot', icon: CalendarRange },
