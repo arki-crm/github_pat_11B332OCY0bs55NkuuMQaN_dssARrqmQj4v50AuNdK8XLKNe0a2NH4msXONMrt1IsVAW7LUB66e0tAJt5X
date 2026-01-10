@@ -58,6 +58,7 @@ import MonthlySnapshot from './pages/MonthlySnapshot';
 import Receipts from './pages/Receipts';
 import Invoices from './pages/Invoices';
 import Refunds from './pages/Refunds';
+import FinanceSettings from './pages/FinanceSettings';
 import CompanyProfile from './pages/CompanyProfile';
 
 import './App.css';
