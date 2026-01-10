@@ -277,7 +277,7 @@ const ServiceRequests = () => {
                     >
                       <td className="px-4 py-3">
                         <p className="font-medium text-slate-900 group-hover:text-blue-600">{sr.service_request_id}</p>
-                        {sr.pid && <span className="font-mono text-xs bg-slate-100 px-1 py-0.5 rounded">{sr.pid}</span>}
+                        {sr.pid && <span className="font-mono text-xs bg-slate-100 px-1 py-0.5 rounded">{sr.pid.replace('ARKI-', '')}</span>}
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-slate-900">{sr.customer_name}</p>
