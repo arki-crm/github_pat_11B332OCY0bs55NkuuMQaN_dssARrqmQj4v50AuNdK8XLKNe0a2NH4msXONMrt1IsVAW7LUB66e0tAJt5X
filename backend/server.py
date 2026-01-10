@@ -13591,6 +13591,9 @@ async def close_day(date: str, request: Request):
     }
     await db.accounting_audit_log.insert_one(audit_entry)
     
+    # Remove _id from closing_record if present (added by insert_one)
+    closing_record.pop("_id", None)
+    
     return {"success": True, "message": f"Day {date} has been locked", "closing": closing_record}
 
 
