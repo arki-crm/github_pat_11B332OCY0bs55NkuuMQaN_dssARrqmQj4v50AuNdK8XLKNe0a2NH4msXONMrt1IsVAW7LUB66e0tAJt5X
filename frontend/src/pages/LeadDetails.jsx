@@ -323,24 +323,28 @@ const LeadCommentsPanel = ({ comments, onAddComment, isSubmitting, canAddComment
         </div>
       </ScrollArea>
       
-      <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
-        <Input
-          type="text"
-          placeholder="Add a comment..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          className="flex-1"
-          data-testid="lead-comment-input"
-        />
-        <Button 
-          type="submit" 
-          disabled={!newMessage.trim() || isSubmitting}
-          className="bg-blue-600 hover:bg-blue-700"
-          data-testid="send-lead-comment-btn"
-        >
-          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        </Button>
-      </form>
+      {canAddComment ? (
+        <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
+          <Input
+            type="text"
+            placeholder="Add a comment..."
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            className="flex-1"
+            data-testid="lead-comment-input"
+          />
+          <Button 
+            type="submit" 
+            disabled={!newMessage.trim() || isSubmitting}
+            className="bg-blue-600 hover:bg-blue-700"
+            data-testid="send-lead-comment-btn"
+          >
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </Button>
+        </form>
+      ) : (
+        <p className="mt-4 text-xs text-slate-500 text-center">You don&apos;t have permission to add comments</p>
+      )}
     </div>
   );
 };
