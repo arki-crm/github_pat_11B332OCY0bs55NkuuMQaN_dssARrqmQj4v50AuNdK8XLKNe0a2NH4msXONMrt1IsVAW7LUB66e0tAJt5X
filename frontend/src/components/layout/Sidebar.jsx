@@ -177,7 +177,8 @@ const Sidebar = () => {
       (item.path === '/projects' && location.pathname.startsWith('/projects/')) ||
       (item.path === '/users' && location.pathname.startsWith('/users/')) ||
       (item.path === '/leads' && location.pathname.startsWith('/leads/')) ||
-      (item.path === '/reports' && location.pathname.startsWith('/reports/'));
+      (item.path === '/reports' && location.pathname.startsWith('/reports/')) ||
+      (item.path === '/finance/cashbook' && location.pathname.startsWith('/finance/'));
 
     const content = (
       <NavLink
