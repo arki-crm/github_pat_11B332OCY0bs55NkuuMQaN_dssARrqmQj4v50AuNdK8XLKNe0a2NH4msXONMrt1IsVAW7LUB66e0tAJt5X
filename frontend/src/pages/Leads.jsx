@@ -173,7 +173,7 @@ const Leads = () => {
   useEffect(() => {
     fetchLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFilter]);
+  }, [activeFilter, timeFilter]);
 
   // Client-side search
   const filteredLeads = useMemo(() => {
