@@ -3014,6 +3014,15 @@ async def get_project_substages(project_id: str, request: Request):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
+    # Get user's effective permissions for milestone access control
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_permissions = get_user_permissions(user_doc) if user_doc else []
+    
+    # Calculate which milestone groups the user can update
+    user_milestone_permissions = {}
+    for group_id, perm in MILESTONE_GROUP_PERMISSIONS.items():
+        user_milestone_permissions[group_id] = has_permission(user_doc, perm) if user_doc else False
+    
     completed_substages = project.get("completed_substages", [])
     current_group = get_current_milestone_group(completed_substages)
     
@@ -3037,7 +3046,10 @@ async def get_project_substages(project_id: str, request: Request):
         "current_group_name": current_group["name"] if current_group else None,
         "group_progress": group_progress,
         "milestone_groups": MILESTONE_GROUPS,
-        "percentage_substages": project.get("percentage_substages", {})
+        "percentage_substages": project.get("percentage_substages", {}),
+        # Permission info for frontend
+        "milestone_permissions": MILESTONE_GROUP_PERMISSIONS,
+        "user_milestone_permissions": user_milestone_permissions
     }
 
 @api_router.post("/projects/{project_id}/substage/percentage")
