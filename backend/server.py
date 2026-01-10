@@ -16152,6 +16152,298 @@ async def create_invoice(project_id: str, request: Request, include_gst: bool = 
     return invoice_doc
 
 
+@api_router.get("/finance/invoices/{invoice_id}")
+async def get_invoice(invoice_id: str, request: Request):
+    """Get a single invoice"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_receipts"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    invoice = await db.finance_invoices.find_one({"invoice_id": invoice_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Get project details
+    project = await db.projects.find_one({"project_id": invoice["project_id"]}, {"_id": 0})
+    invoice["project"] = {
+        "pid": project.get("pid") if project else "",
+        "project_name": project.get("project_name") if project else "",
+        "client_name": project.get("client_name") if project else ""
+    }
+    
+    return invoice
+
+
+@api_router.get("/finance/invoices/{invoice_id}/pdf")
+async def generate_invoice_pdf(invoice_id: str, request: Request):
+    """Generate PDF invoice - accounting grade design"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_receipts"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get invoice
+    invoice = await db.finance_invoices.find_one({"invoice_id": invoice_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Get project details
+    project = await db.projects.find_one({"project_id": invoice.get("project_id")}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get company settings
+    settings = await db.finance_company_settings.find_one({}, {"_id": 0})
+    if not settings:
+        settings = COMPANY_SETTINGS_DEFAULT.copy()
+    else:
+        settings = {**COMPANY_SETTINGS_DEFAULT, **settings}
+    
+    # Color scheme - ACCOUNTING GRADE
+    text_dark = colors.HexColor('#1f2937')
+    text_medium = colors.HexColor('#4b5563')
+    text_light = colors.HexColor('#9ca3af')
+    line_color = colors.HexColor('#e5e7eb')
+    
+    def format_inr(amount):
+        return f"₹{amount:,.2f}"
+    
+    # Generate PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=20*mm,
+        leftMargin=20*mm,
+        topMargin=15*mm,
+        bottomMargin=15*mm
+    )
+    
+    styles = getSampleStyleSheet()
+    story = []
+    
+    # Company info
+    company_name = settings.get("brand_name") or settings.get("legal_name", "Arki Dots")
+    legal_name = settings.get("legal_name", "Arki Dots")
+    tagline = settings.get("tagline", "")
+    gstin = settings.get("gstin", "")
+    
+    # Build address
+    address_parts = []
+    if settings.get("address_line1"):
+        address_parts.append(settings["address_line1"])
+    if settings.get("address_line2"):
+        address_parts.append(settings["address_line2"])
+    city_state = []
+    if settings.get("city"):
+        city_state.append(settings["city"])
+    if settings.get("state"):
+        city_state.append(settings["state"])
+    if settings.get("pincode"):
+        city_state.append(settings["pincode"])
+    if city_state:
+        address_parts.append(", ".join(city_state))
+    full_address = ", ".join(address_parts) if address_parts else ""
+    
+    invoice_date = invoice.get("created_at", "")
+    if isinstance(invoice_date, datetime):
+        invoice_date = invoice_date.strftime("%d %B %Y")
+    
+    invoice_number = invoice.get("invoice_number", "N/A")
+    
+    # Logo handling
+    logo_base64 = settings.get("logo_base64", None)
+    logo_element = None
+    if logo_base64:
+        try:
+            if logo_base64.startswith('data:'):
+                logo_data = logo_base64.split(',', 1)[1]
+            else:
+                logo_data = logo_base64
+            logo_bytes = base64.b64decode(logo_data)
+            logo_buffer = BytesIO(logo_bytes)
+            logo_element = Image(logo_buffer, width=20*mm, height=12*mm)
+            logo_element.hAlign = 'RIGHT'
+        except:
+            logo_element = None
+    
+    # ============ HEADER ============
+    company_text = f"<b>{company_name}</b>"
+    if tagline:
+        company_text += f"<br/><font color='#9ca3af' size='8'>{tagline}</font>"
+    
+    company_para = Paragraph(company_text, ParagraphStyle('CompName', fontName='Helvetica-Bold', fontSize=14, textColor=text_dark, leading=18))
+    
+    if logo_element:
+        header_data = [[company_para, logo_element]]
+        header_table = Table(header_data, colWidths=[140*mm, 30*mm])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ]))
+        story.append(header_table)
+    else:
+        story.append(company_para)
+    
+    story.append(Spacer(1, 4*mm))
+    
+    # Company address line
+    if full_address or gstin:
+        addr_text = []
+        if full_address:
+            addr_text.append(full_address)
+        if gstin:
+            addr_text.append(f"GSTIN: {gstin}")
+        story.append(Paragraph(
+            " | ".join(addr_text),
+            ParagraphStyle('CompAddr', fontName='Helvetica', fontSize=8, textColor=text_light, leading=10)
+        ))
+    
+    story.append(Spacer(1, 6*mm))
+    
+    # Separator line
+    story.append(Table([['']], colWidths=[170*mm], rowHeights=[0.3*mm]))
+    story[-1].setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), line_color)]))
+    story.append(Spacer(1, 6*mm))
+    
+    # Invoice Title Row
+    title_data = [
+        [
+            Paragraph("<b>TAX INVOICE</b>", ParagraphStyle('Title', fontName='Helvetica-Bold', fontSize=12, textColor=text_dark)),
+            Paragraph(f"<b>{invoice_number}</b><br/>{invoice_date}", ParagraphStyle('InvInfo', fontName='Helvetica', fontSize=9, textColor=text_medium, alignment=2, leading=12))
+        ]
+    ]
+    title_table = Table(title_data, colWidths=[100*mm, 70*mm])
+    title_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+    ]))
+    story.append(title_table)
+    story.append(Spacer(1, 8*mm))
+    
+    # ============ BILL TO ============
+    pid_display = project.get("pid", "").replace("ARKI-", "") or "N/A"
+    client_name = project.get("client_name", "N/A")
+    project_name = project.get("project_name", "N/A")
+    
+    story.append(Paragraph("<font color='#9ca3af' size='7'>BILL TO</font>", styles['Normal']))
+    story.append(Spacer(1, 2*mm))
+    story.append(Paragraph(
+        f"<b>{client_name}</b><br/><font color='#6b7280' size='9'>{project_name} ({pid_display})</font>",
+        ParagraphStyle('BillTo', fontName='Helvetica', fontSize=10, textColor=text_dark, leading=14)
+    ))
+    story.append(Spacer(1, 8*mm))
+    
+    # ============ LINE ITEMS TABLE ============
+    # Header row
+    items_data = [
+        ["Description", "Amount"]
+    ]
+    
+    # If GST applicable, show breakdown
+    if invoice.get("is_gst_applicable"):
+        items_data.append(["Service Charges (Base Amount)", format_inr(invoice.get("base_amount", 0))])
+        items_data.append([f"CGST @ {invoice.get('gst_rate', 18)//2}%", format_inr(invoice.get("cgst", 0))])
+        items_data.append([f"SGST @ {invoice.get('gst_rate', 18)//2}%", format_inr(invoice.get("sgst", 0))])
+    else:
+        items_data.append(["Service Charges", format_inr(invoice.get("contract_value", 0))])
+    
+    items_table = Table(items_data, colWidths=[120*mm, 50*mm])
+    items_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TEXTCOLOR', (0, 0), (-1, 0), text_light),
+        ('TEXTCOLOR', (0, 1), (-1, -1), text_dark),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3*mm),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3*mm),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, line_color),
+        ('LINEBELOW', (0, 1), (-1, -2), 0.5, line_color),
+    ]))
+    story.append(items_table)
+    story.append(Spacer(1, 4*mm))
+    
+    # ============ TOTALS ============
+    totals_data = [
+        ["Gross Amount", format_inr(invoice.get("gross_amount", 0))],
+        ["Less: Advances Received", f"({format_inr(invoice.get('advances_received', 0))})"],
+        ["Balance Due", format_inr(invoice.get("balance_due", 0))],
+    ]
+    
+    totals_table = Table(totals_data, colWidths=[120*mm, 50*mm])
+    totals_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, -1), (-1, -1), 11),
+        ('TEXTCOLOR', (0, 0), (0, -1), text_medium),
+        ('TEXTCOLOR', (1, 0), (1, -2), text_dark),
+        ('TEXTCOLOR', (1, -1), (1, -1), colors.HexColor('#111827')),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2*mm),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2*mm),
+        ('LINEABOVE', (0, -1), (-1, -1), 1, line_color),
+    ]))
+    story.append(totals_table)
+    story.append(Spacer(1, 10*mm))
+    
+    # ============ GST NOTE ============
+    if invoice.get("is_gst_applicable"):
+        story.append(Paragraph(
+            f"<font color='#9ca3af' size='7'>GST charged at {invoice.get('gst_rate', 18)}% (CGST {invoice.get('gst_rate', 18)//2}% + SGST {invoice.get('gst_rate', 18)//2}%)</font>",
+            styles['Normal']
+        ))
+    
+    # ============ SIGNATURE ============
+    story.append(Spacer(1, 15*mm))
+    sig_data = [
+        ["", "________________________"],
+        ["", settings.get("authorized_signatory", "Authorized Signatory")],
+    ]
+    sig_table = Table(sig_data, colWidths=[110*mm, 60*mm])
+    sig_table.setStyle(TableStyle([
+        ('FONTNAME', (1, 1), (1, 1), 'Helvetica'),
+        ('FONTSIZE', (1, 1), (1, 1), 8),
+        ('TEXTCOLOR', (1, 1), (1, 1), text_light),
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('TOPPADDING', (1, 0), (1, 0), 12*mm),
+    ]))
+    story.append(sig_table)
+    
+    # ============ FOOTER ============
+    story.append(Spacer(1, 10*mm))
+    story.append(Table([['']], colWidths=[170*mm], rowHeights=[0.3*mm]))
+    story[-1].setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), line_color)]))
+    story.append(Spacer(1, 3*mm))
+    
+    story.append(Paragraph(
+        "This is a computer-generated invoice.",
+        ParagraphStyle('Footer', fontName='Helvetica', fontSize=7, textColor=text_light, alignment=1)
+    ))
+    
+    # Build PDF
+    doc.build(story)
+    
+    buffer.seek(0)
+    pdf_bytes = buffer.getvalue()
+    
+    filename = f"Invoice_{invoice_number}.pdf"
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
 # ============ PROJECT GST FLAG ============
 
 @api_router.put("/finance/projects/{project_id}/gst-status")
