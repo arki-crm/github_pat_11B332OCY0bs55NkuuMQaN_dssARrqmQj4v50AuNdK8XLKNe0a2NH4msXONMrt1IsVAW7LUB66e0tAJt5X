@@ -50,6 +50,8 @@ import Technicians from './pages/Technicians';
 
 // Finance/Accounting Module
 import CashBook from './pages/CashBook';
+import ProjectFinance from './pages/ProjectFinance';
+import ProjectFinanceDetail from './pages/ProjectFinanceDetail';
 
 import './App.css';
 
