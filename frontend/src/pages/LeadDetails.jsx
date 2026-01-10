@@ -1171,6 +1171,7 @@ const LeadDetails = () => {
                 comments={lead?.comments || []}
                 onAddComment={handleAddComment}
                 isSubmitting={isSubmittingComment}
+                canAddComment={canAddComment()}
               />
             </CardContent>
           </Card>
