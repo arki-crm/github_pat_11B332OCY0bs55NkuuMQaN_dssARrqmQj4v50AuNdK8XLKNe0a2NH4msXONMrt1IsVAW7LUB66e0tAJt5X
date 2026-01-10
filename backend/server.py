@@ -1278,10 +1278,18 @@ AVAILABLE_PERMISSIONS = {
         "permissions": [
             {"id": "projects.view", "name": "View Projects", "description": "View projects (assigned/collaborated only)"},
             {"id": "projects.view_all", "name": "View All Projects", "description": "View all projects in the system"},
-            {"id": "projects.update_design", "name": "Update Design Milestones", "description": "Update design finalization milestones"},
-            {"id": "projects.update_production", "name": "Update Production Milestones", "description": "Update production milestones"},
-            {"id": "projects.update_delivery", "name": "Update Delivery/Handover", "description": "Update delivery and handover milestones"},
             {"id": "projects.manage_collaborators", "name": "Manage Collaborators", "description": "Add/remove project collaborators"}
+        ]
+    },
+    # Milestone Permissions - Explicit per-stage control
+    "milestones": {
+        "name": "Milestone Updates",
+        "permissions": [
+            {"id": "milestones.update.design", "name": "Update Design Milestones", "description": "Update Design Finalization stage milestones"},
+            {"id": "milestones.update.production", "name": "Update Production Milestones", "description": "Update Production stage milestones"},
+            {"id": "milestones.update.delivery", "name": "Update Delivery Milestones", "description": "Update Delivery stage milestones"},
+            {"id": "milestones.update.installation", "name": "Update Installation Milestones", "description": "Update Installation stage milestones"},
+            {"id": "milestones.update.handover", "name": "Update Handover Milestones", "description": "Update Handover stage milestones"}
         ]
     },
     # Warranty & Service Permissions
