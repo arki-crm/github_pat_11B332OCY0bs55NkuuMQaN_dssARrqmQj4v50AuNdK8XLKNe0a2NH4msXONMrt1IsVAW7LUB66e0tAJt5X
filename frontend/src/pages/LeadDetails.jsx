@@ -246,13 +246,13 @@ const LeadTimelinePanel = ({ timeline, currentStage }) => {
 };
 
 // ============ COMMENTS COMPONENT ============
-const LeadCommentsPanel = ({ comments, onAddComment, isSubmitting }) => {
+const LeadCommentsPanel = ({ comments, onAddComment, isSubmitting, canAddComment = true }) => {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !canAddComment) return;
     onAddComment(newMessage.trim());
     setNewMessage('');
   };
