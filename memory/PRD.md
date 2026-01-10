@@ -222,6 +222,51 @@ Project-level financial intelligence to answer: "How much can I safely take out?
 
 ---
 
+## ✅ Finance Controls & Guardrails (Phase 3 Extended) - COMPLETED Jan 2026
+
+Financial control and visibility for the founder without complex accounting.
+
+### Features Implemented:
+- [x] **Founder Dashboard** - Read-only snapshot answering "Can I safely spend money today?"
+  - Total Cash Available (all accounts)
+  - Locked Commitments (vendor mappings)
+  - Safe Surplus (usable amount)
+  - Health Status (Healthy/Warning/Critical)
+  - Top 5 Risky Projects
+  - Month-to-Date Received/Spent
+- [x] **Daily Closing System** - Auto-calculated from Cashbook per account
+  - Opening Balance, Inflow, Outflow, Closing Balance
+  - Account-wise breakdown table
+  - Close Day button (locks permanently)
+  - Historical closings list
+- [x] **Monthly Snapshot & Freeze** - End-of-month financial capture
+  - Total Inflow/Outflow/Net Change
+  - Cash Position
+  - Planned vs Actual comparison
+  - Close Month button (read-only after)
+- [x] **Project Safe Surplus Warnings** - Risk levels (Green/Amber/Red)
+  - Visual warnings when Over Budget
+  - No money movement from Red projects
+
+### New Permissions:
+| Permission | Admin | SeniorAccountant | Accountant |
+|------------|-------|------------------|------------|
+| finance.founder_dashboard | ✅ | ❌ | ❌ |
+| finance.daily_closing | ✅ | ✅ | ✅ (view only) |
+| finance.monthly_snapshot | ✅ | ✅ | ❌ |
+
+### New API Endpoints:
+- `GET /api/finance/founder-dashboard` - Founder snapshot
+- `GET /api/finance/daily-closing?date=YYYY-MM-DD` - Daily breakdown
+- `POST /api/finance/daily-closing/{date}/close` - Lock day
+- `GET /api/finance/daily-closing/history` - Recent closings
+- `GET /api/finance/monthly-snapshots` - List snapshots
+- `GET /api/finance/monthly-snapshots/{year}/{month}` - Specific month
+- `POST /api/finance/monthly-snapshots/{year}/{month}/close` - Freeze month
+- `GET /api/finance/project-surplus-status` - Risk levels
+
+---
+
 ## Deferred Tasks (Post-Testing)
 
 ### P1 - After Testing Stabilization
