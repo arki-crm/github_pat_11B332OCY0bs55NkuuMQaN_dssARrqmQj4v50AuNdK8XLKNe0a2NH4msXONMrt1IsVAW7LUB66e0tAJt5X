@@ -166,7 +166,7 @@ const Warranty = () => {
                   >
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">
-                        {warranty.pid}
+                        {warranty.pid?.replace('ARKI-', '')}
                       </span>
                     </td>
                     <td className="px-4 py-3">
