@@ -1359,7 +1359,13 @@ DEFAULT_ROLE_PERMISSIONS = {
         "milestones.update.delivery", "milestones.update.installation", "milestones.update.handover",
         "warranty.view", "warranty.update", "service.view", "service.view_all", "service.create", "service.update",
         "academy.view", "academy.manage",
-        "admin.manage_users", "admin.assign_permissions", "admin.view_reports", "admin.system_settings"
+        "admin.manage_users", "admin.assign_permissions", "admin.view_reports", "admin.system_settings",
+        # Finance permissions - Admin gets all
+        "finance.view_dashboard", "finance.view_cashbook", "finance.view_bankbook",
+        "finance.add_transaction", "finance.edit_transaction", "finance.delete_transaction",
+        "finance.verify_transaction", "finance.close_day", "finance.view_reports",
+        "finance.manage_accounts", "finance.manage_categories", "finance.set_opening_balance",
+        "finance.import_data", "finance.export_data"
     ],
     "PreSales": [
         "presales.view", "presales.create", "presales.update", "presales.convert",
