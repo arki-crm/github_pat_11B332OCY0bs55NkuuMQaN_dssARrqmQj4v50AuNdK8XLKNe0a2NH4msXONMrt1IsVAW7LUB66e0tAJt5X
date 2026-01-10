@@ -1330,8 +1330,10 @@ DEFAULT_ROLE_PERMISSIONS = {
         # Admin gets everything
         "presales.view", "presales.create", "presales.update", "presales.convert",
         "leads.view", "leads.view_all", "leads.create", "leads.update", "leads.convert",
-        "projects.view", "projects.view_all", "projects.update_design", "projects.update_production", 
-        "projects.update_delivery", "projects.manage_collaborators",
+        "projects.view", "projects.view_all", "projects.manage_collaborators",
+        # Milestone permissions - Admin gets all
+        "milestones.update.design", "milestones.update.production", 
+        "milestones.update.delivery", "milestones.update.installation", "milestones.update.handover",
         "warranty.view", "warranty.update", "service.view", "service.view_all", "service.create", "service.update",
         "academy.view", "academy.manage",
         "admin.manage_users", "admin.assign_permissions", "admin.view_reports", "admin.system_settings"
@@ -1351,17 +1353,19 @@ DEFAULT_ROLE_PERMISSIONS = {
     ],
     "Designer": [
         "leads.view", "leads.update",
-        "projects.view", "projects.update_design",
+        "projects.view", "milestones.update.design",
         "academy.view"
     ],
     "DesignManager": [
         "leads.view", "leads.view_all", "leads.update",
-        "projects.view", "projects.view_all", "projects.update_design", "projects.manage_collaborators",
+        "projects.view", "projects.view_all", "milestones.update.design", "projects.manage_collaborators",
         "academy.view", "academy.manage",
         "admin.view_reports"
     ],
     "ProductionOpsManager": [
-        "projects.view", "projects.view_all", "projects.update_production", "projects.update_delivery",
+        "projects.view", "projects.view_all", 
+        "milestones.update.production", "milestones.update.delivery", 
+        "milestones.update.installation", "milestones.update.handover",
         "projects.manage_collaborators",
         "warranty.view", "warranty.update", "service.view", "service.view_all", "service.create", "service.update",
         "academy.view", "academy.manage",
