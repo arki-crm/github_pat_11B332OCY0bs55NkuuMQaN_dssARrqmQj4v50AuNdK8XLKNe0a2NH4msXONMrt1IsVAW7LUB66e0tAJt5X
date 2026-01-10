@@ -105,6 +105,10 @@ const ProjectFinanceDetail = () => {
   const [overrunOptions, setOverrunOptions] = useState({ reasons: [], responsible_categories: [] });
   const [projectReceipts, setProjectReceipts] = useState([]);
   const [viewReceipt, setViewReceipt] = useState(null);
+  const [paymentSchedule, setPaymentSchedule] = useState(null);
+  const [isScheduleEditing, setIsScheduleEditing] = useState(false);
+  const [editedSchedule, setEditedSchedule] = useState([]);
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
   
   const [newMapping, setNewMapping] = useState({
     vendor_name: '',
