@@ -103,6 +103,8 @@ const ProjectFinanceDetail = () => {
   const [isOverrunDialogOpen, setIsOverrunDialogOpen] = useState(false);
   const [overrunForm, setOverrunForm] = useState({ reason: '', responsible_category: '', notes: '', overrun_amount: '' });
   const [overrunOptions, setOverrunOptions] = useState({ reasons: [], responsible_categories: [] });
+  const [projectReceipts, setProjectReceipts] = useState([]);
+  const [viewReceipt, setViewReceipt] = useState(null);
   
   const [newMapping, setNewMapping] = useState({
     vendor_name: '',
