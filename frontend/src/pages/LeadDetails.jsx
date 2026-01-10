@@ -978,7 +978,7 @@ const LeadDetails = () => {
                 className="inline-flex items-center rounded-md bg-slate-900 px-2.5 py-1 text-sm font-mono font-bold text-white"
                 data-testid="lead-pid-badge"
               >
-                {lead.pid}
+                {lead.pid.replace('ARKI-', '')}
               </span>
             )}
             <h1 
@@ -1015,7 +1015,7 @@ const LeadDetails = () => {
             )}
           </div>
           <p className="text-slate-500 mt-1">
-            {lead?.pid && <span className="font-medium text-slate-700">{lead.pid} • </span>}
+            {lead?.pid && <span className="font-medium text-slate-700">{lead.pid.replace('ARKI-', '')} • </span>}
             Phone: {lead?.customer_phone} • Source: {lead?.source} • Updated {formatRelativeTime(lead?.updated_at)}
           </p>
         </div>
