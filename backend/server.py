@@ -1402,7 +1402,9 @@ DEFAULT_ROLE_PERMISSIONS = {
         "projects.manage_collaborators",
         "warranty.view", "warranty.update", "service.view", "service.view_all", "service.create", "service.update",
         "academy.view", "academy.manage",
-        "admin.view_reports"
+        "admin.view_reports",
+        # Project Finance - view and edit vendor mapping
+        "finance.view_project_finance", "finance.edit_vendor_mapping"
     ],
     "OperationLead": [
         # Ground-level execution role - assigned projects only
@@ -1418,13 +1420,17 @@ DEFAULT_ROLE_PERMISSIONS = {
     "Accountant": [
         # Basic finance access - add and view transactions
         "finance.view_dashboard", "finance.view_cashbook", "finance.view_bankbook",
-        "finance.add_transaction", "finance.view_reports"
+        "finance.add_transaction", "finance.view_reports",
+        # Project Finance - view only
+        "finance.view_project_finance"
     ],
     "SeniorAccountant": [
         # Extended finance access - verify, manage categories, all reports
         "finance.view_dashboard", "finance.view_cashbook", "finance.view_bankbook",
         "finance.add_transaction", "finance.edit_transaction", "finance.verify_transaction",
-        "finance.view_reports", "finance.manage_categories", "finance.export_data"
+        "finance.view_reports", "finance.manage_categories", "finance.export_data",
+        # Project Finance - view only
+        "finance.view_project_finance"
     ]
 }
 
