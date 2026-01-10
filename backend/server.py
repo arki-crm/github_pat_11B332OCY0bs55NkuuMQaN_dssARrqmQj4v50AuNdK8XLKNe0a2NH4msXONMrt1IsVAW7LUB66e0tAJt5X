@@ -4059,13 +4059,26 @@ async def add_lead_comment(lead_id: str, comment: CommentCreate, request: Reques
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
-    # Check access based on role
-    if user.role == "Designer":
-        if lead.get("designer_id") != user.user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-    elif user.role == "PreSales":
-        if lead.get("assigned_to") != user.user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
+    # Get user document for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    # Permission-based access check for commenting (requires leads.update)
+    has_update = has_permission(user_doc, "leads.update")
+    has_view_all = has_permission(user_doc, "leads.view_all")
+    
+    if not has_update:
+        raise HTTPException(status_code=403, detail="Access denied - no leads.update permission")
+    
+    # If user doesn't have view_all, check if they're assigned/collaborating
+    if not has_view_all:
+        is_assigned = lead.get("assigned_to") == user.user_id or lead.get("designer_id") == user.user_id
+        collaborator_ids = [c.get("user_id") for c in lead.get("collaborators", []) if isinstance(c, dict)]
+        is_collaborator = user.user_id in collaborator_ids
+        
+        if not is_assigned and not is_collaborator:
+            raise HTTPException(status_code=403, detail="Access denied - not assigned to this lead")
     
     new_comment = {
         "id": f"comment_{uuid.uuid4().hex[:8]}",
