@@ -1322,6 +1322,26 @@ AVAILABLE_PERMISSIONS = {
             {"id": "admin.view_reports", "name": "View Reports", "description": "Access analytics and reports"},
             {"id": "admin.system_settings", "name": "System Settings", "description": "Modify system configuration"}
         ]
+    },
+    # Finance/Accounting Permissions (Phase 1)
+    "finance": {
+        "name": "Finance & Accounting",
+        "permissions": [
+            {"id": "finance.view_dashboard", "name": "View Finance Dashboard", "description": "View finance overview and summaries"},
+            {"id": "finance.view_cashbook", "name": "View Cash Book", "description": "View daily cash book entries"},
+            {"id": "finance.view_bankbook", "name": "View Bank Book", "description": "View bank account transactions"},
+            {"id": "finance.add_transaction", "name": "Add Transaction", "description": "Create new financial entries"},
+            {"id": "finance.edit_transaction", "name": "Edit Transaction", "description": "Modify existing entries (unlocked days only)"},
+            {"id": "finance.delete_transaction", "name": "Delete Transaction", "description": "Remove entries (unlocked days only)"},
+            {"id": "finance.verify_transaction", "name": "Verify Transaction", "description": "Mark transactions as verified"},
+            {"id": "finance.close_day", "name": "Close Day", "description": "Lock daily entries permanently"},
+            {"id": "finance.view_reports", "name": "View Finance Reports", "description": "Access financial reports and summaries"},
+            {"id": "finance.manage_accounts", "name": "Manage Accounts", "description": "Add/edit bank and cash accounts"},
+            {"id": "finance.manage_categories", "name": "Manage Categories", "description": "Add/edit expense categories"},
+            {"id": "finance.set_opening_balance", "name": "Set Opening Balance", "description": "Set initial account balances"},
+            {"id": "finance.import_data", "name": "Import Data", "description": "Import financial data from files"},
+            {"id": "finance.export_data", "name": "Export Data", "description": "Export financial data to files"}
+        ]
     }
 }
 
