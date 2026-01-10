@@ -4573,16 +4573,33 @@ async def add_lead_collaborator(lead_id: str, request: Request):
 
 @api_router.delete("/leads/{lead_id}/collaborators/{collaborator_user_id}")
 async def remove_lead_collaborator(lead_id: str, collaborator_user_id: str, request: Request):
-    """Remove collaborator from a lead"""
+    """Remove collaborator from a lead - requires leads.update permission"""
     user = await get_current_user(request)
     
     lead = await db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
-    # Only Admin/Manager/SalesManager can remove collaborators
-    if user.role not in ["Admin", "SalesManager", "Manager"]:
-        raise HTTPException(status_code=403, detail="Only Admin, Sales Manager, or Manager can remove collaborators")
+    # Get user document for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    # Permission-based access check (requires leads.update)
+    has_update = has_permission(user_doc, "leads.update")
+    has_view_all = has_permission(user_doc, "leads.view_all")
+    
+    if not has_update:
+        raise HTTPException(status_code=403, detail="Access denied - no leads.update permission")
+    
+    # If user doesn't have view_all, check if they're assigned/collaborating
+    if not has_view_all:
+        is_assigned = lead.get("assigned_to") == user.user_id or lead.get("designer_id") == user.user_id
+        collaborator_ids = [c.get("user_id") for c in lead.get("collaborators", []) if isinstance(c, dict)]
+        is_collaborator = user.user_id in collaborator_ids
+        
+        if not is_assigned and not is_collaborator:
+            raise HTTPException(status_code=403, detail="Access denied - not assigned to this lead")
     
     # Find collaborator to remove
     collaborators = lead.get("collaborators", [])
