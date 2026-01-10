@@ -314,25 +314,48 @@ Customer payment receipts with server-side PDF generation.
 ### Features Implemented:
 - [x] **Receipts Management** - List, create, view payment receipts
 - [x] **PDF Receipt Generation** - Server-side using ReportLab (lightweight Python)
-- [x] **Premium PDF Design** - Clean, corporate style with proper typography hierarchy
-- [x] **Company Settings** - Configurable company name, address, GSTIN, logo, primary_color, authorized signatory
+- [x] **Accounting-Grade PDF Design** - Clean, neutral colors (charcoal/grey), no blue, CA/GST ready
+- [x] **Company Profile Page** - Comprehensive settings at `/settings/company-profile`
 - [x] **Auto Receipt Numbers** - Format: RCP-YYYYMMDD-XXXX
 - [x] **Cashbook Integration** - Receipts auto-create inflow transactions
 - [x] **Balance Tracking** - Contract value, total received, balance remaining
 - [x] **Project Finance Receipts Section** - View all receipts for a project in Project Finance Detail page
 
-### Receipt PDF Contents (Premium Design):
-- Company Name, Address, Email, Phone, GSTIN (from settings)
-- Primary Color accent (configurable)
-- Receipt Number, Date (clean two-column header)
+### Company Profile Fields (NEW):
+**Company Identity:**
+- Legal Name, Brand/Display Name, Tagline/Descriptor
+- GSTIN, PAN
+
+**Address (Structured):**
+- Address Line 1, Address Line 2
+- City, State, PIN Code, Country
+
+**Contact & Digital:**
+- Primary Email, Secondary Email
+- Phone Number, Website URL
+
+**Branding:**
+- Logo upload, Favicon upload
+- Primary Color, Secondary Color
+
+**Document Settings:**
+- Authorized Signatory Name
+- Receipt Footer Note
+
+### Receipt PDF Contents (Accounting-Grade):
+- Company Name + Tagline (header)
+- Full formatted address (footer)
+- Contact info: Email | Phone | Website
+- GSTIN (footer)
+- Receipt Number, Date
 - "Received From" - Customer Name, Project Name
 - Project ID
 - Payment Description, Mode, Account
-- Amount Received (highlighted with primary color)
-- Contract Value, Total Received, Balance Due (summary)
+- Amount Received (near-black, prominent)
+- Contract Value, Total Received, Balance Due
 - Notes (optional)
 - Authorized Signatory
-- "This is a system-generated receipt" footer
+- Custom footer note (configurable)
 
 ### New Permissions:
 | Permission | Description |
@@ -347,9 +370,12 @@ Customer payment receipts with server-side PDF generation.
 - `POST /api/finance/receipts` - Create receipt
 - `GET /api/finance/receipts/{receipt_id}/pdf` - Download PDF receipt
 - `POST /api/finance/receipts/{receipt_id}/cancel` - Cancel receipt
-- `GET /api/finance/company-settings` - Get company settings
+- `GET /api/finance/company-settings` - Get company settings (21 fields)
 - `POST /api/finance/company-settings` - Update company settings
 - `POST /api/finance/company-settings/logo` - Upload company logo
+
+### New Pages:
+- `/settings/company-profile` - Company Profile management page (Admin only)
 
 ### Test Data:
 - Multiple test receipts created for project PID-00037 (sharan - Interior Project)
