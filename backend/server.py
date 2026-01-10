@@ -3856,40 +3856,27 @@ async def list_leads(request: Request, status: Optional[str] = None, search: Opt
     if not has_view_all and not has_view:
         raise HTTPException(status_code=403, detail="Access denied - no leads permission")
     
-    # Build query - ONLY show leads (not presales)
-    # lead_type = "lead" means it's a proper lead (either direct created or promoted from presales)
-    query = {
-        "is_converted": False,
+    # Base filter: only show leads (not presales), not converted
+    lead_type_filter = {
         "$or": [
             {"lead_type": "lead"},
             {"lead_type": {"$exists": False}, "stage": {"$nin": ["New", "Contacted", "Waiting", "Qualified", "Dropped"]}}
         ]
     }
     
-    # If user has leads.view but NOT leads.view_all, filter to assigned/collaborated leads only
-    if has_view and not has_view_all:
-        query["$and"] = [
-            query.pop("$or"),  # Keep the lead_type filter
-            {
-                "$or": [
-                    {"assigned_to": user.user_id},
-                    {"designer_id": user.user_id},
-                    {"collaborators": {"$elemMatch": {"user_id": user.user_id}}}
-                ]
-            }
-        ]
-        query["$or"] = query["$and"][0]  # Restore the lead_type $or
-        del query["$and"]
-        # Rebuild query properly
+    # Build query based on permission level
+    if has_view_all:
+        # User can see all leads
+        query = {
+            "is_converted": False,
+            **lead_type_filter
+        }
+    else:
+        # User has leads.view - can only see assigned/collaborated leads
         query = {
             "is_converted": False,
             "$and": [
-                {
-                    "$or": [
-                        {"lead_type": "lead"},
-                        {"lead_type": {"$exists": False}, "stage": {"$nin": ["New", "Contacted", "Waiting", "Qualified", "Dropped"]}}
-                    ]
-                },
+                lead_type_filter,
                 {
                     "$or": [
                         {"assigned_to": user.user_id},
@@ -3899,7 +3886,6 @@ async def list_leads(request: Request, status: Optional[str] = None, search: Opt
                 }
             ]
         }
-    # If has_view_all, no additional filter needed (sees all leads)
     
     # Status filter
     if status and status != "all":
