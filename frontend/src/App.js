@@ -52,6 +52,9 @@ import Technicians from './pages/Technicians';
 import CashBook from './pages/CashBook';
 import ProjectFinance from './pages/ProjectFinance';
 import ProjectFinanceDetail from './pages/ProjectFinanceDetail';
+import FounderDashboard from './pages/FounderDashboard';
+import DailyClosing from './pages/DailyClosing';
+import MonthlySnapshot from './pages/MonthlySnapshot';
 
 import './App.css';
 
