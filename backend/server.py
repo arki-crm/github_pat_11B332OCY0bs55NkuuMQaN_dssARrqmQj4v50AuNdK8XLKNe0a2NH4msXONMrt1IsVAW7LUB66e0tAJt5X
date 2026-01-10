@@ -3950,13 +3950,27 @@ async def get_lead(lead_id: str, request: Request):
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
-    # Check access based on role
-    if user.role == "Designer":
-        if lead.get("designer_id") != user.user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-    elif user.role == "PreSales":
-        if lead.get("assigned_to") != user.user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
+    # Get user document for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    # Permission-based access check
+    has_view_all = has_permission(user_doc, "leads.view_all")
+    has_view = has_permission(user_doc, "leads.view")
+    
+    if not has_view_all and not has_view:
+        raise HTTPException(status_code=403, detail="Access denied - no leads permission")
+    
+    # If user has leads.view but NOT leads.view_all, check if assigned/collaborated
+    if has_view and not has_view_all:
+        is_assigned = lead.get("assigned_to") == user.user_id
+        is_designer = lead.get("designer_id") == user.user_id
+        collaborator_ids = [c.get("user_id") for c in lead.get("collaborators", []) if isinstance(c, dict)]
+        is_collaborator = user.user_id in collaborator_ids
+        
+        if not (is_assigned or is_designer or is_collaborator):
+            raise HTTPException(status_code=403, detail="Access denied - not assigned to this lead")
     
     # Get assigned user details
     if lead.get("assigned_to"):
