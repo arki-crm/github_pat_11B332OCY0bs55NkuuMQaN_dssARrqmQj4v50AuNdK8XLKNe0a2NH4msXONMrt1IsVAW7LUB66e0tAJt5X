@@ -1349,7 +1349,14 @@ AVAILABLE_PERMISSIONS = {
             # Phase 3 - Finance Controls & Guardrails
             {"id": "finance.daily_closing", "name": "Daily Closing", "description": "View and close daily financial entries"},
             {"id": "finance.monthly_snapshot", "name": "Monthly Snapshot", "description": "View and close monthly snapshots"},
-            {"id": "finance.founder_dashboard", "name": "Founder Dashboard", "description": "View founder financial overview"}
+            {"id": "finance.founder_dashboard", "name": "Founder Dashboard", "description": "View founder financial overview"},
+            # Payment & Receipt System (Admin checkbox-controlled)
+            {"id": "finance.add_receipt", "name": "Add Receipt", "description": "Record incoming payments and generate receipts"},
+            {"id": "finance.view_receipts", "name": "View Receipts", "description": "View payment receipts"},
+            {"id": "finance.edit_payment_schedule", "name": "Edit Payment Schedule", "description": "Modify project payment schedules"},
+            {"id": "finance.create_invoice", "name": "Create Invoice", "description": "Generate GST invoices"},
+            {"id": "finance.issue_refund", "name": "Issue Refund", "description": "Process refunds and cancellations"},
+            {"id": "finance.mark_cancellation", "name": "Mark Cancellation", "description": "Cancel projects and handle forfeitures"}
         ]
     }
 }
