@@ -1381,7 +1381,10 @@ DEFAULT_ROLE_PERMISSIONS = {
         "finance.manage_accounts", "finance.manage_categories", "finance.set_opening_balance",
         "finance.import_data", "finance.export_data",
         "finance.view_project_finance", "finance.edit_vendor_mapping",
-        "finance.daily_closing", "finance.monthly_snapshot", "finance.founder_dashboard"
+        "finance.daily_closing", "finance.monthly_snapshot", "finance.founder_dashboard",
+        # Payment & Receipt permissions
+        "finance.add_receipt", "finance.view_receipts", "finance.edit_payment_schedule",
+        "finance.create_invoice", "finance.issue_refund", "finance.mark_cancellation"
     ],
     "PreSales": [
         "presales.view", "presales.create", "presales.update", "presales.convert",
