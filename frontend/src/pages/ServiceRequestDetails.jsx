@@ -300,7 +300,7 @@ const ServiceRequestDetails = () => {
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-slate-900">{sr.service_request_id}</h1>
-            {sr.pid && <span className="font-mono text-sm bg-slate-900 text-white px-2 py-0.5 rounded">{sr.pid}</span>}
+            {sr.pid && <span className="font-mono text-sm bg-slate-900 text-white px-2 py-0.5 rounded">{sr.pid.replace('ARKI-', '')}</span>}
             <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", STAGE_STYLES[sr.stage])}>{sr.stage}</span>
           </div>
           <p className="text-slate-500 mt-1">Created {formatDate(sr.created_at)} • {sr.source}</p>
