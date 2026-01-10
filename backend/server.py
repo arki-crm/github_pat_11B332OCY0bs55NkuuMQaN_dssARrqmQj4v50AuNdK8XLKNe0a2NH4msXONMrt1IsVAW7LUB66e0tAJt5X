@@ -1345,7 +1345,11 @@ AVAILABLE_PERMISSIONS = {
             {"id": "finance.export_data", "name": "Export Data", "description": "Export financial data to files"},
             # Phase 3 - Project Finance Control
             {"id": "finance.view_project_finance", "name": "View Project Finance", "description": "View project financial summaries and vendor mappings"},
-            {"id": "finance.edit_vendor_mapping", "name": "Edit Vendor Mapping", "description": "Add/edit vendor mappings for projects"}
+            {"id": "finance.edit_vendor_mapping", "name": "Edit Vendor Mapping", "description": "Add/edit vendor mappings for projects"},
+            # Phase 3 - Finance Controls & Guardrails
+            {"id": "finance.daily_closing", "name": "Daily Closing", "description": "View and close daily financial entries"},
+            {"id": "finance.monthly_snapshot", "name": "Monthly Snapshot", "description": "View and close monthly snapshots"},
+            {"id": "finance.founder_dashboard", "name": "Founder Dashboard", "description": "View founder financial overview"}
         ]
     }
 }
