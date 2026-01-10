@@ -1386,6 +1386,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "finance.import_data", "finance.export_data",
         "finance.view_project_finance", "finance.edit_vendor_mapping",
         "finance.daily_closing", "finance.monthly_snapshot", "finance.founder_dashboard",
+        "finance.view_vendors", "finance.manage_vendors", "finance.view_audit_log",
         # Payment & Receipt permissions
         "finance.add_receipt", "finance.view_receipts", "finance.edit_payment_schedule",
         "finance.create_invoice", "finance.issue_refund", "finance.mark_cancellation"
