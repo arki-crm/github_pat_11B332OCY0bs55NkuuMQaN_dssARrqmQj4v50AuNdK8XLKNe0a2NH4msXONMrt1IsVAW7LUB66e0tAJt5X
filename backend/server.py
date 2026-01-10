@@ -4396,11 +4396,18 @@ async def update_lead_stage(lead_id: str, stage_update: LeadStageUpdate, request
 
 @api_router.put("/leads/{lead_id}/assign-designer")
 async def assign_designer(lead_id: str, assign_data: LeadAssignDesigner, request: Request):
-    """Assign a designer to a lead"""
+    """Assign a designer to a lead - requires leads.update permission"""
     user = await get_current_user(request)
     
-    if user.role not in ["Admin", "Manager"]:
-        raise HTTPException(status_code=403, detail="Admin or Manager access required")
+    # Get user document for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    # Permission-based access check (requires leads.update)
+    has_update = has_permission(user_doc, "leads.update")
+    if not has_update:
+        raise HTTPException(status_code=403, detail="Access denied - no leads.update permission")
     
     lead = await db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
     
