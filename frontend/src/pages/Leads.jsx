@@ -6,6 +6,13 @@ import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { 
   Search, 
   ChevronRight,
   Loader2,
@@ -13,12 +20,21 @@ import {
   Users,
   Plus,
   Pause,
-  Power
+  Power,
+  Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Time filter options
+const TIME_FILTERS = [
+  { key: 'all', label: 'All Time' },
+  { key: 'this_month', label: 'This Month' },
+  { key: 'last_month', label: 'Last Month' },
+  { key: 'this_quarter', label: 'This Quarter' }
+];
 
 // Status filter tabs
 const STATUS_FILTERS = [
