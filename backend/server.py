@@ -3848,7 +3848,14 @@ def update_timeline_on_stage_change(timeline: list, old_stage: str, new_stage: s
     return timeline
 
 @api_router.get("/leads")
-async def list_leads(request: Request, status: Optional[str] = None, search: Optional[str] = None):
+async def list_leads(
+    request: Request, 
+    status: Optional[str] = None, 
+    search: Optional[str] = None,
+    time_filter: Optional[str] = None,  # this_month, last_month, this_quarter, custom, all
+    start_date: Optional[str] = None,   # For custom date range (ISO format)
+    end_date: Optional[str] = None      # For custom date range (ISO format)
+):
     """List leads based on permission - shows only actual leads (not pre-sales)"""
     user = await get_current_user(request)
     
