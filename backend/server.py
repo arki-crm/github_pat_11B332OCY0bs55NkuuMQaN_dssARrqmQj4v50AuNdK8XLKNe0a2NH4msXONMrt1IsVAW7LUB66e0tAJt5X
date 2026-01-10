@@ -1360,7 +1360,14 @@ AVAILABLE_PERMISSIONS = {
             # Account Master permissions
             {"id": "finance.view_vendors", "name": "View Vendors", "description": "View vendor master list"},
             {"id": "finance.manage_vendors", "name": "Manage Vendors", "description": "Add/edit/deactivate vendors"},
-            {"id": "finance.view_audit_log", "name": "View Audit Log", "description": "View financial audit trail"}
+            {"id": "finance.view_audit_log", "name": "View Audit Log", "description": "View financial audit trail"},
+            # Leak-Proof Spend Control Permissions
+            {"id": "finance.create_expense_request", "name": "Create Expense Request", "description": "Request expenses for approval"},
+            {"id": "finance.approve_expense", "name": "Approve Expense", "description": "Approve or reject expense requests"},
+            {"id": "finance.record_expense", "name": "Record Expense", "description": "Record approved expenses in cashbook"},
+            {"id": "finance.allow_over_budget", "name": "Allow Over Budget", "description": "Approve expenses that exceed project budget"},
+            {"id": "finance.view_expense_requests", "name": "View Expense Requests", "description": "View expense request list"},
+            {"id": "finance.track_refunds", "name": "Track Refunds", "description": "Track pending refunds and returns"}
         ]
     }
 }
@@ -1389,7 +1396,10 @@ DEFAULT_ROLE_PERMISSIONS = {
         "finance.view_vendors", "finance.manage_vendors", "finance.view_audit_log",
         # Payment & Receipt permissions
         "finance.add_receipt", "finance.view_receipts", "finance.edit_payment_schedule",
-        "finance.create_invoice", "finance.issue_refund", "finance.mark_cancellation"
+        "finance.create_invoice", "finance.issue_refund", "finance.mark_cancellation",
+        # Leak-Proof Spend Control - Admin gets all
+        "finance.create_expense_request", "finance.approve_expense", "finance.record_expense",
+        "finance.allow_over_budget", "finance.view_expense_requests", "finance.track_refunds"
     ],
     "PreSales": [
         "presales.view", "presales.create", "presales.update", "presales.convert",
