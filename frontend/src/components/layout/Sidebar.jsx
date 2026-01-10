@@ -51,8 +51,7 @@ const financeSubItems = [
   { path: '/finance/project-finance', label: 'Project Finance', icon: FolderKanban },
   { path: '/finance/daily-closing', label: 'Daily Closing', icon: CalendarCheck },
   { path: '/finance/monthly-snapshot', label: 'Monthly Snapshot', icon: CalendarRange },
-  { path: '/finance/accounts', label: 'Bank Accounts', icon: Building2, placeholder: true },
-  { path: '/finance/reports', label: 'Reports', icon: PieChart, placeholder: true }
+  { path: '/finance/settings', label: 'Settings', icon: Settings },
 ];
 
 // ============ V1 SIMPLIFIED RBAC - 6 CORE ROLES ============
