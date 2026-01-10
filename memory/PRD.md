@@ -92,38 +92,50 @@ The core CRM pipeline has been stabilized and is ready for manual end-to-end tes
 - Login as that user
 - Verify they can only access permitted features
 
+### 5. Milestone Permission Testing (NEW)
+- Create a Designer user with only `milestones.update.design` permission
+- Login as Designer and verify:
+  - Can update Design Finalization milestones
+  - Cannot update Production/Delivery/Installation/Handover milestones
+  - UI shows "You don't have permission" message for restricted groups
+- Admin can manually grant additional milestone permissions
+
 ---
 
 ## Available Permissions
 
 | Permission Key | Description |
 |---------------|-------------|
-| `dashboard.view` | View dashboard |
 | `presales.view` | View pre-sales |
 | `presales.create` | Create pre-sales |
-| `presales.edit` | Edit pre-sales |
+| `presales.update` | Update pre-sales |
+| `presales.convert` | Convert pre-sales to leads |
 | `leads.view` | View leads |
+| `leads.view_all` | View all leads |
 | `leads.create` | Create leads |
-| `leads.edit` | Edit leads |
+| `leads.update` | Update leads |
 | `leads.convert` | Convert leads to projects |
 | `projects.view` | View projects |
-| `projects.create` | Create projects |
-| `projects.edit` | Edit projects |
-| `milestones.update` | Update project milestones |
-| `files.upload` | Upload files |
-| `files.delete` | Delete files |
-| `notes.create` | Create notes |
-| `notes.edit` | Edit notes |
-| `meetings.view` | View meetings |
-| `meetings.create` | Create meetings |
-| `financials.view` | View financials |
-| `financials.edit` | Edit financials |
-| `users.view` | View users |
-| `users.manage` | Manage users |
+| `projects.view_all` | View all projects |
+| `projects.manage_collaborators` | Manage project collaborators |
+| **Milestone Permissions (NEW)** | |
+| `milestones.update.design` | Update Design Finalization milestones |
+| `milestones.update.production` | Update Production milestones |
+| `milestones.update.delivery` | Update Delivery milestones |
+| `milestones.update.installation` | Update Installation milestones |
+| `milestones.update.handover` | Update Handover milestones |
+| `warranty.view` | View warranty |
+| `warranty.update` | Update warranty |
+| `service.view` | View service requests |
+| `service.view_all` | View all service requests |
+| `service.create` | Create service requests |
+| `service.update` | Update service requests |
 | `academy.view` | View academy |
 | `academy.manage` | Manage academy content |
-| `reports.view` | View reports |
-| `settings.view` | View settings |
+| `admin.manage_users` | Manage users |
+| `admin.assign_permissions` | Assign permissions |
+| `admin.view_reports` | View reports |
+| `admin.system_settings` | System settings |
 
 ---
 
