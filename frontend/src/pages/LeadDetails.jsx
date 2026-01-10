@@ -728,10 +728,24 @@ const LeadDetails = () => {
   // Can add collaborator
   const canAddCollaborator = () => {
     if (!user || !lead) return false;
-    // Admin, SalesManager can always add
-    if (user.role === 'Admin' || user.role === 'SalesManager' || user.role === 'Manager') return true;
-    // Lead owner/designer can add
-    return lead.assigned_to === user.user_id || lead.designer_id === user.user_id;
+    // Requires leads.update permission
+    if (!hasPermission('leads.update')) return false;
+    // If user has leads.view_all, they can add to any lead
+    if (hasPermission('leads.view_all')) return true;
+    // Otherwise, check if assigned/collaborating
+    const isAssigned = lead.assigned_to === user.user_id || lead.designer_id === user.user_id;
+    const isCollaborator = (lead.collaborators || []).some(c => c.user_id === user.user_id);
+    return isAssigned || isCollaborator;
+  };
+
+  // Can add comment - requires leads.update and being assigned/collaborated
+  const canAddComment = () => {
+    if (!user || !lead) return false;
+    if (!hasPermission('leads.update')) return false;
+    if (hasPermission('leads.view_all')) return true;
+    const isAssigned = lead.assigned_to === user.user_id || lead.designer_id === user.user_id;
+    const isCollaborator = (lead.collaborators || []).some(c => c.user_id === user.user_id);
+    return isAssigned || isCollaborator;
   };
 
   // Add comment
