@@ -16389,15 +16389,36 @@ import base64
 
 # Company Settings Collection for logo and branding
 COMPANY_SETTINGS_DEFAULT = {
-    "company_name": "Arki Dots",
-    "company_tagline": "Interior Design Excellence",
-    "company_address": "",
-    "company_phone": "",
-    "company_email": "",
-    "company_gstin": "",
+    # Company Identity
+    "legal_name": "Arki Dots",
+    "brand_name": "",  # If different from legal name
+    "tagline": "Interior Design & Home Renovation",
+    "gstin": "",
+    "pan": "",
+    
+    # Address (Structured)
+    "address_line1": "",
+    "address_line2": "",
+    "city": "",
+    "state": "",
+    "pincode": "",
+    "country": "India",
+    
+    # Contact & Digital
+    "primary_email": "",
+    "secondary_email": "",
+    "phone": "",
+    "website": "",
+    
+    # Branding
+    "logo_base64": None,
+    "favicon_base64": None,
+    "primary_color": "#1f2937",  # Dark charcoal - professional default
+    "secondary_color": "#6b7280",  # Grey accent
+    
+    # Document Settings
     "authorized_signatory": "Authorized Signatory",
-    "logo_base64": None,  # Will store base64-encoded logo
-    "primary_color": "#2563eb"  # Brand color for receipts/invoices
+    "receipt_footer_note": "This is a system-generated receipt."
 }
 
 
