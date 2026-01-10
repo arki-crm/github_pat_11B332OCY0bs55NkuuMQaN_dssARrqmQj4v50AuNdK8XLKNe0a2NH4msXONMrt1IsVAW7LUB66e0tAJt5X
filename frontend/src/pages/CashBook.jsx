@@ -364,12 +364,12 @@ const CashBook = () => {
                   {/* Project (Optional) */}
                   <div>
                     <Label>Project (Optional)</Label>
-                    <Select value={newTxn.project_id} onValueChange={(v) => setNewTxn(prev => ({ ...prev, project_id: v }))}>
+                    <Select value={newTxn.project_id || "none"} onValueChange={(v) => setNewTxn(prev => ({ ...prev, project_id: v === "none" ? "" : v }))}>
                       <SelectTrigger className="mt-1" data-testid="project-select">
                         <SelectValue placeholder="Link to project (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No Project</SelectItem>
+                        <SelectItem value="none">No Project</SelectItem>
                         {projects.map(p => (
                           <SelectItem key={p.project_id} value={p.project_id}>
                             {p.pid_display} - {p.project_name}
