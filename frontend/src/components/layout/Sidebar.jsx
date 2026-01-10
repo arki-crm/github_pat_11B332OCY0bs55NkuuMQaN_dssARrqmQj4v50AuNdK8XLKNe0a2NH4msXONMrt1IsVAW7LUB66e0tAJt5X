@@ -41,9 +41,9 @@ const SIDEBAR_EXPANDED_KEY = 'arkiflo_sidebar_expanded_menus';
 // Finance submenu items - only routes that exist
 const financeSubItems = [
   { path: '/finance/cashbook', label: 'Cash Book', icon: Wallet },
+  { path: '/finance/project-finance', label: 'Project Finance', icon: FolderKanban },
   { path: '/finance/accounts', label: 'Bank Accounts', icon: Building2, placeholder: true },
   { path: '/finance/expenses', label: 'Expenses', icon: Receipt, placeholder: true },
-  { path: '/finance/vendors', label: 'Vendor Mapping', icon: UsersRound, placeholder: true },
   { path: '/finance/invoices', label: 'Invoices', icon: FileText, placeholder: true },
   { path: '/finance/payments', label: 'Payments', icon: CreditCard, placeholder: true },
   { path: '/finance/reports', label: 'Reports', icon: PieChart, placeholder: true }
