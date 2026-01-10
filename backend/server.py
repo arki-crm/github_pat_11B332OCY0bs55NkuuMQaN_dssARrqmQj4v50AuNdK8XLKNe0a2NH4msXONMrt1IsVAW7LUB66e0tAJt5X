@@ -14164,6 +14164,647 @@ async def get_vendor_categories(request: Request):
     return VENDOR_CATEGORIES
 
 
+# ============================================================================
+# ============ FINANCE CONTROLS & GUARDRAILS (PHASE 3 EXTENDED) ==============
+# ============================================================================
+# - Daily Closing System (per account)
+# - Founder Dashboard (read-only snapshot)
+# - Monthly Snapshot & Freeze
+# - Project Safe Surplus warnings
+
+# ============ DAILY CLOSING SYSTEM ============
+
+@api_router.get("/finance/daily-closing")
+async def get_daily_closing(request: Request, date: Optional[str] = None):
+    """Get daily closing data for all accounts on a specific date"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.daily_closing") and not has_permission(user_doc, "finance.view_dashboard"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Default to today
+    if not date:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    target_date = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    target_date_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    target_date_end = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    # Get previous day for opening balance calculation
+    prev_date = (target_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    # Get all accounts
+    accounts = await db.accounting_accounts.find({"is_active": True}, {"_id": 0}).to_list(100)
+    
+    # Check if day is already closed
+    existing_closing = await db.finance_daily_closings.find_one(
+        {"date": date},
+        {"_id": 0}
+    )
+    is_closed = existing_closing.get("is_closed", False) if existing_closing else False
+    closed_by = existing_closing.get("closed_by_name") if existing_closing else None
+    closed_at = existing_closing.get("closed_at") if existing_closing else None
+    
+    result = []
+    total_opening = 0
+    total_inflow = 0
+    total_outflow = 0
+    total_closing = 0
+    
+    for acc in accounts:
+        account_id = acc.get("account_id")
+        opening_balance = acc.get("opening_balance", 0)
+        
+        # Calculate opening balance (sum of all transactions before this day + opening balance)
+        prev_txn_pipeline = [
+            {"$match": {
+                "account_id": account_id,
+                "created_at": {"$lt": target_date_start}
+            }},
+            {"$group": {
+                "_id": None,
+                "inflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+                "outflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}}
+            }}
+        ]
+        prev_result = await db.accounting_transactions.aggregate(prev_txn_pipeline).to_list(1)
+        prev_inflow = prev_result[0]["inflow"] if prev_result else 0
+        prev_outflow = prev_result[0]["outflow"] if prev_result else 0
+        calc_opening = opening_balance + prev_inflow - prev_outflow
+        
+        # Calculate today's transactions
+        today_txn_pipeline = [
+            {"$match": {
+                "account_id": account_id,
+                "created_at": {"$gte": target_date_start, "$lte": target_date_end}
+            }},
+            {"$group": {
+                "_id": None,
+                "inflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+                "outflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}},
+                "count": {"$sum": 1}
+            }}
+        ]
+        today_result = await db.accounting_transactions.aggregate(today_txn_pipeline).to_list(1)
+        today_inflow = today_result[0]["inflow"] if today_result else 0
+        today_outflow = today_result[0]["outflow"] if today_result else 0
+        txn_count = today_result[0]["count"] if today_result else 0
+        
+        closing_balance = calc_opening + today_inflow - today_outflow
+        
+        result.append({
+            "account_id": account_id,
+            "account_name": acc.get("account_name"),
+            "account_type": acc.get("account_type"),
+            "opening_balance": calc_opening,
+            "inflow": today_inflow,
+            "outflow": today_outflow,
+            "closing_balance": closing_balance,
+            "transaction_count": txn_count
+        })
+        
+        total_opening += calc_opening
+        total_inflow += today_inflow
+        total_outflow += today_outflow
+        total_closing += closing_balance
+    
+    return {
+        "date": date,
+        "is_closed": is_closed,
+        "closed_by": closed_by,
+        "closed_at": closed_at,
+        "accounts": result,
+        "totals": {
+            "opening": total_opening,
+            "inflow": total_inflow,
+            "outflow": total_outflow,
+            "closing": total_closing
+        }
+    }
+
+
+@api_router.post("/finance/daily-closing/{date}/close")
+async def close_daily_books(date: str, request: Request):
+    """Close the day's books - permanently locks all transactions"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.close_day"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.close_day permission")
+    
+    # Check if already closed
+    existing = await db.finance_daily_closings.find_one({"date": date})
+    if existing and existing.get("is_closed"):
+        raise HTTPException(status_code=400, detail="This day is already closed")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get the daily closing data
+    target_date = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    target_date_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    target_date_end = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    # Get transaction count
+    txn_count = await db.accounting_transactions.count_documents({
+        "created_at": {"$gte": target_date_start, "$lte": target_date_end}
+    })
+    
+    # Get totals
+    totals_pipeline = [
+        {"$match": {"created_at": {"$gte": target_date_start, "$lte": target_date_end}}},
+        {"$group": {
+            "_id": None,
+            "inflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+            "outflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}}
+        }}
+    ]
+    totals_result = await db.accounting_transactions.aggregate(totals_pipeline).to_list(1)
+    total_inflow = totals_result[0]["inflow"] if totals_result else 0
+    total_outflow = totals_result[0]["outflow"] if totals_result else 0
+    
+    closing_doc = {
+        "date": date,
+        "is_closed": True,
+        "closed_by": user.user_id,
+        "closed_by_name": user.name,
+        "closed_at": now,
+        "transaction_count": txn_count,
+        "total_inflow": total_inflow,
+        "total_outflow": total_outflow,
+        "net_change": total_inflow - total_outflow
+    }
+    
+    await db.finance_daily_closings.update_one(
+        {"date": date},
+        {"$set": closing_doc},
+        upsert=True
+    )
+    
+    return {"success": True, "message": f"Day {date} has been closed", "closing": closing_doc}
+
+
+@api_router.get("/finance/daily-closing/history")
+async def get_daily_closing_history(request: Request, limit: int = 30):
+    """Get history of daily closings"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.daily_closing") and not has_permission(user_doc, "finance.view_reports"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    closings = await db.finance_daily_closings.find(
+        {"is_closed": True},
+        {"_id": 0}
+    ).sort("date", -1).limit(limit).to_list(limit)
+    
+    return closings
+
+
+# ============ FOUNDER DASHBOARD ============
+
+@api_router.get("/finance/founder-dashboard")
+async def get_founder_dashboard(request: Request):
+    """Get founder financial snapshot - answers: Can I safely spend money today?"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    # Only Admin/Founder can see this
+    if not has_permission(user_doc, "finance.founder_dashboard") and user_doc.get("role") != "Admin":
+        raise HTTPException(status_code=403, detail="Access denied - Founder Dashboard is restricted")
+    
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # 1. Total cash available (all accounts combined)
+    accounts = await db.accounting_accounts.find({"is_active": True}, {"_id": 0}).to_list(100)
+    total_cash = 0
+    account_balances = []
+    
+    for acc in accounts:
+        account_id = acc.get("account_id")
+        opening = acc.get("opening_balance", 0)
+        
+        # Calculate current balance
+        txn_pipeline = [
+            {"$match": {"account_id": account_id}},
+            {"$group": {
+                "_id": None,
+                "inflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+                "outflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}}
+            }}
+        ]
+        result = await db.accounting_transactions.aggregate(txn_pipeline).to_list(1)
+        inflow = result[0]["inflow"] if result else 0
+        outflow = result[0]["outflow"] if result else 0
+        balance = opening + inflow - outflow
+        
+        account_balances.append({
+            "account_name": acc.get("account_name"),
+            "account_type": acc.get("account_type"),
+            "balance": balance
+        })
+        total_cash += balance
+    
+    # 2. Total locked money (planned vendor commitments from all projects)
+    vendor_mappings = await db.finance_vendor_mappings.find({}, {"_id": 0, "planned_amount": 1}).to_list(1000)
+    total_locked = sum(vm.get("planned_amount", 0) for vm in vendor_mappings)
+    
+    # 3. Safe surplus (usable amount)
+    safe_surplus = total_cash - total_locked
+    
+    # 4. Top 5 risky projects (over budget or low surplus)
+    projects = await db.projects.find(
+        {"pid": {"$exists": True, "$ne": None}},
+        {"_id": 0, "project_id": 1, "pid": 1, "project_name": 1, "client_name": 1, "project_value": 1}
+    ).to_list(500)
+    
+    risky_projects = []
+    for p in projects:
+        project_id = p.get("project_id")
+        
+        # Get planned cost
+        vm_list = await db.finance_vendor_mappings.find({"project_id": project_id}, {"_id": 0}).to_list(100)
+        planned = sum(v.get("planned_amount", 0) for v in vm_list)
+        
+        # Get actual cost
+        actual_pipeline = [
+            {"$match": {"project_id": project_id, "transaction_type": "outflow"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        actual_result = await db.accounting_transactions.aggregate(actual_pipeline).to_list(1)
+        actual = actual_result[0]["total"] if actual_result else 0
+        
+        # Get received
+        received_pipeline = [
+            {"$match": {"project_id": project_id, "transaction_type": "inflow"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        received_result = await db.accounting_transactions.aggregate(received_pipeline).to_list(1)
+        received = received_result[0]["total"] if received_result else 0
+        
+        project_surplus = received - actual
+        is_over_budget = actual > planned if planned > 0 else False
+        
+        # Determine risk level: Red (risky), Amber (tight), Green (safe)
+        if is_over_budget or project_surplus < 0:
+            risk_level = "red"
+        elif planned > 0 and actual > planned * 0.8:
+            risk_level = "amber"
+        elif project_surplus < planned * 0.2 and planned > 0:
+            risk_level = "amber"
+        else:
+            risk_level = "green"
+        
+        if risk_level in ["red", "amber"]:
+            risky_projects.append({
+                "project_id": project_id,
+                "pid": (p.get("pid") or "").replace("ARKI-", ""),
+                "project_name": p.get("project_name"),
+                "client_name": p.get("client_name"),
+                "contract_value": p.get("project_value", 0),
+                "planned": planned,
+                "actual": actual,
+                "received": received,
+                "surplus": project_surplus,
+                "risk_level": risk_level,
+                "is_over_budget": is_over_budget
+            })
+    
+    # Sort by risk and take top 5
+    risky_projects.sort(key=lambda x: (0 if x["risk_level"] == "red" else 1, x["surplus"]))
+    top_risky = risky_projects[:5]
+    
+    # 5. Month-to-date totals
+    mtd_pipeline = [
+        {"$match": {"created_at": {"$gte": month_start}}},
+        {"$group": {
+            "_id": None,
+            "received": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+            "spent": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}}
+        }}
+    ]
+    mtd_result = await db.accounting_transactions.aggregate(mtd_pipeline).to_list(1)
+    mtd_received = mtd_result[0]["received"] if mtd_result else 0
+    mtd_spent = mtd_result[0]["spent"] if mtd_result else 0
+    
+    # Overall health indicator
+    if safe_surplus < 0:
+        health = "critical"
+        health_message = "Negative surplus - immediate attention needed"
+    elif safe_surplus < total_locked * 0.2:
+        health = "warning"
+        health_message = "Low surplus - proceed with caution"
+    else:
+        health = "healthy"
+        health_message = "Finances look healthy"
+    
+    return {
+        "as_of": now.isoformat(),
+        "total_cash_available": total_cash,
+        "total_locked_commitments": total_locked,
+        "safe_surplus": safe_surplus,
+        "health": health,
+        "health_message": health_message,
+        "account_balances": account_balances,
+        "risky_projects": top_risky,
+        "risky_project_count": len(risky_projects),
+        "month_to_date": {
+            "month": now.strftime("%B %Y"),
+            "received": mtd_received,
+            "spent": mtd_spent,
+            "net": mtd_received - mtd_spent
+        }
+    }
+
+
+# ============ MONTHLY SNAPSHOT ============
+
+@api_router.get("/finance/monthly-snapshots")
+async def get_monthly_snapshots(request: Request, year: Optional[int] = None):
+    """Get list of monthly snapshots"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.monthly_snapshot") and not has_permission(user_doc, "finance.view_reports"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {}
+    if year:
+        query["year"] = year
+    
+    snapshots = await db.finance_monthly_snapshots.find(query, {"_id": 0}).sort([("year", -1), ("month", -1)]).to_list(24)
+    return snapshots
+
+
+@api_router.get("/finance/monthly-snapshots/{year}/{month}")
+async def get_monthly_snapshot(year: int, month: int, request: Request):
+    """Get specific month's snapshot or calculate if not closed"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.monthly_snapshot") and not has_permission(user_doc, "finance.view_reports"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Check if snapshot exists
+    existing = await db.finance_monthly_snapshots.find_one(
+        {"year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    if existing:
+        return existing
+    
+    # Calculate snapshot data
+    from calendar import monthrange
+    _, last_day = monthrange(year, month)
+    
+    month_start = datetime(year, month, 1, tzinfo=timezone.utc)
+    month_end = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    
+    # Get transactions for the month
+    txn_pipeline = [
+        {"$match": {"created_at": {"$gte": month_start, "$lte": month_end}}},
+        {"$group": {
+            "_id": None,
+            "inflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+            "outflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}},
+            "count": {"$sum": 1}
+        }}
+    ]
+    result = await db.accounting_transactions.aggregate(txn_pipeline).to_list(1)
+    
+    total_inflow = result[0]["inflow"] if result else 0
+    total_outflow = result[0]["outflow"] if result else 0
+    txn_count = result[0]["count"] if result else 0
+    
+    # Get planned vs actual from all projects
+    vendor_mappings = await db.finance_vendor_mappings.find({}, {"_id": 0}).to_list(1000)
+    total_planned = sum(vm.get("planned_amount", 0) for vm in vendor_mappings)
+    
+    actual_pipeline = [
+        {"$match": {"transaction_type": "outflow", "project_id": {"$exists": True, "$ne": None}}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    actual_result = await db.accounting_transactions.aggregate(actual_pipeline).to_list(1)
+    total_actual = actual_result[0]["total"] if actual_result else 0
+    
+    # Get cash position at end of month
+    accounts = await db.accounting_accounts.find({"is_active": True}, {"_id": 0}).to_list(100)
+    cash_position = 0
+    
+    for acc in accounts:
+        opening = acc.get("opening_balance", 0)
+        acc_pipeline = [
+            {"$match": {"account_id": acc.get("account_id"), "created_at": {"$lte": month_end}}},
+            {"$group": {
+                "_id": None,
+                "inflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+                "outflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}}
+            }}
+        ]
+        acc_result = await db.accounting_transactions.aggregate(acc_pipeline).to_list(1)
+        acc_inflow = acc_result[0]["inflow"] if acc_result else 0
+        acc_outflow = acc_result[0]["outflow"] if acc_result else 0
+        cash_position += opening + acc_inflow - acc_outflow
+    
+    return {
+        "year": year,
+        "month": month,
+        "month_name": datetime(year, month, 1).strftime("%B"),
+        "is_closed": False,
+        "total_inflow": total_inflow,
+        "total_outflow": total_outflow,
+        "net_change": total_inflow - total_outflow,
+        "transaction_count": txn_count,
+        "cash_position": cash_position,
+        "total_planned_cost": total_planned,
+        "total_actual_cost": total_actual,
+        "planned_vs_actual_diff": total_planned - total_actual
+    }
+
+
+@api_router.post("/finance/monthly-snapshots/{year}/{month}/close")
+async def close_monthly_snapshot(year: int, month: int, request: Request):
+    """Close and freeze a month's snapshot"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.monthly_snapshot"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.monthly_snapshot permission")
+    
+    # Check if already closed
+    existing = await db.finance_monthly_snapshots.find_one({"year": year, "month": month})
+    if existing and existing.get("is_closed"):
+        raise HTTPException(status_code=400, detail="This month is already closed")
+    
+    # Check current month - cannot close current or future months
+    now = datetime.now(timezone.utc)
+    if year > now.year or (year == now.year and month >= now.month):
+        raise HTTPException(status_code=400, detail="Cannot close current or future months")
+    
+    # Get snapshot data
+    from calendar import monthrange
+    _, last_day = monthrange(year, month)
+    
+    month_start = datetime(year, month, 1, tzinfo=timezone.utc)
+    month_end = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    
+    # Calculate all values
+    txn_pipeline = [
+        {"$match": {"created_at": {"$gte": month_start, "$lte": month_end}}},
+        {"$group": {
+            "_id": None,
+            "inflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+            "outflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}},
+            "count": {"$sum": 1}
+        }}
+    ]
+    result = await db.accounting_transactions.aggregate(txn_pipeline).to_list(1)
+    
+    total_inflow = result[0]["inflow"] if result else 0
+    total_outflow = result[0]["outflow"] if result else 0
+    txn_count = result[0]["count"] if result else 0
+    
+    # Get cash position
+    accounts = await db.accounting_accounts.find({"is_active": True}, {"_id": 0}).to_list(100)
+    cash_position = 0
+    for acc in accounts:
+        opening = acc.get("opening_balance", 0)
+        acc_pipeline = [
+            {"$match": {"account_id": acc.get("account_id"), "created_at": {"$lte": month_end}}},
+            {"$group": {
+                "_id": None,
+                "inflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "inflow"]}, "$amount", 0]}},
+                "outflow": {"$sum": {"$cond": [{"$eq": ["$transaction_type", "outflow"]}, "$amount", 0]}}
+            }}
+        ]
+        acc_result = await db.accounting_transactions.aggregate(acc_pipeline).to_list(1)
+        acc_inflow = acc_result[0]["inflow"] if acc_result else 0
+        acc_outflow = acc_result[0]["outflow"] if acc_result else 0
+        cash_position += opening + acc_inflow - acc_outflow
+    
+    # Get planned vs actual
+    vendor_mappings = await db.finance_vendor_mappings.find({}, {"_id": 0}).to_list(1000)
+    total_planned = sum(vm.get("planned_amount", 0) for vm in vendor_mappings)
+    
+    actual_pipeline = [
+        {"$match": {"transaction_type": "outflow", "project_id": {"$exists": True, "$ne": None}}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    actual_result = await db.accounting_transactions.aggregate(actual_pipeline).to_list(1)
+    total_actual = actual_result[0]["total"] if actual_result else 0
+    
+    snapshot = {
+        "year": year,
+        "month": month,
+        "month_name": datetime(year, month, 1).strftime("%B"),
+        "is_closed": True,
+        "closed_by": user.user_id,
+        "closed_by_name": user.name,
+        "closed_at": datetime.now(timezone.utc),
+        "total_inflow": total_inflow,
+        "total_outflow": total_outflow,
+        "net_change": total_inflow - total_outflow,
+        "transaction_count": txn_count,
+        "cash_position": cash_position,
+        "total_planned_cost": total_planned,
+        "total_actual_cost": total_actual,
+        "planned_vs_actual_diff": total_planned - total_actual
+    }
+    
+    await db.finance_monthly_snapshots.update_one(
+        {"year": year, "month": month},
+        {"$set": snapshot},
+        upsert=True
+    )
+    
+    return {"success": True, "message": f"Month {month}/{year} has been closed", "snapshot": snapshot}
+
+
+# ============ PROJECT SAFE SURPLUS WITH RISK LEVELS ============
+
+@api_router.get("/finance/project-surplus-status")
+async def get_project_surplus_status(request: Request):
+    """Get all projects with their safe surplus status and risk levels"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_project_finance"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    projects = await db.projects.find(
+        {"pid": {"$exists": True, "$ne": None}},
+        {"_id": 0, "project_id": 1, "pid": 1, "project_name": 1, "client_name": 1, "project_value": 1, "status": 1}
+    ).to_list(500)
+    
+    result = {"green": [], "amber": [], "red": []}
+    
+    for p in projects:
+        project_id = p.get("project_id")
+        contract_value = p.get("project_value", 0) or 0
+        
+        # Get planned cost
+        vm_list = await db.finance_vendor_mappings.find({"project_id": project_id}, {"_id": 0}).to_list(100)
+        planned = sum(v.get("planned_amount", 0) for v in vm_list)
+        
+        # Get actual cost
+        actual_pipeline = [
+            {"$match": {"project_id": project_id, "transaction_type": "outflow"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        actual_result = await db.accounting_transactions.aggregate(actual_pipeline).to_list(1)
+        actual = actual_result[0]["total"] if actual_result else 0
+        
+        # Get received
+        received_pipeline = [
+            {"$match": {"project_id": project_id, "transaction_type": "inflow"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        received_result = await db.accounting_transactions.aggregate(received_pipeline).to_list(1)
+        received = received_result[0]["total"] if received_result else 0
+        
+        safe_surplus = received - actual
+        remaining_liability = planned - actual
+        is_over_budget = actual > planned if planned > 0 else False
+        
+        # Determine risk level
+        if is_over_budget or safe_surplus < 0:
+            risk_level = "red"
+        elif planned > 0 and (actual > planned * 0.8 or safe_surplus < remaining_liability * 0.3):
+            risk_level = "amber"
+        else:
+            risk_level = "green"
+        
+        project_data = {
+            "project_id": project_id,
+            "pid": (p.get("pid") or "").replace("ARKI-", ""),
+            "project_name": p.get("project_name"),
+            "client_name": p.get("client_name"),
+            "status": p.get("status"),
+            "contract_value": contract_value,
+            "planned": planned,
+            "actual": actual,
+            "received": received,
+            "safe_surplus": safe_surplus,
+            "remaining_liability": remaining_liability,
+            "is_over_budget": is_over_budget,
+            "risk_level": risk_level
+        }
+        
+        result[risk_level].append(project_data)
+    
+    return {
+        "summary": {
+            "total": len(projects),
+            "green": len(result["green"]),
+            "amber": len(result["amber"]),
+            "red": len(result["red"])
+        },
+        "projects": result
+    }
+
+
 # ============ HEALTH CHECK ============
 
 @api_router.get("/")
