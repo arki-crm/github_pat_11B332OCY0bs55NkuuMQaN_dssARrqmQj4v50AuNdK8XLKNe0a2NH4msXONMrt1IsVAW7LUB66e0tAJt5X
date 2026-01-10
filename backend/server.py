@@ -13751,6 +13751,410 @@ async def get_projects_for_accounting(request: Request, search: Optional[str] = 
     return projects
 
 
+# ============================================================================
+# ============ PROJECT FINANCE CONTROL (PHASE 3) - VENDOR MAPPING =============
+# ============================================================================
+# This module provides project-level financial intelligence:
+# - Vendor Mapping (planned costs before spending)
+# - Actual vs Planned comparison (auto from Cashbook)
+# - Project Financial Summary (contract value, received, planned, actual, surplus)
+# READ ONLY access to CRM Projects - only uses PID for linking
+
+# Vendor Mapping Categories
+VENDOR_CATEGORIES = [
+    "Modular",
+    "Non-Modular", 
+    "Installation",
+    "Transport",
+    "Other"
+]
+
+class VendorMappingCreate(BaseModel):
+    project_id: str  # Links to CRM project
+    vendor_name: str
+    category: str  # Modular, Non-Modular, Installation, Transport, Other
+    planned_amount: float
+    notes: Optional[str] = None
+
+class VendorMappingUpdate(BaseModel):
+    vendor_name: Optional[str] = None
+    category: Optional[str] = None
+    planned_amount: Optional[float] = None
+    notes: Optional[str] = None
+
+
+@api_router.get("/finance/project-finance")
+async def list_projects_with_finance(request: Request, search: Optional[str] = None):
+    """Get list of all projects with their financial summary"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_project_finance"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.view_project_finance permission")
+    
+    # Build query
+    query = {"pid": {"$exists": True, "$ne": None}}  # Only projects with PID
+    if search:
+        query["$or"] = [
+            {"pid": {"$regex": search, "$options": "i"}},
+            {"project_name": {"$regex": search, "$options": "i"}},
+            {"client_name": {"$regex": search, "$options": "i"}}
+        ]
+    
+    # Get projects with relevant fields
+    projects = await db.projects.find(
+        query,
+        {"_id": 0, "project_id": 1, "pid": 1, "project_name": 1, "client_name": 1, 
+         "project_value": 1, "status": 1, "current_stage": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(500)
+    
+    # Enrich with financial data
+    result = []
+    for p in projects:
+        project_id = p.get("project_id")
+        
+        # Get vendor mappings total (planned cost)
+        vendor_mappings = await db.finance_vendor_mappings.find(
+            {"project_id": project_id},
+            {"_id": 0, "planned_amount": 1}
+        ).to_list(100)
+        planned_cost = sum(v.get("planned_amount", 0) for v in vendor_mappings)
+        
+        # Get actual cost from cashbook (outflows linked to this project)
+        actual_outflow_pipeline = [
+            {"$match": {"project_id": project_id, "transaction_type": "outflow"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        actual_result = await db.accounting_transactions.aggregate(actual_outflow_pipeline).to_list(1)
+        actual_cost = actual_result[0]["total"] if actual_result else 0
+        
+        # Get total received from cashbook (inflows linked to this project)
+        inflow_pipeline = [
+            {"$match": {"project_id": project_id, "transaction_type": "inflow"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        inflow_result = await db.accounting_transactions.aggregate(inflow_pipeline).to_list(1)
+        total_received = inflow_result[0]["total"] if inflow_result else 0
+        
+        contract_value = p.get("project_value", 0) or 0
+        remaining_liability = planned_cost - actual_cost
+        safe_surplus = total_received - actual_cost
+        
+        result.append({
+            "project_id": project_id,
+            "pid": p.get("pid"),
+            "pid_display": (p.get("pid") or "").replace("ARKI-", ""),
+            "project_name": p.get("project_name"),
+            "client_name": p.get("client_name"),
+            "status": p.get("status"),
+            "current_stage": p.get("current_stage"),
+            "contract_value": contract_value,
+            "total_received": total_received,
+            "planned_cost": planned_cost,
+            "actual_cost": actual_cost,
+            "remaining_liability": remaining_liability,
+            "safe_surplus": safe_surplus,
+            "has_overspend": actual_cost > planned_cost if planned_cost > 0 else False
+        })
+    
+    return result
+
+
+@api_router.get("/finance/project-finance/{project_id}")
+async def get_project_finance_detail(project_id: str, request: Request):
+    """Get detailed financial view for a specific project"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_project_finance"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.view_project_finance permission")
+    
+    # Get project from CRM (read-only)
+    project = await db.projects.find_one(
+        {"project_id": project_id},
+        {"_id": 0, "project_id": 1, "pid": 1, "project_name": 1, "client_name": 1,
+         "project_value": 1, "status": 1, "current_stage": 1, "stages": 1}
+    )
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check if spending has started (any transactions exist)
+    spending_started = await db.accounting_transactions.find_one({"project_id": project_id}) is not None
+    
+    # Check if production has started (check stages)
+    stages = project.get("stages", {})
+    production_started = any(
+        stages.get(group, {}).get("status") in ["In Progress", "Completed"]
+        for group in ["Production", "Delivery", "Installation", "Handover"]
+    )
+    
+    # Get vendor mappings
+    vendor_mappings = await db.finance_vendor_mappings.find(
+        {"project_id": project_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Calculate planned cost by category
+    planned_by_category = {}
+    for vm in vendor_mappings:
+        cat = vm.get("category", "Other")
+        planned_by_category[cat] = planned_by_category.get(cat, 0) + vm.get("planned_amount", 0)
+    total_planned = sum(planned_by_category.values())
+    
+    # Get actual transactions from cashbook
+    transactions = await db.accounting_transactions.find(
+        {"project_id": project_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    
+    # Get category names for enrichment
+    categories = {c["category_id"]: c for c in await db.accounting_categories.find({}, {"_id": 0}).to_list(100)}
+    accounts = {a["account_id"]: a for a in await db.accounting_accounts.find({}, {"_id": 0}).to_list(100)}
+    
+    # Enrich transactions
+    enriched_txns = []
+    for t in transactions:
+        t["category_name"] = categories.get(t.get("category_id"), {}).get("name", "Unknown")
+        t["account_name"] = accounts.get(t.get("account_id"), {}).get("account_name", "Unknown")
+        enriched_txns.append(t)
+    
+    # Calculate actuals
+    total_inflow = sum(t["amount"] for t in transactions if t.get("transaction_type") == "inflow")
+    total_outflow = sum(t["amount"] for t in transactions if t.get("transaction_type") == "outflow")
+    
+    # Group actual outflows by expense category
+    actual_by_category = {}
+    for t in transactions:
+        if t.get("transaction_type") == "outflow":
+            cat_name = t.get("category_name", "Other")
+            actual_by_category[cat_name] = actual_by_category.get(cat_name, 0) + t.get("amount", 0)
+    
+    # Build planned vs actual comparison
+    all_categories = set(list(planned_by_category.keys()) + list(actual_by_category.keys()))
+    comparison = []
+    for cat in sorted(all_categories):
+        planned = planned_by_category.get(cat, 0)
+        actual = actual_by_category.get(cat, 0)
+        comparison.append({
+            "category": cat,
+            "planned": planned,
+            "actual": actual,
+            "difference": planned - actual,
+            "over_budget": actual > planned if planned > 0 else False
+        })
+    
+    contract_value = project.get("project_value", 0) or 0
+    remaining_liability = total_planned - total_outflow
+    safe_surplus = total_inflow - total_outflow
+    
+    return {
+        "project": {
+            "project_id": project.get("project_id"),
+            "pid": project.get("pid"),
+            "pid_display": (project.get("pid") or "").replace("ARKI-", ""),
+            "project_name": project.get("project_name"),
+            "client_name": project.get("client_name"),
+            "status": project.get("status"),
+            "current_stage": project.get("current_stage")
+        },
+        "summary": {
+            "contract_value": contract_value,
+            "total_received": total_inflow,
+            "planned_cost": total_planned,
+            "actual_cost": total_outflow,
+            "remaining_liability": remaining_liability,
+            "safe_surplus": safe_surplus,
+            "has_overspend": total_outflow > total_planned if total_planned > 0 else False
+        },
+        "vendor_mappings": vendor_mappings,
+        "transactions": enriched_txns,
+        "comparison": comparison,
+        "can_edit_vendor_mapping": not spending_started and not production_started,
+        "spending_started": spending_started,
+        "production_started": production_started
+    }
+
+
+@api_router.get("/finance/vendor-mappings/{project_id}")
+async def get_vendor_mappings(project_id: str, request: Request):
+    """Get vendor mappings for a project"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_project_finance"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    mappings = await db.finance_vendor_mappings.find(
+        {"project_id": project_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    return mappings
+
+
+@api_router.post("/finance/vendor-mappings")
+async def create_vendor_mapping(mapping: VendorMappingCreate, request: Request):
+    """Create a new vendor mapping for a project"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.edit_vendor_mapping"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.edit_vendor_mapping permission")
+    
+    # Validate project exists
+    project = await db.projects.find_one({"project_id": mapping.project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check if spending has started
+    spending_started = await db.accounting_transactions.find_one({"project_id": mapping.project_id}) is not None
+    if spending_started:
+        raise HTTPException(status_code=400, detail="Cannot add vendor mapping - spending has already started for this project")
+    
+    # Check if production has started
+    stages = project.get("stages", {})
+    production_started = any(
+        stages.get(group, {}).get("status") in ["In Progress", "Completed"]
+        for group in ["Production", "Delivery", "Installation", "Handover"]
+    )
+    if production_started:
+        raise HTTPException(status_code=400, detail="Cannot add vendor mapping - production has already started")
+    
+    # Validate category
+    if mapping.category not in VENDOR_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {', '.join(VENDOR_CATEGORIES)}")
+    
+    now = datetime.now(timezone.utc)
+    new_mapping = {
+        "mapping_id": f"vm_{secrets.token_hex(4)}",
+        "project_id": mapping.project_id,
+        "vendor_name": mapping.vendor_name,
+        "category": mapping.category,
+        "planned_amount": mapping.planned_amount,
+        "notes": mapping.notes,
+        "created_by": user.user_id,
+        "created_by_name": user.name,
+        "created_at": now,
+        "updated_at": now,
+        "update_history": []
+    }
+    
+    await db.finance_vendor_mappings.insert_one(new_mapping)
+    new_mapping.pop("_id", None)
+    
+    return new_mapping
+
+
+@api_router.put("/finance/vendor-mappings/{mapping_id}")
+async def update_vendor_mapping(mapping_id: str, update: VendorMappingUpdate, request: Request):
+    """Update an existing vendor mapping"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.edit_vendor_mapping"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.edit_vendor_mapping permission")
+    
+    # Get existing mapping
+    existing = await db.finance_vendor_mappings.find_one({"mapping_id": mapping_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Vendor mapping not found")
+    
+    project_id = existing.get("project_id")
+    
+    # Check if spending has started
+    spending_started = await db.accounting_transactions.find_one({"project_id": project_id}) is not None
+    if spending_started:
+        raise HTTPException(status_code=400, detail="Cannot edit vendor mapping - spending has already started for this project")
+    
+    # Check if production has started
+    project = await db.projects.find_one({"project_id": project_id})
+    if project:
+        stages = project.get("stages", {})
+        production_started = any(
+            stages.get(group, {}).get("status") in ["In Progress", "Completed"]
+            for group in ["Production", "Delivery", "Installation", "Handover"]
+        )
+        if production_started:
+            raise HTTPException(status_code=400, detail="Cannot edit vendor mapping - production has already started")
+    
+    # Validate category if provided
+    if update.category and update.category not in VENDOR_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {', '.join(VENDOR_CATEGORIES)}")
+    
+    # Build update dict
+    update_data = {k: v for k, v in update.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No update data provided")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Add to history
+    history_entry = {
+        "updated_by": user.user_id,
+        "updated_by_name": user.name,
+        "updated_at": now,
+        "changes": update_data.copy()
+    }
+    
+    update_data["updated_at"] = now
+    
+    await db.finance_vendor_mappings.update_one(
+        {"mapping_id": mapping_id},
+        {
+            "$set": update_data,
+            "$push": {"update_history": history_entry}
+        }
+    )
+    
+    updated = await db.finance_vendor_mappings.find_one({"mapping_id": mapping_id}, {"_id": 0})
+    return updated
+
+
+@api_router.delete("/finance/vendor-mappings/{mapping_id}")
+async def delete_vendor_mapping(mapping_id: str, request: Request):
+    """Delete a vendor mapping"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.edit_vendor_mapping"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.edit_vendor_mapping permission")
+    
+    # Get existing mapping
+    existing = await db.finance_vendor_mappings.find_one({"mapping_id": mapping_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Vendor mapping not found")
+    
+    project_id = existing.get("project_id")
+    
+    # Check if spending has started
+    spending_started = await db.accounting_transactions.find_one({"project_id": project_id}) is not None
+    if spending_started:
+        raise HTTPException(status_code=400, detail="Cannot delete vendor mapping - spending has already started for this project")
+    
+    # Check if production has started
+    project = await db.projects.find_one({"project_id": project_id})
+    if project:
+        stages = project.get("stages", {})
+        production_started = any(
+            stages.get(group, {}).get("status") in ["In Progress", "Completed"]
+            for group in ["Production", "Delivery", "Installation", "Handover"]
+        )
+        if production_started:
+            raise HTTPException(status_code=400, detail="Cannot delete vendor mapping - production has already started")
+    
+    await db.finance_vendor_mappings.delete_one({"mapping_id": mapping_id})
+    
+    return {"success": True, "message": "Vendor mapping deleted"}
+
+
+@api_router.get("/finance/vendor-categories")
+async def get_vendor_categories(request: Request):
+    """Get list of vendor categories"""
+    user = await get_current_user(request)
+    return VENDOR_CATEGORIES
+
+
 # ============ HEALTH CHECK ============
 
 @api_router.get("/")
