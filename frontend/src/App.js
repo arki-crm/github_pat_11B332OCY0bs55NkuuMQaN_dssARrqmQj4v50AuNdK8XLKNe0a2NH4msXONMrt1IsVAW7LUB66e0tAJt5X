@@ -122,9 +122,12 @@ const AppRouter = () => {
         <Route path="/technicians" element={<Technicians />} />
         
         {/* Finance/Accounting Routes */}
+        <Route path="/finance/founder-dashboard" element={<FounderDashboard />} />
         <Route path="/finance/cashbook" element={<CashBook />} />
         <Route path="/finance/project-finance" element={<ProjectFinance />} />
         <Route path="/finance/project-finance/:projectId" element={<ProjectFinanceDetail />} />
+        <Route path="/finance/daily-closing" element={<DailyClosing />} />
+        <Route path="/finance/monthly-snapshot" element={<MonthlySnapshot />} />
       </Route>
 
       {/* Redirect root to dashboard */}
