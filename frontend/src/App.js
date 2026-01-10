@@ -131,6 +131,9 @@ const AppRouter = () => {
         <Route path="/finance/project-finance/:projectId" element={<ProjectFinanceDetail />} />
         <Route path="/finance/daily-closing" element={<DailyClosing />} />
         <Route path="/finance/monthly-snapshot" element={<MonthlySnapshot />} />
+        
+        {/* Settings Routes */}
+        <Route path="/settings/company-profile" element={<CompanyProfile />} />
       </Route>
 
       {/* Redirect root to dashboard */}
