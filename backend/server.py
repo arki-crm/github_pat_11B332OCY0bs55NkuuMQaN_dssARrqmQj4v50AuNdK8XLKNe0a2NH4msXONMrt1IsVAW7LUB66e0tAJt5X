@@ -15084,7 +15084,7 @@ async def create_overrun_attribution(attr: OverrunAttributionCreate, request: Re
         raise HTTPException(status_code=400, detail=f"Invalid reason. Must be one of: {', '.join(OVERRUN_REASONS)}")
     
     if attr.responsible_category not in OVERRUN_RESPONSIBLE:
-        raise HTTPException(status_code=400, detail=f"Invalid responsible category")
+        raise HTTPException(status_code=400, detail="Invalid responsible category")
     
     now = datetime.now(timezone.utc)
     attribution = {
@@ -15559,7 +15559,7 @@ async def get_safe_spend_recommendation(request: Request):
         warnings.append("Safe surplus is low. Exercise caution.")
     
     if mtd_spent > recommended_monthly:
-        warnings.append(f"This month's spending already exceeds recommended limit.")
+        warnings.append("This month's spending already exceeds recommended limit.")
     
     return {
         "total_cash": total_cash,
