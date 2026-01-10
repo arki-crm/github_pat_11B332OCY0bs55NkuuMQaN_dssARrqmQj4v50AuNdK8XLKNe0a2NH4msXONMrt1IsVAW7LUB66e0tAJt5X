@@ -16396,7 +16396,8 @@ COMPANY_SETTINGS_DEFAULT = {
     "company_email": "",
     "company_gstin": "",
     "authorized_signatory": "Authorized Signatory",
-    "logo_base64": None  # Will store base64-encoded logo
+    "logo_base64": None,  # Will store base64-encoded logo
+    "primary_color": "#2563eb"  # Brand color for receipts/invoices
 }
 
 
