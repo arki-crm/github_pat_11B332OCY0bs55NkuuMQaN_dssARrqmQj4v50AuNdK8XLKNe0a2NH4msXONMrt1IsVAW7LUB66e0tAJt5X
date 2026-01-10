@@ -138,6 +138,31 @@ const Receipts = () => {
     }
   };
 
+  const handleDownloadPDF = async (receiptId, receiptNumber) => {
+    try {
+      toast.info('Generating PDF...');
+      const res = await axios.get(`${API}/finance/receipts/${receiptId}/pdf`, {
+        withCredentials: true,
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Receipt_${receiptNumber}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('PDF downloaded');
+    } catch (error) {
+      console.error('PDF download error:', error);
+      toast.error('Failed to download PDF');
+    }
+  };
+
   const filteredReceipts = receipts.filter(r => 
     !search || 
     r.receipt_number?.toLowerCase().includes(search.toLowerCase()) ||
@@ -230,9 +255,14 @@ const Receipts = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">{receipt.account_name}</td>
                       <td className="px-4 py-3 text-center">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewReceipt(receipt.receipt_id)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewReceipt(receipt.receipt_id)} data-testid={`view-receipt-${receipt.receipt_id}`}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDownloadPDF(receipt.receipt_id, receipt.receipt_number)} data-testid={`download-receipt-${receipt.receipt_id}`}>
+                            <Download className="w-4 h-4 text-blue-600" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -401,6 +431,14 @@ const Receipts = () => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewReceipt(null)}>Close</Button>
+            <Button 
+              onClick={() => handleDownloadPDF(viewReceipt.receipt_id, viewReceipt.receipt_number)}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="download-pdf-btn"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download PDF
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
