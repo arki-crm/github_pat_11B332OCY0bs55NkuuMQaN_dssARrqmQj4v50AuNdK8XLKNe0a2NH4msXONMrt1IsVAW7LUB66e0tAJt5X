@@ -15700,6 +15700,7 @@ async def get_payment_schedule(project_id: str, request: Request):
 
 
 @api_router.put("/finance/payment-schedule/{project_id}")
+@api_router.post("/finance/payment-schedule/{project_id}")
 async def update_payment_schedule(project_id: str, update: PaymentScheduleUpdate, request: Request):
     """Update payment schedule for a project - permission controlled"""
     user = await get_current_user(request)
