@@ -137,6 +137,7 @@ const Leads = () => {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [timeFilter, setTimeFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [seeding, setSeeding] = useState(false);
 
@@ -147,6 +148,9 @@ const Leads = () => {
       const params = new URLSearchParams();
       if (activeFilter !== 'all') {
         params.append('status', activeFilter);
+      }
+      if (timeFilter !== 'all') {
+        params.append('time_filter', timeFilter);
       }
       
       const response = await axios.get(`${API}/leads?${params.toString()}`, {
