@@ -137,6 +137,7 @@ const ProjectFinanceDetail = () => {
       setAttributions(attrRes.data);
       setOverrunOptions(overrunRes.data);
       setProjectReceipts(receiptsRes.data || []);
+      setPaymentSchedule(scheduleRes.data);
     } catch (error) {
       console.error('Failed to fetch project finance:', error);
       if (error.response?.status === 404) {
