@@ -43,20 +43,23 @@ const FounderDashboard = () => {
   const [data, setData] = useState(null);
   const [safeSpend, setSafeSpend] = useState(null);
   const [alerts, setAlerts] = useState(null);
+  const [expenseStats, setExpenseStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [dashRes, safeSpendRes, alertsRes] = await Promise.all([
+      const [dashRes, safeSpendRes, alertsRes, expenseStatsRes] = await Promise.all([
         axios.get(`${API}/finance/founder-dashboard`, { withCredentials: true }),
         axios.get(`${API}/finance/safe-spend`, { withCredentials: true }),
-        axios.get(`${API}/finance/alerts`, { withCredentials: true })
+        axios.get(`${API}/finance/alerts`, { withCredentials: true }),
+        axios.get(`${API}/finance/expense-requests/stats/summary`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
       setData(dashRes.data);
       setSafeSpend(safeSpendRes.data);
       setAlerts(alertsRes.data);
+      setExpenseStats(expenseStatsRes.data);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch founder dashboard:', error);
