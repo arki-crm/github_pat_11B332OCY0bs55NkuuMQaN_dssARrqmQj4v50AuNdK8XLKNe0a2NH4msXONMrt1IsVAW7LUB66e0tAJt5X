@@ -16932,9 +16932,8 @@ async def cancel_project_financially(
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm, inch
+from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.pdfgen import canvas
 from io import BytesIO
 import base64
 
@@ -17198,7 +17197,7 @@ async def generate_receipt_pdf(receipt_id: str, request: Request):
             logo_buffer = BytesIO(logo_bytes)
             logo_element = Image(logo_buffer, width=20*mm, height=12*mm)
             logo_element.hAlign = 'RIGHT'
-        except Exception as e:
+        except Exception:
             # Silently fail - no broken image, just skip logo
             logo_element = None
     

@@ -1,0 +1,858 @@
+<analysis>**original_problem_statement:**
+The user wants to build a comprehensive, real-world interior design accounting and payment flow on top of the existing CRM. The system must be leak-proof, ensuring every financial transaction is tracked, owned, and auditable.
+
+**PRODUCT REQUIREMENTS:**
+
+1.  **Leak-Proof Spend Control (CURRENT TASK):**
+    *   **Expense Authorization System:** A mandatory request/approval flow for all expenses before they can be recorded in the Cashbook.
+    *   **Spend Ownership:** Every approved expense must have a designated owner responsible for its closure.
+    *   **Refund & Return Tracking:** A system to track pending refunds with statuses and alerts.
+    *   **Controlled Cashbook:** Cashbook entries can only be created from approved expenses, customer payments, etc., not through manual free-entry.
+    *   **Zero Delete Policy:** Posted transactions cannot be edited or deleted; corrections must be made via reversal/adjustment entries.
+    *   **Visibility Dashboards:** Founder and user-level dashboards to show money at risk, open expenses, and pending refunds.
+    *   **Project Spend Discipline:** Flag expenses that exceed the planned budget, requiring specific permission to proceed.
+
+2.  **Account Master & Finance Structure (Phase 3 - Implemented):**
+    *   Admin-configurable Bank/Cash accounts, hierarchical Expense Categories, and a Vendor Master.
+    *   All master data edits must have an audit log.
+
+3.  **Real-World Payment Flow (Implemented):**
+    *   **Permission-Driven System:** All financial actions must be controlled by discrete, admin-assigned permissions, not hard-coded user roles.
+    *   **Flexible Payment Schedules:** A default payment structure with a Payment Schedule Editor for authorized users to customize stages per project.
+    *   **Receipts System:** Generate downloadable PDF receipts for all incoming payments.
+    *   **Conditional Invoicing:** Create invoices only for GST-applicable projects.
+    *   **Cancellations & Refunds:** Handle full/partial refunds and forfeited bookings with a clear audit trail.
+
+4.  **Reports & Insights (Phase 4 - Upcoming):**
+    *   Founder-friendly reports: Cash Flow, Simplified P&L, Project Profitability.
+
+5.  **Import/Export & Control (Phase 5 - Upcoming):**
+    *   Admin-only data import/export functionality and a CA Mode for read-only access.
+
+**User's preferred language**: English
+
+**what currently exists?**
+The application is a full-stack CRM with a feature-frozen core and a comprehensive, multi-phase Accounting module. The following finance features have been implemented and tested:
+- **Core Accounting:** A fully functional Cash Book, a Founder Dashboard for high-level snapshots, a Daily Closing system, and a Monthly Snapshot feature.
+- **Project Finance:** A module for project-level financial control, including Vendor Mapping and comparison of planned vs. actual costs.
+- **Payment & Invoicing Flow:** A complete system for creating and managing Receipts, Invoices, and Refunds. PDF receipts are generated on the server with a premium, corporate design, pulling data dynamically from a new Company Profile section.
+- **Payment Schedules:** A flexible, editable Payment Schedule system is integrated into the Project Finance Detail page.
+- **Finance Masters:** A Finance Settings page allows admins to manage Bank/Cash Accounts, Expense Categories, and Vendors.
+
+**Last working item**:
+    - Last item agent was working: The agent was starting the implementation of the Leak-Proof Spend Control System as requested by the user. It began by analyzing the existing backend models and APIs to plan the new expense authorization flow.
+    - Status: NOT STARTED
+    - Agent Testing Done: N
+    - Which testing method agent to use? both
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:
+  - Issue 1:  (P2) Minor Python Linting Errors in 
+  
+  Issues Detail:
+  - Issue 1: 
+     - **Description:**  contains numerous non-critical linting errors. The user has explicitly deferred fixing these to prioritize feature development.
+     - **Attempted fixes:** None.
+     - **Next debug checklist:** Run F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:1648:5
+     |
+1646 | async def get_active_users(request: Request):
+1647 |     """Get list of active users (for collaborator dropdowns)"""
+1648 |     user = await get_current_user(request)
+     |     ^^^^
+1649 |     
+1650 |     users = await db.users.find(
+     |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:1660:5
+     |
+1658 | async def get_active_designers(request: Request):
+1659 |     """Get list of active designers (for assignment dropdowns)"""
+1660 |     user = await get_current_user(request)
+     |     ^^^^
+1661 |     
+1662 |     designers = await db.users.find(
+     |
+help: Remove assignment to unused variable `user`
+
+E722 Do not use bare `except`
+    --> backend/server.py:2629:25
+     |
+2627 |                             else:
+2628 |                                 item["status"] = "pending"
+2629 |                         except:
+     |                         ^^^^^^
+2630 |                             item["status"] = "pending"
+2631 |                     else:
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:2645:21
+     |
+2643 |                         else:
+2644 |                             item["status"] = "pending"
+2645 |                     except:
+     |                     ^^^^^^
+2646 |                         item["status"] = "pending"
+2647 |                 else:
+     |
+
+F841 Local variable `user_permissions` is assigned to but never used
+    --> backend/server.py:3169:5
+     |
+3167 |     # Get user's effective permissions for milestone access control
+3168 |     user_doc = await db.users.find_one({"user_id": user.user_id})
+3169 |     user_permissions = get_user_permissions(user_doc) if user_doc else []
+     |     ^^^^^^^^^^^^^^^^
+3170 |     
+3171 |     # Calculate which milestone groups the user can update
+     |
+help: Remove assignment to unused variable `user_permissions`
+
+E722 Do not use bare `except`
+    --> backend/server.py:3930:17
+     |
+3928 |                     elif item["status"] not in ["completed", "delayed"]:
+3929 |                         item["status"] = "pending"
+3930 |                 except:
+     |                 ^^^^^^
+3931 |                     if item["status"] != "completed":
+3932 |                         item["status"] = "pending"
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:3949:17
+     |
+3947 |                     else:
+3948 |                         item["status"] = "pending"
+3949 |                 except:
+     |                 ^^^^^^
+3950 |                     item["status"] = "pending"
+3951 |             else:
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:4048:19
+     |
+4046 |         search_lower = search.lower()
+4047 |         leads = [
+4048 |             l for l in leads 
+     |                   ^
+4049 |             if search_lower in l.get("customer_name", "").lower() 
+4050 |             or search_lower in l.get("customer_phone", "").replace(" ", "")
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:4420:21
+     |
+4418 |                         else:
+4419 |                             item["status"] = "pending"
+4420 |                     except:
+     |                     ^^^^^^
+4421 |                         item["status"] = "pending"
+4422 |                 else:
+     |
+
+F841 Local variable `user` is assigned to but never used
+    --> backend/server.py:4534:5
+     |
+4532 | async def get_lead_collaborators(lead_id: str, request: Request):
+4533 |     """Get collaborators for a lead"""
+4534 |     user = await get_current_user(request)
+     |     ^^^^
+4535 |     
+4536 |     lead = await db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
+     |
+help: Remove assignment to unused variable `user`
+
+E722 Do not use bare `except`
+    --> backend/server.py:5805:25
+     |
+5803 |                                 expected = expected.replace(tzinfo=timezone.utc)
+5804 |                             days_delayed = (now - expected).days
+5805 |                         except:
+     |                         ^^^^^^
+5806 |                             pass
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5877:25
+     |
+5875 |                                     "designer": designer_name
+5876 |                                 })
+5877 |                         except:
+     |                         ^^^^^^
+5878 |                             pass
+5879 |         # Sort by expected date
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5895:38
+     |
+5893 |         # Lead metrics
+5894 |         total_leads = len(all_leads)
+5895 |         qualified_leads = len([l for l in all_leads if l.get("status") == "Qualified"])
+     |                                      ^
+5896 |         converted_leads_count = await db.leads.count_documents({"is_converted": True})
+5897 |         booking_conversion_rate = round((converted_leads_count / max(total_leads + converted_leads_count, 1)) * 100, 1)
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:5914:21
+     |
+5912 |                         total_days += (updated_dt - created_dt).days
+5913 |                         count += 1
+5914 |                     except:
+     |                     ^^^^^^
+5915 |                         pass
+5916 |             if count > 0:
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:5959:37
+     |
+5957 |             if u.get("role") == "PreSales":
+5958 |                 user_id = u.get("user_id")
+5959 |                 user_leads = [l for l in all_leads if l.get("assigned_to") == user_id]
+     |                                     ^
+5960 |                 converted = await db.leads.count_documents({"assigned_to": user_id, "is_converted": True})
+5961 |                 presales_performance.append({
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:6040:27
+     |
+6038 |     elif user.role == "PreSales":
+6039 |         # My leads only
+6040 |         my_leads = [l for l in all_leads if l.get("assigned_to") == user.user_id]
+     |                           ^
+6041 |         
+6042 |         # Stage counts
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:6043:35
+     |
+6042 |         # Stage counts
+6043 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+     |                                   ^
+6044 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+6045 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:6044:33
+     |
+6042 |         # Stage counts
+6043 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+6044 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+     |                                 ^
+6045 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:6045:38
+     |
+6043 |         bc_call_done = len([l for l in my_leads if l.get("stage") == "BC Call Done"])
+6044 |         boq_shared = len([l for l in my_leads if l.get("stage") == "BOQ Shared"])
+6045 |         waiting_booking = len([l for l in my_leads if l.get("stage") == "Waiting for Booking"])
+     |                                      ^
+6046 |         
+6047 |         # Follow-ups due today (leads with milestones expected today)
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:6059:25
+     |
+6057 |                                 followups_today += 1
+6058 |                                 break
+6059 |                         except:
+     |                         ^^^^^^
+6060 |                             pass
+     |
+
+E722 Do not use bare `except`
+    --> backend/server.py:6103:25
+     |
+6101 |                             if exp_dt.date() == now.date():
+6102 |                                 milestones_today += 1
+6103 |                         except:
+     |                         ^^^^^^
+6104 |                             pass
+     |
+
+E741 Ambiguous variable name: `l`
+    --> backend/server.py:7642:42
+     |
+7640 |             {"_id": 0, "lead_id": 1, "customer_name": 1, "customer_phone": 1}
+7641 |         ).to_list(1000)
+7642 |         leads_map = {l["lead_id"]: l for l in leads_list}
+     |                                          ^
+7643 |     
+7644 |     # Enrich meetings
+     |
+
+F841 Local variable `users_map` is assigned to but never used
+    --> backend/server.py:8381:5
+     |
+8379 |     # Get all users
+8380 |     users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "role": 1}).to_list(1000)
+8381 |     users_map = {u["user_id"]: u for u in users}
+     |     ^^^^^^^^^
+8382 |     presales_users = [u for u in users if u.get("role") == "PreSales"]
+     |
+help: Remove assignment to unused variable `users_map`
+
+F841 Local variable `now` is assigned to but never used
+    --> backend/server.py:8988:5
+     |
+8986 |         raise HTTPException(status_code=403, detail="Access denied")
+8987 |     
+8988 |     now = datetime.now(timezone.utc)
+     |     ^^^
+8989 |     
+8990 |     # Get all designers
+     |
+help: Remove assignment to unused variable `now`
+
+F841 Local variable `delayed_project_count` is assigned to but never used
+     --> backend/server.py:10614:9
+      |
+10612 |         # Get total design projects under management
+10613 |         total_projects = await db.design_projects.count_documents({"status": "active"})
+10614 |         delayed_project_count = await db.design_projects.count_documents({
+      |         ^^^^^^^^^^^^^^^^^^^^^
+10615 |             "status": "active",
+10616 |             "current_stage": {"$ne": "Validation & Kickoff"}
+      |
+help: Remove assignment to unused variable `delayed_project_count`
+
+E722 Do not use bare `except`
+     --> backend/server.py:10891:21
+      |
+10889 |                                 "days_delayed": days_delayed
+10890 |                             })
+10891 |                     except:
+      |                     ^^^^^^
+10892 |                         pass
+      |
+
+F841 Local variable `week_end` is assigned to but never used
+     --> backend/server.py:10912:5
+      |
+10911 |     # Due this week
+10912 |     week_end = (now + timedelta(days=7)).isoformat()
+      |     ^^^^^^^^
+10913 |     due_this_week = len([p for p in upcoming_deliveries])
+      |
+help: Remove assignment to unused variable `week_end`
+
+E722 Do not use bare `except`
+     --> backend/server.py:11035:13
+      |
+11033 |                         "days_inactive": days_inactive
+11034 |                     })
+11035 |             except:
+      |             ^^^^^^
+11036 |                 pass
+      |
+
+F841 Local variable `old_assignee_id` is assigned to but never used
+     --> backend/server.py:11153:5
+      |
+11151 |         raise HTTPException(status_code=404, detail="New assignee not found")
+11152 |     
+11153 |     old_assignee_id = lead.get("assigned_to")
+      |     ^^^^^^^^^^^^^^^
+11154 |     now = datetime.now(timezone.utc)
+      |
+help: Remove assignment to unused variable `old_assignee_id`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11482:5
+      |
+11480 | async def get_warranty(warranty_id: str, request: Request):
+11481 |     """Get a single warranty by ID"""
+11482 |     user = await get_current_user(request)
+      |     ^^^^
+11483 |     
+11484 |     warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11493:5
+      |
+11491 | async def get_warranty_by_pid(pid: str, request: Request):
+11492 |     """Get warranty by PID"""
+11493 |     user = await get_current_user(request)
+      |     ^^^^
+11494 |     
+11495 |     warranty = await db.warranties.find_one({"pid": pid}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11504:5
+      |
+11502 | async def get_warranty_by_project(project_id: str, request: Request):
+11503 |     """Get warranty by project ID"""
+11504 |     user = await get_current_user(request)
+      |     ^^^^
+11505 |     
+11506 |     warranty = await db.warranties.find_one({"project_id": project_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11586:5
+      |
+11584 | async def get_warranty_collaborators(warranty_id: str, request: Request):
+11585 |     """Get list of collaborators for a warranty"""
+11586 |     user = await get_current_user(request)
+      |     ^^^^
+11587 |     
+11588 |     warranty = await db.warranties.find_one({"warranty_id": warranty_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11839:5
+      |
+11837 | async def get_service_requests_by_pid(pid: str, request: Request):
+11838 |     """Get all service requests for a PID"""
+11839 |     user = await get_current_user(request)
+      |     ^^^^
+11840 |     
+11841 |     requests = await db.service_requests.find({"pid": pid}, {"_id": 0}).sort("created_at", -1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:11847:5
+      |
+11845 | async def get_service_requests_by_project(project_id: str, request: Request):
+11846 |     """Get all service requests for a project"""
+11847 |     user = await get_current_user(request)
+      |     ^^^^
+11848 |     
+11849 |     requests = await db.service_requests.find({"project_id": project_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12384:5
+      |
+12382 | async def list_technicians(request: Request):
+12383 |     """List all technicians"""
+12384 |     user = await get_current_user(request)
+      |     ^^^^
+12385 |     
+12386 |     technicians = await db.users.find(
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12583:5
+      |
+12581 | async def list_academy_categories(request: Request):
+12582 |     """List all academy categories"""
+12583 |     user = await get_current_user(request)
+      |     ^^^^
+12584 |     
+12585 |     categories = await db.academy_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12597:5
+      |
+12595 | async def get_academy_category(category_id: str, request: Request):
+12596 |     """Get a single academy category with its lessons"""
+12597 |     user = await get_current_user(request)
+      |     ^^^^
+12598 |     
+12599 |     category = await db.academy_categories.find_one({"category_id": category_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12700:5
+      |
+12698 | async def list_academy_lessons(request: Request, category_id: Optional[str] = None):
+12699 |     """List all lessons, optionally filtered by category"""
+12700 |     user = await get_current_user(request)
+      |     ^^^^
+12701 |     
+12702 |     query = {}
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12712:5
+      |
+12710 | async def get_academy_lesson(lesson_id: str, request: Request):
+12711 |     """Get a single lesson"""
+12712 |     user = await get_current_user(request)
+      |     ^^^^
+12713 |     
+12714 |     lesson = await db.academy_lessons.find_one({"lesson_id": lesson_id}, {"_id": 0})
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:12920:5
+      |
+12918 |     """
+12919 |     # Authenticate user
+12920 |     user = await get_current_user(request)
+      |     ^^^^
+12921 |     
+12922 |     # Validate filename (prevent directory traversal)
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:14431:5
+      |
+14429 | async def get_vendor_categories(request: Request):
+14430 |     """Get list of vendor categories"""
+14431 |     user = await get_current_user(request)
+      |     ^^^^
+14432 |     return VENDOR_CATEGORIES
+      |
+help: Remove assignment to unused variable `user`
+
+F841 Local variable `prev_date` is assigned to but never used
+     --> backend/server.py:14463:5
+      |
+14462 |     # Get previous day for opening balance calculation
+14463 |     prev_date = (target_date - timedelta(days=1)).strftime("%Y-%m-%d")
+      |     ^^^^^^^^^
+14464 |     
+14465 |     # Get all accounts
+      |
+help: Remove assignment to unused variable `prev_date`
+
+F841 Local variable `month_start` is assigned to but never used
+     --> backend/server.py:15497:5
+      |
+15495 |     alerts = []
+15496 |     now = datetime.now(timezone.utc)
+15497 |     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+      |     ^^^^^^^^^^^
+15498 |     
+15499 |     # 1. Projects exceeding planned cost
+      |
+help: Remove assignment to unused variable `month_start`
+
+F841 Local variable `legal_name` is assigned to but never used
+     --> backend/server.py:16488:5
+      |
+16486 |     # Company info
+16487 |     company_name = settings.get("brand_name") or settings.get("legal_name", "Arki Dots")
+16488 |     legal_name = settings.get("legal_name", "Arki Dots")
+      |     ^^^^^^^^^^
+16489 |     tagline = settings.get("tagline", "")
+16490 |     gstin = settings.get("gstin", "")
+      |
+help: Remove assignment to unused variable `legal_name`
+
+E722 Do not use bare `except`
+     --> backend/server.py:16528:9
+      |
+16526 |             logo_element = Image(logo_buffer, width=20*mm, height=12*mm)
+16527 |             logo_element.hAlign = 'RIGHT'
+16528 |         except:
+      |         ^^^^^^
+16529 |             logo_element = None
+      |
+
+E402 Module level import not at top of file
+     --> backend/server.py:16932:1
+      |
+16930 | # ============ PDF RECEIPT GENERATION ============
+16931 |
+16932 | from reportlab.lib import colors
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16933 | from reportlab.lib.pagesizes import A4
+16934 | from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+      |
+
+E402 Module level import not at top of file
+     --> backend/server.py:16933:1
+      |
+16932 | from reportlab.lib import colors
+16933 | from reportlab.lib.pagesizes import A4
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16934 | from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+16935 | from reportlab.lib.units import mm
+      |
+
+E402 Module level import not at top of file
+     --> backend/server.py:16934:1
+      |
+16932 | from reportlab.lib import colors
+16933 | from reportlab.lib.pagesizes import A4
+16934 | from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16935 | from reportlab.lib.units import mm
+16936 | from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+      |
+
+E402 Module level import not at top of file
+     --> backend/server.py:16935:1
+      |
+16933 | from reportlab.lib.pagesizes import A4
+16934 | from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+16935 | from reportlab.lib.units import mm
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16936 | from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+16937 | from io import BytesIO
+      |
+
+E402 Module level import not at top of file
+     --> backend/server.py:16936:1
+      |
+16934 | from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+16935 | from reportlab.lib.units import mm
+16936 | from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16937 | from io import BytesIO
+16938 | import base64
+      |
+
+E402 Module level import not at top of file
+     --> backend/server.py:16937:1
+      |
+16935 | from reportlab.lib.units import mm
+16936 | from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+16937 | from io import BytesIO
+      | ^^^^^^^^^^^^^^^^^^^^^^
+16938 | import base64
+      |
+
+E402 Module level import not at top of file
+     --> backend/server.py:16938:1
+      |
+16936 | from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+16937 | from io import BytesIO
+16938 | import base64
+      | ^^^^^^^^^^^^^
+16939 |
+16940 | # Company Settings Collection for logo and branding
+      |
+
+F811 Redefinition of unused `get_company_settings` from line 6264
+     --> backend/server.py:16976:11
+      |
+16975 | @api_router.get("/finance/company-settings")
+16976 | async def get_company_settings(request: Request):
+      |           ^^^^^^^^^^^^^^^^^^^^ `get_company_settings` redefined here
+16977 |     """Get company settings for receipts/invoices"""
+16978 |     user = await get_current_user(request)
+      |
+     ::: backend/server.py:6264:11
+      |
+ 6262 | # Company Settings
+ 6263 | @api_router.get("/settings/company")
+ 6264 | async def get_company_settings(request: Request):
+      |           -------------------- previous definition of `get_company_settings` here
+ 6265 |     """Get company settings"""
+ 6266 |     user = await get_current_user(request)
+      |
+help: Remove definition: `get_company_settings`
+
+F841 Local variable `user` is assigned to but never used
+     --> backend/server.py:16978:5
+      |
+16976 | async def get_company_settings(request: Request):
+16977 |     """Get company settings for receipts/invoices"""
+16978 |     user = await get_current_user(request)
+      |     ^^^^
+16979 |     settings = await db.finance_company_settings.find_one({}, {"_id": 0})
+16980 |     if not settings:
+      |
+help: Remove assignment to unused variable `user`
+
+F811 Redefinition of unused `update_company_settings` from line 6282
+     --> backend/server.py:16988:11
+      |
+16987 | @api_router.post("/finance/company-settings")
+16988 | async def update_company_settings(request: Request):
+      |           ^^^^^^^^^^^^^^^^^^^^^^^ `update_company_settings` redefined here
+16989 |     """Update company settings - Admin only"""
+16990 |     user = await get_current_user(request)
+      |
+     ::: backend/server.py:6282:11
+      |
+ 6281 | @api_router.put("/settings/company")
+ 6282 | async def update_company_settings(settings: CompanySettings, request: Request):
+      |           ----------------------- previous definition of `update_company_settings` here
+ 6283 |     """Update company settings (Admin only)"""
+ 6284 |     user = await get_current_user(request)
+      |
+help: Remove definition: `update_company_settings`
+
+F841 Local variable `legal_name` is assigned to but never used
+     --> backend/server.py:17145:5
+      |
+17143 |     # ============ EXTRACT COMPANY DATA ============
+17144 |     company_name = settings.get("brand_name") or settings.get("legal_name", "Arki Dots")
+17145 |     legal_name = settings.get("legal_name", "Arki Dots")
+      |     ^^^^^^^^^^
+17146 |     tagline = settings.get("tagline", "")
+      |
+help: Remove assignment to unused variable `legal_name`
+
+Found 60 errors (3 fixed, 57 remaining).
+No fixes available (27 hidden fixes can be enabled with the `--unsafe-fixes` option)..
+     - **Why fix this issue and what will be achieved with the fix?** To improve code quality and maintainability before any future refactoring.
+     - **Status:**  NOT STARTED
+     - **Is recurring issue?** Y
+     - **Should Test frontend/backend/both after fix?** backend
+     - **Blocked on other issue:** No. Deferred by user.
+
+**In progress Task List**:
+  - Task 1:  (P0) Implement Leak-Proof Spend Control System
+ Task Detail:
+  - Task 1: 
+     - **Where to resume:** 
+       1.  **Backend:** In , create new Pydantic models for  and new API endpoints for the entire expense lifecycle (create, approve, reject, track refunds, etc.).
+       2.  **Permissions:** Add new permissions (, , ) to the backend permission list.
+       3.  **Cashbook Integration:** Modify the cashbook entry creation logic to enforce that it can only be triggered from an  expense or other controlled sources (e.g., customer payment).
+       4.  **Frontend:** Create a new  page and add its route and sidebar link. This page will list all expense requests and allow users to create new ones.
+       5.  **Dashboards:** Update the  to include the new visibility widgets (money at risk, open expenses, etc.).
+     - **What will be achieved with this?** A robust system that prevents financial leakage by ensuring every expense is requested, approved, owned, and tracked, eliminating informal approvals and providing clear accountability.
+     - **Status:**  NOT STARTED
+     - **Should Test frontend/backend/both after fix?** both
+     - **Blocked on something:** No.
+
+**Upcoming and Future Tasks**
+Upcoming Tasks:
+- **(P1) Phase 4 - Reports & Insights Layer:**
+  - Create a Reports section under Finance.
+  - Build Cash Flow Report, Simplified Monthly P&L, and Project Profitability Report with date-range filters.
+- **(P2) Phase 5 - Import, Export & Control:**
+  - Implement admin-only CSV/Excel export for Cashbook and other financial data.
+  - Implement admin-only data import for opening balances and historical transactions.
+  - Implement a CA Mode (read-only access for auditors).
+
+Future Tasks:
+- **(P3) Backend Refactoring of :** Incrementally break down the monolithic  file after all major finance features are stable and complete.
+
+**Completed work in this session**
+- **Company Profile & Branding:** Created a comprehensive  page and corresponding backend APIs for managing company legal name, address, contact info, and branding (logo, colors).
+- **Premium PDF Receipt Design:** Rewrote the server-side PDF generation logic () to produce a professional, accounting-grade receipt. The design is minimal, uses a clear typographic hierarchy, and avoids UI-style colors.
+- **Dynamic PDF Data Binding:** Ensured the PDF receipt dynamically pulls all company data (logo, name, address, GSTIN) directly from the new Company Profile settings.
+- **Project-Specific Receipts View:** Added a Receipts section to the  page, providing a filtered, read-only view of all receipts for that specific project.
+- **Payment Schedule Editor:** Implemented a full-featured editor within the  page, allowing authorized users to view, edit, add, and remove payment stages for a project.
+- **Invoice & Refund Scaffolding:** Created the  and  pages with routes, sidebar links, and basic UI, connecting them to pre-existing backend logic.
+- **Phase 3 - Finance Masters:** Implemented the Finance Settings page () with tabs for managing Bank/Cash Accounts, Expense Categories, and Vendors, including the backend models and APIs.
+- **Testing:** Successfully used the  multiple times to validate the implementation of receipts, company profile, payment schedules, and the finance masters.
+
+**Earlier issues found/mentioned but not fixed**
+   - **Issue 1:** Minor Python Linting Errors in  (deferred by user).
+
+**Known issue recurrence from previous fork**
+  - **Issue recurrence in previous fork:** Backend test suite instability.
+  - **Recurrence count:** 2
+  - **Status:** IN PROGRESS (Recent tests have been stable, but the overall health of the large test suite remains a point of observation, especially with the monolith ).
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Backend:** FastAPI, MongoDB (motor), ReportLab (for PDF generation)
+- **Frontend:** React, React Router, Axios, TailwindCSS, Shadcn/UI
+- **Architecture:** Monolithic backend (). The core concept is building an isolated, multi-faceted finance module alongside a frozen CRM module, governed by a dynamic, admin-controlled permission system.
+
+**key DB schema**
+- **:** Enhanced with structured address, contact info, branding colors, and logo (Base64).
+- **:** Enhanced with  and .
+- **:** Enhanced to support parent-child relationships for hierarchy.
+- **:** (New) Stores vendor information (, , ).
+- **:** (New) Logs changes to master data.
+- **:** (New) Stores invoice details.
+- **:** (New) Stores refund information.
+- **To be created:** 
+
+**changes in tech stack**
+- **Added:**  for server-side PDF generation.
+
+**All files of reference**
+- **/app/backend/server.py**: Heavily modified to add all new backend logic for Company Profile, PDF generation, Payment Schedules, Invoices, Refunds, and Finance Masters.
+- **/app/frontend/src/App.js**: Modified to add routes for , , , and .
+- **/app/frontend/src/components/layout/Sidebar.jsx**: Modified to add links for the new finance pages under the Finance collapsible menu.
+- **/app/frontend/src/pages/CompanyProfile.jsx**: (New) UI for editing company identity, address, contact, and branding.
+- **/app/frontend/src/pages/FinanceSettings.jsx**: (New) Tabbed UI for managing Accounts, Categories, and Vendors.
+- **/app/frontend/src/pages/Invoices.jsx**: (New) UI for listing and creating tax invoices.
+- **/app/frontend/src/pages/Refunds.jsx**: (New) UI for managing refunds and cancellations.
+- **/app/frontend/src/pages/ProjectFinanceDetail.jsx**: Modified to add the Receipts section and the Payment Schedule editor.
+- **/app/frontend/src/pages/Receipts.jsx**: Modified to add PDF download functionality.
+
+**Areas that need refactoring**:
+- **/app/backend/server.py**: Critically large (>17,000 lines) and a significant maintenance risk. The user has approved refactoring this file only after all functional finance features are complete and stable.
+
+**key api endpoints**
+- : (GET, POST) Manage company profile data.
+- : (POST) Upload company logo.
+- : (GET) Generate and download a receipt PDF.
+- : (PUT, POST) Update a project's payment schedule.
+- : (GET, POST) List and create invoices.
+- : (GET) Generate and download an invoice PDF.
+- : (GET, POST) List and issue refunds.
+- : (GET, POST) Manage vendors.
+- : (GET, POST) Manage expense categories.
+- : (GET, POST) Manage bank/cash accounts.
+
+**Critical Info for New Agent**
+- **CRM IS FROZEN:** Do not modify any existing CRM code, schemas, or logic. The accounting module must remain completely isolated.
+- **PERMISSION-DRIVEN, NOT ROLE-DRIVEN:** All access control must be based on discrete permissions (e.g., ) that the Admin assigns. Avoid any hard-coded logic based on role names.
+- **IMMEDIATE TASK:** Your immediate and highest priority task is to build the Leak-Proof Spend Control System as detailed in the user's latest prompt. Start with the backend models and APIs for the Expense Authorization flow.
+
+**documents and test reports created in this job**
+  - /app/memory/PRD.md (updated multiple times)
+  - /app/test_reports/iteration_8.json
+  - /app/test_reports/iteration_9.json
+  - /app/test_reports/iteration_10.json
+  - /app/test_reports/iteration_11.json
+
+**Last 10 User Messages and any pending HUMAN messages** 
+- **10. User:** Provided detailed requirements for a Leak-Proof Spend Control System (Phase 3 of finance module). This is the current, active task.
+- **9. Agent:** Finished implementing the Account Master & Finance Structure (Phase 3) and asked for next steps.
+- **8. User:** Provided requirements for a multi-phase finance module buildout: Phase 3 (Account Masters), Phase 4 (Reports), and Phase 5 (Import/Export).
+- **7. Agent:** Finished implementing all P1 Finance & Payment Core features and asked for next steps.
+- **6. User:** Confirmed agent should proceed with the list of P1 action items (Payment Schedule Editor, Invoice Flow, Refund Flow).
+- **5. Agent:** Finished fixing the company logo binding issue on the PDF receipt and asked for confirmation to proceed.
+- **4. User:** Requested a bug fix: the company logo was not appearing on the generated receipt PDF.
+- **3. Agent:** Finished implementing the Company Profile and accounting-grade PDF receipt and asked for the next steps.
+- **2. User:** Provided detailed requirements for an enhanced Company Profile structure and a premium, corporate, accounting-grade redesign of the receipt PDF.
+- **1. Agent:** Finished implementing the premium PDF design and the project-specific receipts view, then asked for next steps.
+
+**Project Health Check:**
+- **Broken:** None.
+- **Mocked:** The Google Form integration for Service Requests.
+- **Technical Debt:**
+    - **CRITICAL:** The  monolith is extremely large and a major stability and maintenance risk. Refactoring is planned but deferred.
+    - Widespread minor linting errors in .
+
+**3rd Party Integrations**
+	 •	**Emergent-managed Google Auth**: Used for production user login.
+	 •	**Google Forms (Planned)**: A backend endpoint exists but is not connected.
+
+**Testing status**
+  - Testing agent used after significant changes: YES (used 4 times for major feature completions in this session)
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: None.
+  - Known regressions: None active.
+
+**Credentials to test flow:**
+- **Role:** Admin (Local)
+- **Email:** 
+- **Password:** 
+
+**What agent forgot to execute**
+The agent has been thorough and addressed all user requests in sequence. No tasks were overlooked in the last session. The agent is correctly positioned to start the next major user request.</analysis>
