@@ -51,7 +51,11 @@ import {
   Wallet,
   Building2,
   ArrowUpCircle,
-  ArrowDownCircle
+  ArrowDownCircle,
+  Snowflake,
+  ShieldCheck,
+  FileWarning,
+  BarChart3
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
