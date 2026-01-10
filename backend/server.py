@@ -4483,7 +4483,7 @@ async def get_lead_collaborators(lead_id: str, request: Request):
 
 @api_router.post("/leads/{lead_id}/collaborators")
 async def add_lead_collaborator(lead_id: str, request: Request):
-    """Add collaborator to a lead"""
+    """Add collaborator to a lead - requires leads.update permission"""
     user = await get_current_user(request)
     body = await request.json()
     
@@ -4497,10 +4497,26 @@ async def add_lead_collaborator(lead_id: str, request: Request):
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
-    # Permission check: Admin, SalesManager, or lead owner/designer can add collaborators
-    is_owner = lead.get("assigned_to") == user.user_id or lead.get("designer_id") == user.user_id
-    if user.role not in ["Admin", "SalesManager", "Manager"] and not is_owner:
-        raise HTTPException(status_code=403, detail="Only Admin, Sales Manager, or lead owner can add collaborators")
+    # Get user document for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    # Permission-based access check (requires leads.update)
+    has_update = has_permission(user_doc, "leads.update")
+    has_view_all = has_permission(user_doc, "leads.view_all")
+    
+    if not has_update:
+        raise HTTPException(status_code=403, detail="Access denied - no leads.update permission")
+    
+    # If user doesn't have view_all, check if they're assigned/collaborating
+    if not has_view_all:
+        is_assigned = lead.get("assigned_to") == user.user_id or lead.get("designer_id") == user.user_id
+        collaborator_ids = [c.get("user_id") for c in lead.get("collaborators", []) if isinstance(c, dict)]
+        is_collaborator = user.user_id in collaborator_ids
+        
+        if not is_assigned and not is_collaborator:
+            raise HTTPException(status_code=403, detail="Access denied - not assigned to this lead")
     
     # Verify collaborator exists
     collab_user = await db.users.find_one({"user_id": collaborator_user_id}, {"_id": 0})
@@ -4520,7 +4536,7 @@ async def add_lead_collaborator(lead_id: str, request: Request):
         "added_at": now.isoformat(),
         "added_by": user.user_id,
         "reason": reason,
-        "can_edit": collab_user.get("role") in ["Admin", "SalesManager", "Manager", "Designer"]
+        "can_edit": True  # Permission-based, not role-based
     }
     
     # System comment
