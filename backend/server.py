@@ -4178,9 +4178,7 @@ async def add_lead_comment(lead_id: str, comment: CommentCreate, request: Reques
 async def update_lead_customer_details(lead_id: str, request: Request):
     """
     Update customer details on a lead.
-    - PreSales can edit only BEFORE lead is Qualified
-    - Admin/SalesManager can edit anytime
-    - Designer can only view (cannot edit)
+    Requires leads.update permission and must be assigned/collaborating on the lead
     """
     user = await get_current_user(request)
     body = await request.json()
@@ -4190,21 +4188,26 @@ async def update_lead_customer_details(lead_id: str, request: Request):
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
-    # Role-based edit permissions
-    is_qualified = lead.get("status") == "Qualified"
+    # Get user document for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=403, detail="User not found")
     
-    if user.role == "Designer":
-        raise HTTPException(status_code=403, detail="Designers cannot edit customer details")
+    # Permission-based access check (requires leads.update)
+    has_update = has_permission(user_doc, "leads.update")
+    has_view_all = has_permission(user_doc, "leads.view_all")
     
-    if user.role == "PreSales":
-        # PreSales can only edit their own leads and only before qualified
-        if lead.get("assigned_to") != user.user_id:
-            raise HTTPException(status_code=403, detail="Access denied - not your lead")
-        if is_qualified:
-            raise HTTPException(status_code=403, detail="Cannot edit customer details after lead is qualified")
+    if not has_update:
+        raise HTTPException(status_code=403, detail="Access denied - no leads.update permission")
     
-    if user.role not in ["Admin", "SalesManager", "PreSales"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    # If user doesn't have view_all, check if they're assigned/collaborating
+    if not has_view_all:
+        is_assigned = lead.get("assigned_to") == user.user_id or lead.get("designer_id") == user.user_id
+        collaborator_ids = [c.get("user_id") for c in lead.get("collaborators", []) if isinstance(c, dict)]
+        is_collaborator = user.user_id in collaborator_ids
+        
+        if not is_assigned and not is_collaborator:
+            raise HTTPException(status_code=403, detail="Access denied - not assigned to this lead")
     
     # Build update dict
     update_dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
