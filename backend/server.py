@@ -1404,6 +1404,17 @@ DEFAULT_ROLE_PERMISSIONS = {
     "Technician": [
         "service.view", "service.update",
         "academy.view"
+    ],
+    "Accountant": [
+        # Basic finance access - add and view transactions
+        "finance.view_dashboard", "finance.view_cashbook", "finance.view_bankbook",
+        "finance.add_transaction", "finance.view_reports"
+    ],
+    "SeniorAccountant": [
+        # Extended finance access - verify, manage categories, all reports
+        "finance.view_dashboard", "finance.view_cashbook", "finance.view_bankbook",
+        "finance.add_transaction", "finance.edit_transaction", "finance.verify_transaction",
+        "finance.view_reports", "finance.manage_categories", "finance.export_data"
     ]
 }
 
