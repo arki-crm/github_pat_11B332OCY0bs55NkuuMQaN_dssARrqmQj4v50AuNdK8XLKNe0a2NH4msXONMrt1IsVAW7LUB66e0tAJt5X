@@ -58,7 +58,12 @@ import {
   BarChart3,
   Receipt,
   Eye,
-  Download
+  Download,
+  Calendar,
+  Percent,
+  LockOpen,
+  Save,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
