@@ -34,7 +34,8 @@ import {
   CalendarCheck,
   CalendarRange,
   Gauge,
-  RefreshCw
+  RefreshCw,
+  FileCheck
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
@@ -45,6 +46,7 @@ const SIDEBAR_EXPANDED_KEY = 'arkiflo_sidebar_expanded_menus';
 const financeSubItems = [
   { path: '/finance/founder-dashboard', label: 'Overview', icon: Gauge },
   { path: '/finance/cashbook', label: 'Cash Book', icon: Wallet },
+  { path: '/finance/expense-requests', label: 'Expense Requests', icon: FileCheck },
   { path: '/finance/receipts', label: 'Receipts', icon: Receipt },
   { path: '/finance/invoices', label: 'Invoices', icon: FileText },
   { path: '/finance/refunds', label: 'Refunds', icon: RefreshCw },
