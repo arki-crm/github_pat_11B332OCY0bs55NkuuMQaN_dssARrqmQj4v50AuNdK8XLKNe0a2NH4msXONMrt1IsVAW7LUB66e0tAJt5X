@@ -1387,11 +1387,12 @@ DEFAULT_ROLE_PERMISSIONS = {
 
 
 def get_user_permissions(user_doc: dict) -> list:
-    """Get user's effective permissions (custom or role-based defaults)"""
-    # If user has custom permissions, use those
-    if user_doc.get("custom_permissions"):
-        return user_doc.get("permissions", [])
-    # Otherwise use role-based defaults
+    """Get user's effective permissions (always use stored permissions if present, otherwise role defaults)"""
+    # If user has permissions array stored, use that (admin-assigned or role-based)
+    stored_perms = user_doc.get("permissions", [])
+    if stored_perms:
+        return stored_perms
+    # Fallback to role-based defaults if no permissions stored
     role = user_doc.get("role", "")
     return DEFAULT_ROLE_PERMISSIONS.get(role, [])
 
