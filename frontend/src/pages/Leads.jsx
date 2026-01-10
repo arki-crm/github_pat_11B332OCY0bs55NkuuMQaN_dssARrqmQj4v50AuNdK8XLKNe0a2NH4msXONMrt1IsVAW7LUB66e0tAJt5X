@@ -374,7 +374,7 @@ const Leads = () => {
                         <div className="flex items-center gap-2">
                           {lead.pid && (
                             <span className="font-mono text-xs font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">
-                              {lead.pid}
+                              {lead.pid.replace('ARKI-', '')}
                             </span>
                           )}
                           <p className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
