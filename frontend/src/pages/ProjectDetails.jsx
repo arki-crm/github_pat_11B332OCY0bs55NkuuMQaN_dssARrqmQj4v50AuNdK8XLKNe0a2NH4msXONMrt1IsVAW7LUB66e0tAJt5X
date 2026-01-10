@@ -145,6 +145,18 @@ const ProjectDetails = () => {
       setCollaborators(response.data.collaborators || []);
       setCompletedSubStages(response.data.completed_substages || []);
       setPercentageSubStages(response.data.percentage_substages || {});
+      
+      // Fetch user milestone permissions from substages endpoint
+      try {
+        const substagesRes = await axios.get(`${API}/projects/${id}/substages`, {
+          withCredentials: true
+        });
+        setUserMilestonePermissions(substagesRes.data.user_milestone_permissions || {});
+      } catch (permErr) {
+        console.error('Failed to fetch milestone permissions:', permErr);
+        // Fallback: empty permissions means frontend falls back to canChangeStage
+        setUserMilestonePermissions({});
+      }
     } catch (err) {
       console.error('Failed to fetch project:', err);
       if (err.response?.status === 403) {
