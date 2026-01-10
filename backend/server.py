@@ -2167,20 +2167,53 @@ async def update_user_role(user_id: str, role_update: RoleUpdateRequest, request
 # ============ PROJECT ENDPOINTS ============
 
 @api_router.get("/projects")
-async def list_projects(request: Request, stage: Optional[str] = None, search: Optional[str] = None):
+async def list_projects(
+    request: Request, 
+    stage: Optional[str] = None, 
+    search: Optional[str] = None,
+    time_filter: Optional[str] = None,  # this_month, last_month, this_quarter, custom, all
+    start_date: Optional[str] = None,   # For custom date range (ISO format)
+    end_date: Optional[str] = None      # For custom date range (ISO format)
+):
     """List projects - Designer sees only assigned, Admin/Manager sees all"""
     user = await get_current_user(request)
     
     # Build query
     query = {}
     
-    # Role-based filtering: Designer only sees assigned projects
-    if user.role == "Designer":
+    # Role-based filtering: Designer/OperationLead only sees assigned projects
+    if user.role in ["Designer", "OperationLead"]:
         query["collaborators"] = user.user_id
     
     # Stage filter
     if stage and stage != "all":
         query["stage"] = stage
+    
+    # Time-based filter
+    if time_filter and time_filter != "all":
+        now = datetime.now(timezone.utc)
+        date_filter = None
+        
+        if time_filter == "this_month":
+            first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            date_filter = {"$gte": first_of_month.isoformat()}
+        elif time_filter == "last_month":
+            first_of_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            last_month = first_of_this_month - timedelta(days=1)
+            first_of_last_month = last_month.replace(day=1)
+            date_filter = {"$gte": first_of_last_month.isoformat(), "$lt": first_of_this_month.isoformat()}
+        elif time_filter == "this_quarter":
+            quarter = (now.month - 1) // 3
+            first_month_of_quarter = quarter * 3 + 1
+            first_of_quarter = now.replace(month=first_month_of_quarter, day=1, hour=0, minute=0, second=0, microsecond=0)
+            date_filter = {"$gte": first_of_quarter.isoformat()}
+        elif time_filter == "custom" and start_date:
+            date_filter = {"$gte": start_date}
+            if end_date:
+                date_filter["$lte"] = end_date
+        
+        if date_filter:
+            query["created_at"] = date_filter
     
     # Fetch projects
     projects = await db.projects.find(query, {"_id": 0}).to_list(1000)
