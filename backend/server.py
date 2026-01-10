@@ -15373,6 +15373,868 @@ async def create_overrun_attribution(attr: OverrunAttributionCreate, request: Re
     return attribution
 
 
+# ============ LEAK-PROOF SPEND CONTROL: EXPENSE REQUESTS ============
+
+# Expense Request Statuses:
+# - pending_approval: Submitted, waiting for approver
+# - approved: Approved by approver, ready to be recorded
+# - rejected: Rejected by approver
+# - recorded: Recorded in cashbook (expense executed)
+# - refund_pending: Expense was returned/cancelled, refund awaited
+# - closed: Fully settled (recorded and no pending refunds)
+
+EXPENSE_REQUEST_STATUSES = [
+    "pending_approval",
+    "approved", 
+    "rejected",
+    "recorded",
+    "refund_pending",
+    "closed"
+]
+
+EXPENSE_URGENCY_LEVELS = ["low", "normal", "high", "critical"]
+
+
+class ExpenseRequestCreate(BaseModel):
+    project_id: Optional[str] = None  # Optional - can be non-project expense
+    category_id: str
+    vendor_id: Optional[str] = None
+    amount: float
+    description: str
+    urgency: str = "normal"  # low, normal, high, critical
+    expected_date: Optional[str] = None  # When payment is expected
+    attachments: Optional[List[str]] = None  # URLs to supporting docs
+
+
+class ExpenseRequestUpdate(BaseModel):
+    category_id: Optional[str] = None
+    vendor_id: Optional[str] = None
+    amount: Optional[float] = None
+    description: Optional[str] = None
+    urgency: Optional[str] = None
+    expected_date: Optional[str] = None
+    attachments: Optional[List[str]] = None
+
+
+class ExpenseApprovalAction(BaseModel):
+    action: str  # "approve" or "reject"
+    remarks: Optional[str] = None
+    over_budget_justification: Optional[str] = None  # Required if over budget
+
+
+class ExpenseRecordAction(BaseModel):
+    account_id: str  # Which account to pay from
+    mode: str  # cash, bank_transfer, upi, cheque
+    transaction_date: str  # When payment was made
+    paid_to: Optional[str] = None  # Override vendor name if needed
+    remarks: Optional[str] = None
+
+
+class RefundTrackingUpdate(BaseModel):
+    refund_expected_amount: float
+    refund_expected_date: Optional[str] = None
+    refund_notes: Optional[str] = None
+
+
+class RefundReceivedAction(BaseModel):
+    refund_amount: float
+    account_id: str  # Which account received the refund
+    mode: str
+    received_date: str
+    notes: Optional[str] = None
+
+
+@api_router.get("/finance/expense-requests")
+async def list_expense_requests(
+    request: Request,
+    status: Optional[str] = None,
+    project_id: Optional[str] = None,
+    owner_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """List expense requests with filters"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_expense_requests"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.view_expense_requests permission")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    if project_id:
+        query["project_id"] = project_id
+    if owner_id:
+        query["owner_id"] = owner_id
+    if start_date:
+        query["created_at"] = {"$gte": start_date}
+    if end_date:
+        if "created_at" in query:
+            query["created_at"]["$lte"] = end_date
+        else:
+            query["created_at"] = {"$lte": end_date}
+    
+    expense_requests = await db.finance_expense_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    # Enrich with project and category names
+    projects = {p["project_id"]: p for p in await db.projects.find({}, {"_id": 0, "project_id": 1, "pid": 1, "project_name": 1, "client_name": 1}).to_list(1000)}
+    categories = {c["category_id"]: c for c in await db.accounting_categories.find({}, {"_id": 0}).to_list(100)}
+    vendors = {v["vendor_id"]: v for v in await db.accounting_vendors.find({}, {"_id": 0}).to_list(500)}
+    
+    for er in expense_requests:
+        if er.get("project_id") and er["project_id"] in projects:
+            p = projects[er["project_id"]]
+            er["project_name"] = p.get("project_name", "")
+            er["project_pid"] = p.get("pid", "").replace("ARKI-", "")
+            er["client_name"] = p.get("client_name", "")
+        if er.get("category_id") and er["category_id"] in categories:
+            er["category_name"] = categories[er["category_id"]].get("name", "Unknown")
+        if er.get("vendor_id") and er["vendor_id"] in vendors:
+            er["vendor_name"] = vendors[er["vendor_id"]].get("vendor_name", "Unknown")
+    
+    return expense_requests
+
+
+@api_router.get("/finance/expense-requests/{request_id}")
+async def get_expense_request(request_id: str, request: Request):
+    """Get a single expense request with full details"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_expense_requests"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    expense_req = await db.finance_expense_requests.find_one({"request_id": request_id}, {"_id": 0})
+    if not expense_req:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    
+    # Enrich with related data
+    if expense_req.get("project_id"):
+        project = await db.projects.find_one({"project_id": expense_req["project_id"]}, {"_id": 0, "pid": 1, "project_name": 1, "client_name": 1, "project_value": 1})
+        if project:
+            expense_req["project_name"] = project.get("project_name", "")
+            expense_req["project_pid"] = project.get("pid", "").replace("ARKI-", "")
+            expense_req["client_name"] = project.get("client_name", "")
+            expense_req["project_value"] = project.get("project_value", 0)
+    
+    if expense_req.get("category_id"):
+        cat = await db.accounting_categories.find_one({"category_id": expense_req["category_id"]}, {"_id": 0})
+        if cat:
+            expense_req["category_name"] = cat.get("name", "Unknown")
+    
+    if expense_req.get("vendor_id"):
+        vendor = await db.accounting_vendors.find_one({"vendor_id": expense_req["vendor_id"]}, {"_id": 0})
+        if vendor:
+            expense_req["vendor_name"] = vendor.get("vendor_name", "Unknown")
+    
+    return expense_req
+
+
+@api_router.post("/finance/expense-requests")
+async def create_expense_request(data: ExpenseRequestCreate, request: Request):
+    """Create a new expense request for approval"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.create_expense_request"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.create_expense_request permission")
+    
+    # Validate category
+    category = await db.accounting_categories.find_one({"category_id": data.category_id})
+    if not category:
+        raise HTTPException(status_code=400, detail="Invalid category")
+    
+    # Validate project if provided
+    project = None
+    is_over_budget = False
+    budget_info = {}
+    if data.project_id:
+        project = await db.projects.find_one({"project_id": data.project_id})
+        if not project:
+            raise HTTPException(status_code=400, detail="Invalid project ID")
+        
+        # Check if expense would exceed project budget
+        vm_list = await db.finance_vendor_mappings.find({"project_id": data.project_id}, {"_id": 0}).to_list(100)
+        total_planned = sum(v.get("planned_amount", 0) for v in vm_list)
+        
+        # Get actual spend so far
+        actual_pipeline = [
+            {"$match": {"project_id": data.project_id, "transaction_type": "outflow"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        actual_result = await db.accounting_transactions.aggregate(actual_pipeline).to_list(1)
+        current_actual = actual_result[0]["total"] if actual_result else 0
+        
+        # Get pending approved expenses not yet recorded
+        pending_approved = await db.finance_expense_requests.find({
+            "project_id": data.project_id,
+            "status": "approved"
+        }, {"_id": 0, "amount": 1}).to_list(100)
+        pending_amount = sum(e.get("amount", 0) for e in pending_approved)
+        
+        # Calculate remaining budget
+        spent_and_pending = current_actual + pending_amount
+        remaining_budget = total_planned - spent_and_pending
+        
+        if data.amount > remaining_budget:
+            is_over_budget = True
+        
+        budget_info = {
+            "planned_budget": total_planned,
+            "actual_spent": current_actual,
+            "pending_approved": pending_amount,
+            "remaining_before_this": remaining_budget,
+            "is_over_budget": is_over_budget,
+            "over_budget_amount": max(0, data.amount - remaining_budget)
+        }
+    
+    # Validate vendor if provided
+    if data.vendor_id:
+        vendor = await db.accounting_vendors.find_one({"vendor_id": data.vendor_id})
+        if not vendor:
+            raise HTTPException(status_code=400, detail="Invalid vendor ID")
+    
+    if data.urgency not in EXPENSE_URGENCY_LEVELS:
+        raise HTTPException(status_code=400, detail=f"Invalid urgency. Must be one of: {EXPENSE_URGENCY_LEVELS}")
+    
+    now = datetime.now(timezone.utc)
+    request_id = f"exp_{uuid.uuid4().hex[:12]}"
+    
+    # Generate request number: EXP-YYYYMMDD-XXXX
+    date_part = now.strftime("%Y%m%d")
+    count = await db.finance_expense_requests.count_documents({"request_number": {"$regex": f"^EXP-{date_part}"}})
+    request_number = f"EXP-{date_part}-{str(count + 1).zfill(4)}"
+    
+    new_request = {
+        "request_id": request_id,
+        "request_number": request_number,
+        "project_id": data.project_id,
+        "category_id": data.category_id,
+        "vendor_id": data.vendor_id,
+        "amount": data.amount,
+        "description": data.description,
+        "urgency": data.urgency,
+        "expected_date": data.expected_date,
+        "attachments": data.attachments or [],
+        "status": "pending_approval",
+        "is_over_budget": is_over_budget,
+        "budget_info": budget_info,
+        # Ownership
+        "requester_id": user.user_id,
+        "requester_name": user.name,
+        "owner_id": user.user_id,  # Initially requester owns it
+        "owner_name": user.name,
+        # Approval tracking
+        "approved_by": None,
+        "approved_by_name": None,
+        "approved_at": None,
+        "approval_remarks": None,
+        "over_budget_justification": None,
+        # Rejection tracking
+        "rejected_by": None,
+        "rejected_by_name": None,
+        "rejected_at": None,
+        "rejection_reason": None,
+        # Recording tracking
+        "recorded_by": None,
+        "recorded_by_name": None,
+        "recorded_at": None,
+        "transaction_id": None,  # Link to cashbook entry when recorded
+        # Refund tracking
+        "refund_status": None,  # "pending", "partial", "received", "waived"
+        "refund_expected_amount": 0,
+        "refund_received_amount": 0,
+        "refund_transaction_id": None,
+        "refund_notes": None,
+        # Timestamps
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        # Activity log
+        "activity_log": [{
+            "action": "created",
+            "by_id": user.user_id,
+            "by_name": user.name,
+            "at": now.isoformat(),
+            "details": f"Expense request created for ₹{data.amount:,.0f}"
+        }]
+    }
+    
+    await db.finance_expense_requests.insert_one(new_request)
+    new_request.pop("_id", None)
+    
+    return new_request
+
+
+@api_router.put("/finance/expense-requests/{request_id}")
+async def update_expense_request(request_id: str, data: ExpenseRequestUpdate, request: Request):
+    """Update an expense request (only if pending_approval)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.create_expense_request"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    existing = await db.finance_expense_requests.find_one({"request_id": request_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    
+    if existing.get("status") != "pending_approval":
+        raise HTTPException(status_code=400, detail="Can only edit pending requests")
+    
+    # Only requester or admin can edit
+    if existing.get("requester_id") != user.user_id and user_doc.get("role") != "Admin":
+        raise HTTPException(status_code=403, detail="Only the requester can edit this request")
+    
+    now = datetime.now(timezone.utc)
+    update_dict = {"updated_at": now.isoformat()}
+    changes = []
+    
+    for field in ["category_id", "vendor_id", "amount", "description", "urgency", "expected_date", "attachments"]:
+        value = getattr(data, field, None)
+        if value is not None:
+            old_value = existing.get(field)
+            if old_value != value:
+                update_dict[field] = value
+                changes.append(f"{field}: {old_value} → {value}")
+    
+    if changes:
+        # Recalculate over-budget status if amount changed
+        if "amount" in update_dict and existing.get("project_id"):
+            project_id = existing["project_id"]
+            vm_list = await db.finance_vendor_mappings.find({"project_id": project_id}, {"_id": 0}).to_list(100)
+            total_planned = sum(v.get("planned_amount", 0) for v in vm_list)
+            
+            actual_pipeline = [
+                {"$match": {"project_id": project_id, "transaction_type": "outflow"}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]
+            actual_result = await db.accounting_transactions.aggregate(actual_pipeline).to_list(1)
+            current_actual = actual_result[0]["total"] if actual_result else 0
+            
+            pending_approved = await db.finance_expense_requests.find({
+                "project_id": project_id,
+                "status": "approved",
+                "request_id": {"$ne": request_id}
+            }, {"_id": 0, "amount": 1}).to_list(100)
+            pending_amount = sum(e.get("amount", 0) for e in pending_approved)
+            
+            remaining_budget = total_planned - current_actual - pending_amount
+            new_amount = update_dict["amount"]
+            is_over_budget = new_amount > remaining_budget
+            
+            update_dict["is_over_budget"] = is_over_budget
+            update_dict["budget_info"] = {
+                "planned_budget": total_planned,
+                "actual_spent": current_actual,
+                "pending_approved": pending_amount,
+                "remaining_before_this": remaining_budget,
+                "is_over_budget": is_over_budget,
+                "over_budget_amount": max(0, new_amount - remaining_budget)
+            }
+        
+        # Add to activity log
+        activity_entry = {
+            "action": "updated",
+            "by_id": user.user_id,
+            "by_name": user.name,
+            "at": now.isoformat(),
+            "details": "; ".join(changes)
+        }
+        
+        await db.finance_expense_requests.update_one(
+            {"request_id": request_id},
+            {
+                "$set": update_dict,
+                "$push": {"activity_log": activity_entry}
+            }
+        )
+    
+    updated = await db.finance_expense_requests.find_one({"request_id": request_id}, {"_id": 0})
+    return updated
+
+
+@api_router.post("/finance/expense-requests/{request_id}/approve")
+async def approve_or_reject_expense_request(request_id: str, action: ExpenseApprovalAction, request: Request):
+    """Approve or reject an expense request"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.approve_expense"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.approve_expense permission")
+    
+    existing = await db.finance_expense_requests.find_one({"request_id": request_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    
+    if existing.get("status") != "pending_approval":
+        raise HTTPException(status_code=400, detail="Can only approve/reject pending requests")
+    
+    now = datetime.now(timezone.utc)
+    
+    if action.action == "approve":
+        # Check if over budget and user has permission
+        if existing.get("is_over_budget"):
+            if not has_permission(user_doc, "finance.allow_over_budget"):
+                raise HTTPException(status_code=403, detail="This expense exceeds budget. You need finance.allow_over_budget permission.")
+            if not action.over_budget_justification:
+                raise HTTPException(status_code=400, detail="Over-budget expenses require justification")
+        
+        update_dict = {
+            "status": "approved",
+            "approved_by": user.user_id,
+            "approved_by_name": user.name,
+            "approved_at": now.isoformat(),
+            "approval_remarks": action.remarks,
+            "over_budget_justification": action.over_budget_justification,
+            "updated_at": now.isoformat()
+        }
+        
+        activity_entry = {
+            "action": "approved",
+            "by_id": user.user_id,
+            "by_name": user.name,
+            "at": now.isoformat(),
+            "details": f"Approved. {action.remarks or ''}"
+        }
+        
+    elif action.action == "reject":
+        update_dict = {
+            "status": "rejected",
+            "rejected_by": user.user_id,
+            "rejected_by_name": user.name,
+            "rejected_at": now.isoformat(),
+            "rejection_reason": action.remarks,
+            "updated_at": now.isoformat()
+        }
+        
+        activity_entry = {
+            "action": "rejected",
+            "by_id": user.user_id,
+            "by_name": user.name,
+            "at": now.isoformat(),
+            "details": f"Rejected. Reason: {action.remarks or 'No reason provided'}"
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action. Must be 'approve' or 'reject'")
+    
+    await db.finance_expense_requests.update_one(
+        {"request_id": request_id},
+        {
+            "$set": update_dict,
+            "$push": {"activity_log": activity_entry}
+        }
+    )
+    
+    updated = await db.finance_expense_requests.find_one({"request_id": request_id}, {"_id": 0})
+    return updated
+
+
+@api_router.post("/finance/expense-requests/{request_id}/record")
+async def record_expense_request(request_id: str, data: ExpenseRecordAction, request: Request):
+    """Record an approved expense in the cashbook (creates outflow transaction)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.record_expense"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.record_expense permission")
+    
+    existing = await db.finance_expense_requests.find_one({"request_id": request_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    
+    if existing.get("status") != "approved":
+        raise HTTPException(status_code=400, detail="Can only record approved expenses")
+    
+    # Validate account
+    account = await db.accounting_accounts.find_one({"account_id": data.account_id})
+    if not account:
+        raise HTTPException(status_code=400, detail="Invalid account")
+    
+    # Check if day is locked
+    txn_date = data.transaction_date[:10]
+    daily_closing = await db.finance_daily_closings.find_one({"date": txn_date, "is_locked": True})
+    if daily_closing:
+        raise HTTPException(status_code=400, detail=f"Day {txn_date} is locked. Cannot add transactions.")
+    
+    now = datetime.now(timezone.utc)
+    txn_id = f"txn_{uuid.uuid4().hex[:8]}"
+    
+    # Determine paid_to - use vendor name if available, else custom
+    vendor_name = None
+    if existing.get("vendor_id"):
+        vendor = await db.accounting_vendors.find_one({"vendor_id": existing["vendor_id"]})
+        if vendor:
+            vendor_name = vendor.get("vendor_name")
+    paid_to = data.paid_to or vendor_name or "Vendor/Supplier"
+    
+    # Create the cashbook transaction
+    new_txn = {
+        "transaction_id": txn_id,
+        "transaction_date": data.transaction_date,
+        "transaction_type": "outflow",
+        "amount": existing["amount"],
+        "mode": data.mode,
+        "category_id": existing["category_id"],
+        "account_id": data.account_id,
+        "project_id": existing.get("project_id"),
+        "paid_to": paid_to,
+        "remarks": f"[EXP:{existing['request_number']}] {existing['description']}. {data.remarks or ''}".strip(),
+        "attachment_url": None,
+        "is_verified": False,
+        "verified_by": None,
+        "verified_at": None,
+        # Link to expense request
+        "source_type": "expense_request",
+        "source_id": request_id,
+        "source_number": existing["request_number"],
+        # Timestamps
+        "created_at": now.isoformat(),
+        "created_by": user.user_id,
+        "created_by_name": user.name,
+        "updated_at": now.isoformat()
+    }
+    
+    await db.accounting_transactions.insert_one(new_txn)
+    
+    # Update account balance
+    await db.accounting_accounts.update_one(
+        {"account_id": data.account_id},
+        {"$inc": {"current_balance": -existing["amount"]}}
+    )
+    
+    # Update expense request status
+    update_dict = {
+        "status": "recorded",
+        "recorded_by": user.user_id,
+        "recorded_by_name": user.name,
+        "recorded_at": now.isoformat(),
+        "transaction_id": txn_id,
+        "updated_at": now.isoformat()
+    }
+    
+    activity_entry = {
+        "action": "recorded",
+        "by_id": user.user_id,
+        "by_name": user.name,
+        "at": now.isoformat(),
+        "details": f"Recorded as transaction {txn_id}. Mode: {data.mode}, Account: {account.get('account_name')}"
+    }
+    
+    await db.finance_expense_requests.update_one(
+        {"request_id": request_id},
+        {
+            "$set": update_dict,
+            "$push": {"activity_log": activity_entry}
+        }
+    )
+    
+    updated = await db.finance_expense_requests.find_one({"request_id": request_id}, {"_id": 0})
+    updated["transaction"] = {**new_txn, "_id": None}
+    return updated
+
+
+@api_router.post("/finance/expense-requests/{request_id}/mark-refund-pending")
+async def mark_expense_refund_pending(request_id: str, data: RefundTrackingUpdate, request: Request):
+    """Mark an expense as having a pending refund"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.track_refunds"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.track_refunds permission")
+    
+    existing = await db.finance_expense_requests.find_one({"request_id": request_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    
+    if existing.get("status") != "recorded":
+        raise HTTPException(status_code=400, detail="Can only mark refund pending for recorded expenses")
+    
+    now = datetime.now(timezone.utc)
+    
+    update_dict = {
+        "status": "refund_pending",
+        "refund_status": "pending",
+        "refund_expected_amount": data.refund_expected_amount,
+        "refund_expected_date": data.refund_expected_date,
+        "refund_notes": data.refund_notes,
+        "updated_at": now.isoformat()
+    }
+    
+    activity_entry = {
+        "action": "refund_marked",
+        "by_id": user.user_id,
+        "by_name": user.name,
+        "at": now.isoformat(),
+        "details": f"Refund pending: ₹{data.refund_expected_amount:,.0f}. Expected: {data.refund_expected_date or 'Not specified'}"
+    }
+    
+    await db.finance_expense_requests.update_one(
+        {"request_id": request_id},
+        {
+            "$set": update_dict,
+            "$push": {"activity_log": activity_entry}
+        }
+    )
+    
+    updated = await db.finance_expense_requests.find_one({"request_id": request_id}, {"_id": 0})
+    return updated
+
+
+@api_router.post("/finance/expense-requests/{request_id}/record-refund")
+async def record_expense_refund(request_id: str, data: RefundReceivedAction, request: Request):
+    """Record a refund received for an expense"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.track_refunds"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    existing = await db.finance_expense_requests.find_one({"request_id": request_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    
+    if existing.get("status") != "refund_pending":
+        raise HTTPException(status_code=400, detail="Expense is not in refund_pending status")
+    
+    # Validate account
+    account = await db.accounting_accounts.find_one({"account_id": data.account_id})
+    if not account:
+        raise HTTPException(status_code=400, detail="Invalid account")
+    
+    # Check if day is locked
+    txn_date = data.received_date[:10]
+    daily_closing = await db.finance_daily_closings.find_one({"date": txn_date, "is_locked": True})
+    if daily_closing:
+        raise HTTPException(status_code=400, detail=f"Day {txn_date} is locked.")
+    
+    now = datetime.now(timezone.utc)
+    txn_id = f"txn_{uuid.uuid4().hex[:8]}"
+    
+    # Get category for refund (use same as original expense)
+    category_id = existing.get("category_id")
+    
+    # Create inflow transaction for refund
+    refund_txn = {
+        "transaction_id": txn_id,
+        "transaction_date": data.received_date,
+        "transaction_type": "inflow",
+        "amount": data.refund_amount,
+        "mode": data.mode,
+        "category_id": category_id,
+        "account_id": data.account_id,
+        "project_id": existing.get("project_id"),
+        "paid_to": f"Refund - {existing.get('request_number', '')}",
+        "remarks": f"[REFUND:{existing['request_number']}] {data.notes or 'Refund received'}",
+        "attachment_url": None,
+        "is_verified": False,
+        "source_type": "expense_refund",
+        "source_id": request_id,
+        "source_number": existing["request_number"],
+        "created_at": now.isoformat(),
+        "created_by": user.user_id,
+        "created_by_name": user.name,
+        "updated_at": now.isoformat()
+    }
+    
+    await db.accounting_transactions.insert_one(refund_txn)
+    
+    # Update account balance (inflow)
+    await db.accounting_accounts.update_one(
+        {"account_id": data.account_id},
+        {"$inc": {"current_balance": data.refund_amount}}
+    )
+    
+    # Calculate total refund received
+    total_refund = (existing.get("refund_received_amount", 0) or 0) + data.refund_amount
+    expected = existing.get("refund_expected_amount", 0) or 0
+    
+    # Determine new status
+    if total_refund >= expected:
+        new_status = "closed"
+        refund_status = "received"
+    else:
+        new_status = "refund_pending"
+        refund_status = "partial"
+    
+    update_dict = {
+        "status": new_status,
+        "refund_status": refund_status,
+        "refund_received_amount": total_refund,
+        "refund_transaction_id": txn_id,
+        "updated_at": now.isoformat()
+    }
+    
+    activity_entry = {
+        "action": "refund_received",
+        "by_id": user.user_id,
+        "by_name": user.name,
+        "at": now.isoformat(),
+        "details": f"Refund received: ₹{data.refund_amount:,.0f}. Total: ₹{total_refund:,.0f}/{expected:,.0f}"
+    }
+    
+    await db.finance_expense_requests.update_one(
+        {"request_id": request_id},
+        {
+            "$set": update_dict,
+            "$push": {"activity_log": activity_entry}
+        }
+    )
+    
+    updated = await db.finance_expense_requests.find_one({"request_id": request_id}, {"_id": 0})
+    return updated
+
+
+@api_router.post("/finance/expense-requests/{request_id}/close")
+async def close_expense_request(request_id: str, request: Request):
+    """Manually close an expense (e.g., waive pending refund)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.approve_expense"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    existing = await db.finance_expense_requests.find_one({"request_id": request_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    
+    if existing.get("status") not in ["recorded", "refund_pending"]:
+        raise HTTPException(status_code=400, detail="Can only close recorded or refund_pending expenses")
+    
+    now = datetime.now(timezone.utc)
+    
+    refund_status = existing.get("refund_status")
+    if refund_status == "pending":
+        refund_status = "waived"
+    
+    update_dict = {
+        "status": "closed",
+        "refund_status": refund_status,
+        "updated_at": now.isoformat()
+    }
+    
+    activity_entry = {
+        "action": "closed",
+        "by_id": user.user_id,
+        "by_name": user.name,
+        "at": now.isoformat(),
+        "details": "Expense closed manually"
+    }
+    
+    await db.finance_expense_requests.update_one(
+        {"request_id": request_id},
+        {
+            "$set": update_dict,
+            "$push": {"activity_log": activity_entry}
+        }
+    )
+    
+    updated = await db.finance_expense_requests.find_one({"request_id": request_id}, {"_id": 0})
+    return updated
+
+
+@api_router.put("/finance/expense-requests/{request_id}/reassign-owner")
+async def reassign_expense_owner(request_id: str, request: Request):
+    """Reassign ownership of an expense request"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.approve_expense"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    body = await request.json()
+    new_owner_id = body.get("owner_id")
+    if not new_owner_id:
+        raise HTTPException(status_code=400, detail="owner_id is required")
+    
+    existing = await db.finance_expense_requests.find_one({"request_id": request_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    
+    # Validate new owner exists
+    new_owner = await db.users.find_one({"user_id": new_owner_id})
+    if not new_owner:
+        raise HTTPException(status_code=400, detail="Invalid owner user ID")
+    
+    now = datetime.now(timezone.utc)
+    old_owner = existing.get("owner_name", "Unknown")
+    
+    update_dict = {
+        "owner_id": new_owner_id,
+        "owner_name": new_owner.get("name", new_owner.get("email", "Unknown")),
+        "updated_at": now.isoformat()
+    }
+    
+    activity_entry = {
+        "action": "reassigned",
+        "by_id": user.user_id,
+        "by_name": user.name,
+        "at": now.isoformat(),
+        "details": f"Owner changed from {old_owner} to {new_owner.get('name', 'Unknown')}"
+    }
+    
+    await db.finance_expense_requests.update_one(
+        {"request_id": request_id},
+        {
+            "$set": update_dict,
+            "$push": {"activity_log": activity_entry}
+        }
+    )
+    
+    updated = await db.finance_expense_requests.find_one({"request_id": request_id}, {"_id": 0})
+    return updated
+
+
+@api_router.get("/finance/expense-requests/stats/summary")
+async def get_expense_requests_summary(request: Request):
+    """Get summary stats for expense requests dashboard"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.view_expense_requests"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Count by status
+    pipeline = [
+        {"$group": {"_id": "$status", "count": {"$sum": 1}, "total_amount": {"$sum": "$amount"}}}
+    ]
+    status_stats = await db.finance_expense_requests.aggregate(pipeline).to_list(10)
+    status_summary = {s["_id"]: {"count": s["count"], "amount": s["total_amount"]} for s in status_stats}
+    
+    # Pending refunds
+    pending_refunds = await db.finance_expense_requests.find(
+        {"status": "refund_pending"},
+        {"_id": 0, "request_id": 1, "request_number": 1, "amount": 1, "refund_expected_amount": 1, 
+         "refund_expected_date": 1, "project_id": 1, "owner_name": 1}
+    ).to_list(100)
+    
+    # Calculate money at risk (pending approval + approved not recorded + pending refunds)
+    pending_approval = status_summary.get("pending_approval", {}).get("amount", 0)
+    approved_unrecorded = status_summary.get("approved", {}).get("amount", 0)
+    refund_pending_amount = sum(
+        (r.get("refund_expected_amount", 0) - r.get("refund_received_amount", 0))
+        for r in pending_refunds
+    )
+    
+    money_at_risk = pending_approval + approved_unrecorded + refund_pending_amount
+    
+    # Over-budget requests
+    over_budget = await db.finance_expense_requests.count_documents({
+        "is_over_budget": True,
+        "status": {"$in": ["pending_approval", "approved"]}
+    })
+    
+    return {
+        "status_summary": status_summary,
+        "money_at_risk": money_at_risk,
+        "pending_refunds_count": len(pending_refunds),
+        "pending_refunds": pending_refunds,
+        "over_budget_count": over_budget,
+        "total_pending_approval": status_summary.get("pending_approval", {}).get("count", 0),
+        "total_approved_unrecorded": status_summary.get("approved", {}).get("count", 0)
+    }
+
+
 # ============ HISTORICAL COST INTELLIGENCE ============
 
 @api_router.get("/finance/cost-intelligence/{project_id}")
