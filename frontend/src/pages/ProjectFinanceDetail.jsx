@@ -118,18 +118,20 @@ const ProjectFinanceDetail = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [financeRes, decisionsRes, intelligenceRes, attrRes, overrunRes] = await Promise.all([
+      const [financeRes, decisionsRes, intelligenceRes, attrRes, overrunRes, receiptsRes] = await Promise.all([
         axios.get(`${API}/finance/project-finance/${projectId}`, { withCredentials: true }),
         axios.get(`${API}/finance/projects/${projectId}/decisions`, { withCredentials: true }).catch(() => ({ data: {} })),
         axios.get(`${API}/finance/cost-intelligence/${projectId}`, { withCredentials: true }).catch(() => ({ data: null })),
         axios.get(`${API}/finance/overrun-attributions/${projectId}`, { withCredentials: true }).catch(() => ({ data: [] })),
-        axios.get(`${API}/finance/overrun-reasons`, { withCredentials: true }).catch(() => ({ data: { reasons: [], responsible_categories: [] } }))
+        axios.get(`${API}/finance/overrun-reasons`, { withCredentials: true }).catch(() => ({ data: { reasons: [], responsible_categories: [] } })),
+        axios.get(`${API}/finance/receipts?project_id=${projectId}`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setData(financeRes.data);
       setDecisions(decisionsRes.data);
       setIntelligence(intelligenceRes.data);
       setAttributions(attrRes.data);
       setOverrunOptions(overrunRes.data);
+      setProjectReceipts(receiptsRes.data || []);
     } catch (error) {
       console.error('Failed to fetch project finance:', error);
       if (error.response?.status === 404) {
