@@ -302,23 +302,27 @@ TEST_Import Lead 2,9876543211,Referral
     def test_import_preview_validates_required_fields(self):
         """POST /api/admin/import/preview - Should validate required fields"""
         # Create CSV with missing required fields
-        csv_content = """Customer Name,Source
+        csv_content = b"""Customer Name,Source
 TEST_Missing Phone,Website
 """
         
         files = {
-            'file': ('test_invalid.csv', csv_content, 'text/csv')
+            'file': ('test_invalid.csv', BytesIO(csv_content), 'text/csv')
         }
         
-        headers = dict(self.session.headers)
-        if 'Content-Type' in headers:
-            del headers['Content-Type']
-        
-        response = self.session.post(
-            f"{BASE_URL}/api/admin/import/preview?data_type=leads&duplicate_strategy=skip",
-            files=files,
-            headers=headers
+        # Use a fresh session for file upload
+        upload_session = requests.Session()
+        login_resp = upload_session.post(
+            f"{BASE_URL}/api/auth/local-login",
+            json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
         )
+        assert login_resp.status_code == 200, "Login failed"
+        
+        response = upload_session.post(
+            f"{BASE_URL}/api/admin/import/preview?data_type=leads&duplicate_strategy=skip",
+            files=files
+        )
+        upload_session.close()
         
         assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
         
