@@ -638,8 +638,20 @@ const ProjectDetails = () => {
           </p>
         </div>
         
-        {/* Right side: Stage Badge + Status Dropdown */}
+        {/* Right side: Stage Badge + Finance + Status Dropdown */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          {/* Finance Details Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-emerald-600 border-emerald-300 hover:bg-emerald-50"
+            onClick={() => navigate(`/finance/project-finance/${project?.project_id}`)}
+            data-testid="project-finance-btn"
+          >
+            <IndianRupee className="w-3.5 h-3.5 mr-1" />
+            Finance Details
+          </Button>
+          
           {/* Status Dropdown */}
           {(canHold() || canActivateOrDeactivate()) && (
             <DropdownMenu>
