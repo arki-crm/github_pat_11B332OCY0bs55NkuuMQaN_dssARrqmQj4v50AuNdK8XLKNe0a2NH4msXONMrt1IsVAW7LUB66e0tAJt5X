@@ -22509,31 +22509,6 @@ async def upload_finance_attachment(
     }
 
 
-@api_router.get("/finance/attachments/{entity_type}/{entity_id}")
-async def list_finance_attachments(
-    entity_type: str,
-    entity_id: str,
-    request: Request
-):
-    """
-    List all attachments for a specific entity.
-    """
-    user = await get_current_user(request)
-    
-    if entity_type not in VALID_ATTACHMENT_ENTITIES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid entity type. Must be one of: {VALID_ATTACHMENT_ENTITIES}"
-        )
-    
-    attachments = await db.finance_attachments.find(
-        {"entity_type": entity_type, "entity_id": entity_id},
-        {"_id": 0}
-    ).sort("uploaded_at", -1).to_list(100)
-    
-    return {"attachments": attachments, "count": len(attachments)}
-
-
 @api_router.get("/finance/attachments/download/{attachment_id}")
 async def download_finance_attachment(attachment_id: str, request: Request):
     """
@@ -22558,6 +22533,55 @@ async def download_finance_attachment(attachment_id: str, request: Request):
         path=str(file_path),
         filename=attachment["file_name"],
         media_type=attachment["mime_type"]
+    )
+
+
+@api_router.get("/finance/attachments/by-ids")
+async def get_attachments_by_ids(
+    request: Request,
+    ids: str = ""  # Comma-separated attachment IDs
+):
+    """
+    Get attachment metadata by multiple IDs (for exports).
+    """
+    user = await get_current_user(request)
+    
+    if not ids:
+        return {"attachments": []}
+    
+    attachment_ids = [aid.strip() for aid in ids.split(",") if aid.strip()]
+    
+    attachments = await db.finance_attachments.find(
+        {"attachment_id": {"$in": attachment_ids}},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return {"attachments": attachments}
+
+
+@api_router.get("/finance/attachments/{entity_type}/{entity_id}")
+async def list_finance_attachments(
+    entity_type: str,
+    entity_id: str,
+    request: Request
+):
+    """
+    List all attachments for a specific entity.
+    """
+    user = await get_current_user(request)
+    
+    if entity_type not in VALID_ATTACHMENT_ENTITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid entity type. Must be one of: {VALID_ATTACHMENT_ENTITIES}"
+        )
+    
+    attachments = await db.finance_attachments.find(
+        {"entity_type": entity_type, "entity_id": entity_id},
+        {"_id": 0}
+    ).sort("uploaded_at", -1).to_list(100)
+    
+    return {"attachments": attachments, "count": len(attachments)}
     )
 
 
