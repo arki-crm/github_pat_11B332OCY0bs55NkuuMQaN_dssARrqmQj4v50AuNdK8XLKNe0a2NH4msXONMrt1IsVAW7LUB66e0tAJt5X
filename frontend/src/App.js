@@ -61,6 +61,8 @@ import Refunds from './pages/Refunds';
 import FinanceSettings from './pages/FinanceSettings';
 import CompanyProfile from './pages/CompanyProfile';
 import ExpenseRequests from './pages/ExpenseRequests';
+import Budgets from './pages/Budgets';
+import FinancialForecast from './pages/FinancialForecast';
 
 import './App.css';
 
