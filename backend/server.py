@@ -20762,6 +20762,65 @@ async def get_all_promotion_eligibility(request: Request):
     return eligibility_list
 
 
+@api_router.get("/hr/promotion-eligibility/overview")
+async def get_promotion_eligibility_overview(request: Request):
+    """Get CEO overview of promotion eligibility status"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "hr.promotion.view_all"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get all eligibility data
+    config = await db.hr_promotion_config.find_one({"config_id": "default"}, {"_id": 0})
+    if not config:
+        config = DEFAULT_PROMOTION_THRESHOLDS
+    
+    salaries = await db.finance_salary_master.find(
+        {"status": "active"},
+        {"_id": 0, "employee_id": 1}
+    ).to_list(500)
+    
+    eligible = []
+    near_eligible = []
+    stagnant = []
+    in_progress = []
+    
+    for salary in salaries:
+        eligibility = await calculate_employee_promotion_eligibility(salary["employee_id"], config)
+        if eligibility:
+            status = eligibility["eligibility_status"]
+            summary = {
+                "employee_id": eligibility["employee_id"],
+                "employee_name": eligibility["employee_name"],
+                "current_salary": eligibility["current_salary"],
+                "months_at_level": eligibility["months_at_current_level"],
+                "booking_credits": eligibility["booking_credits"],
+                "message": eligibility["eligibility_message"]
+            }
+            
+            if status == "eligible":
+                eligible.append(summary)
+            elif status == "near_eligible":
+                near_eligible.append(summary)
+            elif status == "stagnant":
+                stagnant.append(summary)
+            else:
+                in_progress.append(summary)
+    
+    return {
+        "total_employees": len(salaries),
+        "eligible_count": len(eligible),
+        "near_eligible_count": len(near_eligible),
+        "stagnant_count": len(stagnant),
+        "in_progress_count": len(in_progress),
+        "eligible": eligible,
+        "near_eligible": near_eligible,
+        "stagnant": stagnant,
+        "config": config
+    }
+
+
 @api_router.get("/hr/promotion-eligibility/{employee_id}")
 async def get_employee_promotion_eligibility(employee_id: str, request: Request):
     """Get promotion eligibility for a specific employee"""
@@ -20782,9 +20841,13 @@ async def get_employee_promotion_eligibility(employee_id: str, request: Request)
     return eligibility
 
 
-@api_router.get("/hr/promotion-eligibility/overview")
-async def get_promotion_eligibility_overview(request: Request):
-    """Get CEO overview of promotion eligibility status"""
+# NOTE: The duplicate overview function below should be removed - it was moved above the {employee_id} route
+# to fix FastAPI route matching order (specific routes must come before parameterized routes)
+
+
+@api_router.get("/hr/promotion-eligibility/overview-duplicate-remove")
+async def get_promotion_eligibility_overview_old(request: Request):
+    """DEPRECATED - This is a duplicate that should be removed"""
     user = await get_current_user(request)
     user_doc = await db.users.find_one({"user_id": user.user_id})
     
