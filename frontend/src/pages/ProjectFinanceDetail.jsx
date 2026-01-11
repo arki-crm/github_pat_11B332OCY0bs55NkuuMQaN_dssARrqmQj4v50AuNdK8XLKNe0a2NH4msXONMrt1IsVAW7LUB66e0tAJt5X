@@ -64,10 +64,13 @@ import {
   Percent,
   LockOpen,
   Save,
-  X
+  X,
+  Paperclip,
+  FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
+import AttachmentUploader from '../components/AttachmentUploader';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
