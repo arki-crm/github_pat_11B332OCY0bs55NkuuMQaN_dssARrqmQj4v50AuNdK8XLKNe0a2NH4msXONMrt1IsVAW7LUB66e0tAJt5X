@@ -18816,6 +18816,9 @@ async def get_safe_use_summary(request: Request):
         "safe_use_warning": lock_status["safe_use_warning"],
         "safe_use_months": lock_status["safe_use_months"],
         
+        # Config
+        "default_lock_percentage": lock_status["default_lock_percentage"],
+        
         # Top projects by locked amount
         "top_projects_by_lock": lock_status["projects"][:5] if lock_status["projects"] else []
     }
