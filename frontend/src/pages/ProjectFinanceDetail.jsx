@@ -847,6 +847,91 @@ const ProjectFinanceDetail = () => {
         </CardContent>
       </Card>
 
+      {/* Project Profit Visibility */}
+      {projectProfit && (
+        <Card className="border-slate-200 border-emerald-200 bg-emerald-50/30" data-testid="project-profit-section">
+          <CardHeader className="border-b border-emerald-200 pb-3">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-600" />
+              Profit Visibility
+            </CardTitle>
+            <p className="text-sm text-slate-500 mt-1">Projected vs realised profit metrics</p>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Projected Profit */}
+              <div className="bg-white rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-slate-500">Projected Profit</p>
+                  <Badge variant="outline" className={cn(
+                    "text-xs",
+                    projectProfit.projected_profit >= 0 
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                      : "bg-red-50 text-red-700 border-red-200"
+                  )}>
+                    {projectProfit.projected_profit_pct >= 0 ? '+' : ''}{projectProfit.projected_profit_pct}%
+                  </Badge>
+                </div>
+                <p className={cn(
+                  "text-2xl font-bold",
+                  projectProfit.projected_profit >= 0 ? "text-emerald-600" : "text-red-600"
+                )}>
+                  {formatCurrency(projectProfit.projected_profit)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Contract ({formatCurrency(projectProfit.contract_value)}) − Planned ({formatCurrency(projectProfit.planned_cost)})
+                </p>
+              </div>
+
+              {/* Realised Profit */}
+              <div className="bg-white rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-slate-500">Realised Profit</p>
+                  <Badge variant="outline" className={cn(
+                    "text-xs",
+                    projectProfit.realised_profit >= 0 
+                      ? "bg-blue-50 text-blue-700 border-blue-200" 
+                      : "bg-red-50 text-red-700 border-red-200"
+                  )}>
+                    {projectProfit.realised_profit_pct >= 0 ? '+' : ''}{projectProfit.realised_profit_pct}%
+                  </Badge>
+                </div>
+                <p className={cn(
+                  "text-2xl font-bold",
+                  projectProfit.realised_profit >= 0 ? "text-blue-600" : "text-red-600"
+                )}>
+                  {formatCurrency(projectProfit.realised_profit)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Received ({formatCurrency(projectProfit.total_received)}) − Actual ({formatCurrency(projectProfit.actual_cost)})
+                </p>
+              </div>
+
+              {/* Execution Margin Remaining */}
+              <div className={cn(
+                "rounded-lg p-4 border",
+                projectProfit.execution_margin_remaining >= 0 
+                  ? "bg-amber-50 border-amber-200" 
+                  : "bg-red-50 border-red-200"
+              )}>
+                <p className="text-sm text-slate-500 mb-2">Execution Margin Remaining</p>
+                <p className={cn(
+                  "text-2xl font-bold",
+                  projectProfit.execution_margin_remaining >= 0 ? "text-amber-600" : "text-red-600"
+                )}>
+                  {formatCurrency(projectProfit.execution_margin_remaining)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {projectProfit.execution_margin_remaining >= 0 
+                    ? "Profit buffer for remaining execution" 
+                    : "Exceeded projected profit margin"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Advance Cash Lock Status */}
       {lockStatus && lockStatus.total_received > 0 && (
         <Card className="border-slate-200 border-amber-200 bg-amber-50/50" data-testid="lock-status-section">
