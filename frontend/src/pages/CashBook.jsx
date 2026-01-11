@@ -389,7 +389,7 @@ const CashBook = () => {
                         "flex-1",
                         newTxn.transaction_type === 'inflow' && "bg-green-600 hover:bg-green-700"
                       )}
-                      onClick={() => setNewTxn(prev => ({ ...prev, transaction_type: 'inflow' }))}
+                      onClick={() => setNewTxn(prev => ({ ...prev, transaction_type: 'inflow', category_id: '' }))}
                       data-testid="type-inflow-btn"
                     >
                       <ArrowDownCircle className="w-4 h-4 mr-2" />
@@ -402,7 +402,7 @@ const CashBook = () => {
                         "flex-1",
                         newTxn.transaction_type === 'outflow' && "bg-red-600 hover:bg-red-700"
                       )}
-                      onClick={() => setNewTxn(prev => ({ ...prev, transaction_type: 'outflow' }))}
+                      onClick={() => setNewTxn(prev => ({ ...prev, transaction_type: 'outflow', category_id: '' }))}
                       data-testid="type-outflow-btn"
                     >
                       <ArrowUpCircle className="w-4 h-4 mr-2" />
