@@ -22613,15 +22613,6 @@ async def delete_finance_attachment(attachment_id: str, request: Request):
     await db.finance_attachments.delete_one({"attachment_id": attachment_id})
     
     return {"success": True, "message": "Attachment deleted successfully"}
-    
-    attachment_ids = [aid.strip() for aid in ids.split(",") if aid.strip()]
-    
-    attachments = await db.finance_attachments.find(
-        {"attachment_id": {"$in": attachment_ids}},
-        {"_id": 0}
-    ).to_list(100)
-    
-    return {"attachments": attachments}
 
 
 # ============ REPORTS & INSIGHTS MODULE ============
