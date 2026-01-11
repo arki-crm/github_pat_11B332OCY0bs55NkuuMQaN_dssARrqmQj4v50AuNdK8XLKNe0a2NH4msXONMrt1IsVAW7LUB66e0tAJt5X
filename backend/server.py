@@ -1520,6 +1520,13 @@ DEFAULT_ROLE_PERMISSIONS = {
         "finance.project.cost_edit", "finance.project.override_budget",
         "finance.expenses.view", "finance.expenses.create", "finance.expenses.approve",
         "finance.expenses.record", "finance.expenses.track_refunds",
+        # Threshold-based approval - Admin gets all
+        "finance.expenses.approve_petty", "finance.expenses.approve_standard", "finance.expenses.approve_high",
+        "finance.expenses.mark_exception",
+        # Budgeting & Forecasting - Admin gets all
+        "finance.budget.view", "finance.budget.create", "finance.budget.edit", "finance.budget.close",
+        "finance.forecast.view", "finance.forecast.edit_assumptions",
+        # Reports
         "finance.reports.view", "finance.reports.export", "finance.reports.profit", "finance.reports.margin",
         "finance.monthly_snapshot", "finance.founder_dashboard",
         "finance.categories.view", "finance.categories.manage", "finance.vendors.view", "finance.vendors.manage",
