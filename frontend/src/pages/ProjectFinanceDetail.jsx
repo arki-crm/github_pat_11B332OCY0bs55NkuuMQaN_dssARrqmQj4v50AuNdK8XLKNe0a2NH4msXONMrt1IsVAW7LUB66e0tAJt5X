@@ -45,6 +45,7 @@ import {
   Pencil,
   Trash2,
   Lock,
+  Unlock,
   CheckCircle,
   XCircle,
   DollarSign,
