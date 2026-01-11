@@ -91,6 +91,9 @@ export default function Liabilities() {
     amount: '',
     remarks: ''
   });
+  
+  // View liability detail
+  const [viewLiability, setViewLiability] = useState(null);
 
   const formatCurrency = (val) => {
     if (val === null || val === undefined) return '₹0';
