@@ -34,6 +34,9 @@ The core CRM pipeline has been stabilized and is ready for manual end-to-end tes
 - [x] Admin can assign specific permissions to any user
 - [x] Permission checks throughout the application
 - [x] **NEW: Operation Lead role** - ground-level execution for delivery/installation/handover
+- [x] **NEW: Finance Roles** - JuniorAccountant, SeniorAccountant, FinanceManager, CharteredAccountant, Founder
+- [x] **NEW: Granular Finance Permissions** - 9 permission groups with 40+ discrete permissions
+- [x] **Roles are templates only** - Admin can fully customize permissions for any user
 
 ### CRM Modules
 - [x] Pre-Sales management
