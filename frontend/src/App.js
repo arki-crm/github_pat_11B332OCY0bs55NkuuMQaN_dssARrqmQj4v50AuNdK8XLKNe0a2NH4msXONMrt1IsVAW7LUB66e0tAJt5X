@@ -71,6 +71,12 @@ import FinanceReports from './pages/FinanceReports';
 import CashFlowReport from './pages/CashFlowReport';
 import ProjectProfitabilityReport from './pages/ProjectProfitabilityReport';
 
+// BUCKET 1 - Operational Hygiene
+import AuditTrail from './pages/AuditTrail';
+import BackupManagement from './pages/BackupManagement';
+import PaymentReminders from './pages/PaymentReminders';
+import RecurringTransactions from './pages/RecurringTransactions';
+
 import './App.css';
 
 // Router component that handles session_id detection synchronously
