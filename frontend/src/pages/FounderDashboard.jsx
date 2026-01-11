@@ -99,6 +99,12 @@ const FounderDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (data) {
+      fetchRevenueReality();
+    }
+  }, [revenuePeriod]);
+
   if (!hasPermission('finance.founder_dashboard') && user?.role !== 'Admin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
