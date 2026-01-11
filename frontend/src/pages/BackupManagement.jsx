@@ -154,6 +154,38 @@ export default function BackupManagement() {
         </Button>
       </div>
 
+      {/* Scheduler Status Card */}
+      {schedulerStatus && (
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-green-600" />
+                <div className="text-sm text-green-800">
+                  <p className="font-medium">Automated Daily Backups</p>
+                  <p>Schedule: Daily at midnight (00:00 server time)</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {schedulerStatus.scheduler_running ? (
+                  <Badge className="bg-green-100 text-green-800">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Active
+                  </Badge>
+                ) : (
+                  <Badge className="bg-red-100 text-red-800">Inactive</Badge>
+                )}
+                {schedulerStatus.next_run_time && (
+                  <span className="text-xs text-green-700">
+                    Next: {formatDate(schedulerStatus.next_run_time)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Info Card */}
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="p-4">
