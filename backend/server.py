@@ -18074,6 +18074,17 @@ async def allow_project_overrun(project_id: str, additional_amount: float, reaso
         upsert=True
     )
     
+    # Audit log for allow overrun
+    await create_audit_log(
+        entity_type="project_finance",
+        entity_id=project_id,
+        action="allow_overrun",
+        user_id=user.user_id,
+        user_name=user.name,
+        new_value={"allowed_amount": additional_amount, "reason": reason},
+        details=f"Overrun of ₹{additional_amount:,.0f} allowed - {reason}"
+    )
+    
     return {"success": True, "message": f"Overrun of ₹{additional_amount:,.0f} allowed"}
 
 
