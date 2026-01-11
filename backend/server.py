@@ -19069,11 +19069,13 @@ async def create_liability(liability: LiabilityCreate, request: Request):
     # Get or create vendor
     vendor = await get_or_create_vendor(liability.vendor_name)
     
-    # Validate project if provided
+    # Validate project if provided (soft check - warn but don't block)
+    project_name = None
     if liability.project_id:
-        project = await db.projects.find_one({"project_id": liability.project_id}, {"_id": 0, "name": 1})
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+        project = await db.projects.find_one({"project_id": liability.project_id}, {"_id": 0, "name": 1, "project_name": 1})
+        if project:
+            project_name = project.get("name") or project.get("project_name")
+        # Don't fail if project not found - it might be from a different source
     
     now = datetime.now(timezone.utc)
     
