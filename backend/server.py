@@ -18138,6 +18138,158 @@ async def get_safe_spend_recommendation(request: Request):
     }
 
 
+# ============ REVENUE REALITY CHECK ============
+
+# Cancellation reasons (for manual tagging)
+CANCELLATION_REASONS = [
+    "budget_mismatch",
+    "design_issues", 
+    "customer_dropped",
+    "delays",
+    "competitor",
+    "scope_change",
+    "other"
+]
+
+
+@api_router.get("/finance/revenue-reality-check")
+async def get_revenue_reality_check(request: Request, period: str = "month"):
+    """
+    Revenue Reality Check - Gap analysis between booked business, active projects, 
+    lost projects, and actual cash received.
+    
+    period: 'month', 'quarter', 'year'
+    """
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if user_doc.get("role") != "Admin" and not has_permission(user_doc, "finance.founder_dashboard"):
+        raise HTTPException(status_code=403, detail="Access denied - Founder/CEO only")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Calculate period start date
+    if period == "month":
+        period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_label = now.strftime("%B %Y")
+    elif period == "quarter":
+        quarter_month = ((now.month - 1) // 3) * 3 + 1
+        period_start = now.replace(month=quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        quarter_num = (now.month - 1) // 3 + 1
+        period_label = f"Q{quarter_num} {now.year}"
+    elif period == "year":
+        period_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_label = str(now.year)
+    else:
+        period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_label = now.strftime("%B %Y")
+    
+    period_start_iso = period_start.isoformat()
+    
+    # 1. Total Booked Value - Projects that reached "Booking Completed" in period
+    # Look for projects where stage contains "Booking" or booking_date is in period
+    booking_completed_stages = ["Booking Completed", "Booking", "Booked", "Design", "Design In Progress", 
+                                "Production", "Production Preparation", "Installation", "Handover", "Delivered"]
+    
+    booked_projects = await db.projects.find({
+        "$or": [
+            {"booking_date": {"$gte": period_start_iso[:10]}},
+            {"stage": {"$in": booking_completed_stages}, "created_at": {"$gte": period_start}}
+        ]
+    }, {"_id": 0, "project_id": 1, "name": 1, "total_value": 1, "stage": 1, "booking_date": 1}).to_list(1000)
+    
+    total_booked_value = sum(p.get("total_value", 0) or 0 for p in booked_projects)
+    booked_count = len(booked_projects)
+    
+    # 2. Active Project Value - Excluding cancelled/dropped
+    cancelled_stages = ["Cancelled", "Dropped", "Lost", "On Hold", "Rejected"]
+    
+    active_projects = await db.projects.find({
+        "stage": {"$nin": cancelled_stages}
+    }, {"_id": 0, "project_id": 1, "name": 1, "total_value": 1, "stage": 1}).to_list(1000)
+    
+    active_project_value = sum(p.get("total_value", 0) or 0 for p in active_projects)
+    active_count = len(active_projects)
+    
+    # 3. Revenue Realised (Cash In) - Actual receipts from customers in period
+    # From finance_receipts collection
+    receipts_in_period = await db.finance_receipts.find({
+        "created_at": {"$gte": period_start}
+    }, {"_id": 0, "amount": 1}).to_list(1000)
+    
+    revenue_realised = sum(r.get("amount", 0) or 0 for r in receipts_in_period)
+    receipt_count = len(receipts_in_period)
+    
+    # Also check inflows from accounting_transactions that are customer payments
+    customer_inflow_categories = ["Customer Payment", "Receipt", "Payment Received", "Booking"]
+    customer_inflows = await db.accounting_transactions.find({
+        "transaction_type": "inflow",
+        "created_at": {"$gte": period_start_iso}
+    }, {"_id": 0, "amount": 1, "project_id": 1}).to_list(1000)
+    
+    # Add project-linked inflows
+    for inflow in customer_inflows:
+        if inflow.get("project_id"):
+            revenue_realised += inflow.get("amount", 0)
+    
+    # 4. Lost Value - Cancelled/dropped projects after booking/design stage
+    lost_projects = await db.projects.find({
+        "stage": {"$in": cancelled_stages}
+    }, {"_id": 0, "project_id": 1, "name": 1, "total_value": 1, "stage": 1, "cancellation_reason": 1}).to_list(1000)
+    
+    lost_value = sum(p.get("total_value", 0) or 0 for p in lost_projects)
+    lost_count = len(lost_projects)
+    
+    # 5. Cancellation Reasons Analysis
+    cancellation_reasons_count = {}
+    for p in lost_projects:
+        reason = p.get("cancellation_reason") or "other"
+        if reason not in cancellation_reasons_count:
+            cancellation_reasons_count[reason] = {"count": 0, "value": 0}
+        cancellation_reasons_count[reason]["count"] += 1
+        cancellation_reasons_count[reason]["value"] += p.get("total_value", 0) or 0
+    
+    # Sort by count descending
+    top_cancellation_reasons = sorted(
+        [{"reason": k, **v} for k, v in cancellation_reasons_count.items()],
+        key=lambda x: x["count"],
+        reverse=True
+    )[:5]
+    
+    # 6. Calculate gaps
+    booking_to_realised_gap = total_booked_value - revenue_realised
+    realisation_rate = (revenue_realised / total_booked_value * 100) if total_booked_value > 0 else 0
+    loss_rate = (lost_value / (total_booked_value + lost_value) * 100) if (total_booked_value + lost_value) > 0 else 0
+    
+    return {
+        "period": period,
+        "period_label": period_label,
+        "period_start": period_start_iso,
+        
+        # Primary metrics
+        "total_booked_value": total_booked_value,
+        "booked_count": booked_count,
+        
+        "active_project_value": active_project_value,
+        "active_count": active_count,
+        
+        "revenue_realised": revenue_realised,
+        "receipt_count": receipt_count,
+        
+        "lost_value": lost_value,
+        "lost_count": lost_count,
+        
+        # Insights
+        "booking_to_realised_gap": booking_to_realised_gap,
+        "realisation_rate": round(realisation_rate, 1),
+        "loss_rate": round(loss_rate, 1),
+        
+        # Cancellation analysis
+        "top_cancellation_reasons": top_cancellation_reasons,
+        "available_cancellation_reasons": CANCELLATION_REASONS
+    }
+
+
 # ============================================================================
 # ============ PAYMENT & RECEIPT SYSTEM (PHASE 4) ============================
 # ============================================================================
