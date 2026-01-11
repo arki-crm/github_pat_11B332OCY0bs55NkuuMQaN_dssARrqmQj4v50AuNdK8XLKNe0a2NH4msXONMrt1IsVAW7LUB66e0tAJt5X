@@ -13999,6 +13999,8 @@ async def list_transactions(
         query["category_id"] = category_id
     if project_id:
         query["project_id"] = project_id
+    if needs_review is not None:
+        query["needs_review"] = needs_review
     
     transactions = await db.accounting_transactions.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
