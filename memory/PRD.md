@@ -785,3 +785,37 @@ Enhancement to Cashbook for preventing money leakage and clarifying responsibili
 ## 3rd Party Integrations
 - **Emergent-managed Google Auth**: Production user login
 - **Google Forms (Planned)**: Service request intake (backend endpoint exists, not connected)
+
+---
+
+## ✅ Cashbook Modal UI & Category Fix - COMPLETED Jan 11, 2026
+
+Bug fix and enhancement for the Cashbook "Add Entry" modal.
+
+### Issues Fixed:
+1. **Modal Scroll Bug (Critical)** - Modal was exceeding viewport height, making Submit button inaccessible
+2. **Category Confusion** - "Money In" was showing expense categories instead of income categories
+
+### Changes Made:
+- **Modal Height**: Limited to `max-h-[85vh]` with `overflow-y-auto` for internal scrolling
+- **Header/Footer Fixed**: Header and Submit/Cancel buttons always visible using `flex-shrink-0`
+- **Category Separation**: Money In now shows Income Categories, Money Out shows Expense Categories
+- **Category Reset**: Switching between Money In/Out clears the selected category
+
+### Income Categories (Static List):
+| Category ID | Display Name |
+|-------------|-------------|
+| income_project_payment | Project Payment |
+| income_advance_booking | Advance / Booking Amount |
+| income_design_fee | Design Fee |
+| income_refund_reversal | Refund Reversal |
+| income_other | Other Income |
+
+### Backend Updates:
+- Added static income category validation in `POST /api/accounting/transactions`
+- Inflow transactions accept both static income categories and database expense categories
+- Outflow transactions only accept database expense categories
+
+### Files Modified:
+- `/app/frontend/src/pages/CashBook.jsx` - Modal styling, category logic
+- `/app/backend/server.py` - Income category validation
