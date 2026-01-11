@@ -23337,7 +23337,7 @@ async def toggle_recurring_template(template_id: str, request: Request):
 
 @api_router.post("/finance/recurring/run-scheduled")
 async def run_scheduled_recurring(request: Request):
-    """Run scheduled recurring transactions (called by cron or manually by admin)"""
+    """Run scheduled recurring transactions - creates PENDING PAYABLES (not cashbook entries)"""
     user = await get_current_user(request)
     user_doc = await db.users.find_one({"user_id": user.user_id})
     
@@ -23353,37 +23353,36 @@ async def run_scheduled_recurring(request: Request):
         "next_run": {"$lte": today_str}
     }, {"_id": 0}).to_list(100)
     
-    created_entries = []
+    created_payables = []
     errors = []
     
     for template in templates:
         try:
-            # Create cashbook entry
-            transaction_id = f"txn_{uuid.uuid4().hex[:10]}"
-            new_txn = {
-                "transaction_id": transaction_id,
-                "date": today_str,
-                "transaction_type": "outflow",
+            # Create PENDING PAYABLE (not cashbook entry)
+            payable_id = f"rpay_{uuid.uuid4().hex[:10]}"
+            new_payable = {
+                "payable_id": payable_id,
+                "template_id": template["template_id"],
+                "template_name": template["name"],
+                "due_date": today_str,
                 "amount": template["amount"],
-                "mode": "bank_transfer",
                 "category_id": template["category_id"],
                 "category_name": template["category_name"],
                 "account_id": template["account_id"],
                 "account_name": template["account_name"],
-                "project_id": None,
                 "paid_to": template.get("paid_to", ""),
-                "remarks": f"[RECURRING] {template['name']} - {template.get('description', '')}",
-                "is_verified": False,
-                "needs_review": False,
-                "recurring_template_id": template["template_id"],
-                "created_by": "system",
-                "created_by_name": "Recurring System",
+                "description": template.get("description", template["name"]),
+                "status": "pending",  # pending, paid, cancelled
+                "is_overdue": False,
+                "paid_at": None,
+                "paid_amount": None,
+                "paid_via_transaction_id": None,
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             
-            await db.accounting_transactions.insert_one(new_txn)
+            await db.recurring_payables.insert_one(new_payable)
             
-            # Update template
+            # Update template - set next run date
             next_month = today.month + 1 if today.month < 12 else 1
             next_year = today.year if today.month < 12 else today.year + 1
             try:
@@ -23398,6 +23397,197 @@ async def run_scheduled_recurring(request: Request):
                     "$set": {
                         "last_run": today_str,
                         "next_run": next_run.isoformat()
+                    },
+                    "$inc": {"total_entries_created": 1}
+                }
+            )
+            
+            created_payables.append({
+                "payable_id": payable_id,
+                "template_name": template["name"],
+                "amount": template["amount"],
+                "due_date": today_str
+            })
+            
+        except Exception as e:
+            errors.append({"template": template["name"], "error": str(e)})
+    
+    return {
+        "success": True,
+        "created_count": len(created_payables),
+        "created_payables": created_payables,
+        "errors": errors
+    }
+
+
+@api_router.get("/finance/recurring/payables")
+async def get_recurring_payables(
+    request: Request,
+    status: Optional[str] = None,
+    include_overdue: bool = True
+):
+    """Get pending recurring payables"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.cashbook.view"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    payables = await db.recurring_payables.find(
+        query,
+        {"_id": 0}
+    ).sort("due_date", 1).to_list(500)
+    
+    # Mark overdue payables
+    today = datetime.now(timezone.utc).date().isoformat()
+    pending_count = 0
+    overdue_count = 0
+    total_pending_amount = 0
+    
+    for payable in payables:
+        if payable["status"] == "pending":
+            pending_count += 1
+            total_pending_amount += payable["amount"]
+            if payable["due_date"] < today:
+                payable["is_overdue"] = True
+                overdue_count += 1
+    
+    return {
+        "payables": payables,
+        "summary": {
+            "total": len(payables),
+            "pending": pending_count,
+            "overdue": overdue_count,
+            "total_pending_amount": total_pending_amount
+        }
+    }
+
+
+class RecordPaymentRequest(BaseModel):
+    amount: Optional[float] = None  # If not provided, use payable amount
+    payment_date: Optional[str] = None  # If not provided, use today
+    mode: str = "bank_transfer"
+    remarks: Optional[str] = None
+
+
+@api_router.post("/finance/recurring/payables/{payable_id}/pay")
+async def record_recurring_payment(payable_id: str, payment: RecordPaymentRequest, request: Request):
+    """Record payment for a pending payable - creates cashbook entry"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.cashbook.edit"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    payable = await db.recurring_payables.find_one({"payable_id": payable_id})
+    if not payable:
+        raise HTTPException(status_code=404, detail="Payable not found")
+    
+    if payable["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Payable is already {payable['status']}")
+    
+    now = datetime.now(timezone.utc)
+    payment_date = payment.payment_date or now.date().isoformat()
+    payment_amount = payment.amount or payable["amount"]
+    
+    # Create cashbook entry
+    transaction_id = f"txn_{uuid.uuid4().hex[:10]}"
+    new_txn = {
+        "transaction_id": transaction_id,
+        "date": payment_date,
+        "transaction_type": "outflow",
+        "amount": payment_amount,
+        "mode": payment.mode,
+        "category_id": payable["category_id"],
+        "category_name": payable["category_name"],
+        "account_id": payable["account_id"],
+        "account_name": payable["account_name"],
+        "project_id": None,
+        "paid_to": payable.get("paid_to", ""),
+        "remarks": payment.remarks or f"[RECURRING] {payable['template_name']} - {payable.get('description', '')}",
+        "is_verified": False,
+        "needs_review": False,
+        "recurring_payable_id": payable_id,
+        "recurring_template_id": payable.get("template_id"),
+        "created_by": user.user_id,
+        "created_by_name": user.name,
+        "created_at": now.isoformat()
+    }
+    
+    await db.accounting_transactions.insert_one(new_txn)
+    
+    # Update account balance
+    await db.accounting_accounts.update_one(
+        {"account_id": payable["account_id"]},
+        {"$inc": {"current_balance": -payment_amount}}
+    )
+    
+    # Mark payable as paid
+    await db.recurring_payables.update_one(
+        {"payable_id": payable_id},
+        {"$set": {
+            "status": "paid",
+            "paid_at": now.isoformat(),
+            "paid_amount": payment_amount,
+            "paid_via_transaction_id": transaction_id,
+            "paid_by": user.user_id,
+            "paid_by_name": user.name
+        }}
+    )
+    
+    # Audit log
+    await create_audit_log(
+        entity_type="cashbook",
+        entity_id=transaction_id,
+        action="create",
+        user_id=user.user_id,
+        user_name=user.name,
+        new_value={"amount": payment_amount, "type": "outflow", "from_recurring": payable["template_name"]},
+        details=f"Paid recurring expense: {payable['template_name']} ₹{payment_amount:,.0f}"
+    )
+    
+    return {
+        "success": True,
+        "message": f"Payment recorded for {payable['template_name']}",
+        "transaction_id": transaction_id,
+        "amount": payment_amount
+    }
+
+
+@api_router.post("/finance/recurring/payables/{payable_id}/cancel")
+async def cancel_recurring_payable(payable_id: str, request: Request):
+    """Cancel a pending payable (skip this occurrence)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if user_doc.get("role") not in ["Admin", "Founder", "SeniorAccountant"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    payable = await db.recurring_payables.find_one({"payable_id": payable_id})
+    if not payable:
+        raise HTTPException(status_code=404, detail="Payable not found")
+    
+    if payable["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Payable is already {payable['status']}")
+    
+    await db.recurring_payables.update_one(
+        {"payable_id": payable_id},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": datetime.now(timezone.utc).isoformat(),
+            "cancelled_by": user.user_id,
+            "cancelled_by_name": user.name
+        }}
+    )
+    
+    return {"success": True, "message": "Payable cancelled"}
+
+
+# ============ ATTACHMENT HANDLING ============
                     },
                     "$inc": {"total_entries_created": 1}
                 }
