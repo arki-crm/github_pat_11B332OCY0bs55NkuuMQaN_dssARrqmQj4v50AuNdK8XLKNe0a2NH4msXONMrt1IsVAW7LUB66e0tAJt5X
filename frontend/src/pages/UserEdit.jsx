@@ -36,9 +36,32 @@ import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-// V1 SIMPLIFIED RBAC - 7 Core Roles
-const ROLES = ['Admin', 'PreSales', 'SalesManager', 'Designer', 'DesignManager', 'ProductionOpsManager', 'Technician'];
-const MANAGER_ALLOWED_ROLES = ['Designer', 'PreSales', 'Technician'];
+// Role colors (extended for all roles)
+const ROLE_COLORS = {
+  // CRM Roles
+  Admin: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
+  PreSales: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
+  SalesManager: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
+  Designer: { bg: 'bg-cyan-100', text: 'text-cyan-700', border: 'border-cyan-200' },
+  DesignManager: { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200' },
+  ProductionOpsManager: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
+  OperationLead: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' },
+  Technician: { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' },
+  // Finance Roles
+  JuniorAccountant: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
+  SeniorAccountant: { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200' },
+  FinanceManager: { bg: 'bg-violet-100', text: 'text-violet-700', border: 'border-violet-200' },
+  CharteredAccountant: { bg: 'bg-fuchsia-100', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
+  Accountant: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
+  // Leadership
+  Founder: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' }
+};
+
+// Permission group categories for better organization
+const CRM_PERMISSION_GROUPS = ['presales', 'leads', 'projects', 'milestones', 'warranty', 'academy', 'admin'];
+const FINANCE_PERMISSION_GROUPS = ['finance_cashbook', 'finance_accounts', 'finance_documents', 'finance_project', 'finance_expenses', 'finance_reports', 'finance_masters', 'finance_controls', 'finance'];
+
+const MANAGER_ALLOWED_ROLES = ['Designer', 'PreSales', 'Technician', 'JuniorAccountant'];
 
 // Avatar component with initials fallback
 const UserAvatar = ({ user, size = 'lg', showEditOverlay = false, onClick }) => {
