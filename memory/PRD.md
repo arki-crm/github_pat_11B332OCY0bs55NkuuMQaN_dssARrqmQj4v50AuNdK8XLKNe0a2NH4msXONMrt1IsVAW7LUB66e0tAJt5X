@@ -819,3 +819,93 @@ Bug fix and enhancement for the Cashbook "Add Entry" modal.
 ### Files Modified:
 - `/app/frontend/src/pages/CashBook.jsx` - Modal styling, category logic
 - `/app/backend/server.py` - Income category validation
+
+---
+
+## ✅ Advance Cash Lock & Safe-Use System - COMPLETED Jan 11, 2026
+
+Critical accounting feature to protect founder cash and prevent uncontrolled spending.
+
+### Core Concept:
+- **85% of all customer advances are locked by default** for project execution
+- **15% is "Safe to Use"** for business operations
+- Locked funds release **only** when real commitments occur (cashbook outflows + approved expense requests)
+- **No automatic unlocking** based on time or vendor mapping
+
+### Key Features:
+
+#### 1. Global Lock Configuration
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Lock Percentage | 85% | Default % locked on all advances |
+| Monthly Operating Expense | ₹5,00,000 | Baseline for warning calculations |
+
+#### 2. Lock Calculation Formula
+```
+Gross Locked = Total Received × Lock %
+Net Locked = max(Gross Locked − Commitments, 0)
+Safe to Use = Total Received − Net Locked
+```
+
+#### 3. Commitment Sources
+- Cashbook outflows linked to project (`project_id`)
+- Approved expense requests for the project
+
+#### 4. Per-Project Override (Admin Only)
+- Admin/Founder can override lock % per project
+- Mandatory reason required for audit
+- Full audit trail in `project_lock_history` + `project_decisions_log`
+
+### New API Endpoints:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/finance/lock-config` | GET | Get global lock settings |
+| `/api/finance/lock-config` | PUT | Update global lock settings (Admin) |
+| `/api/finance/project-lock-status/{id}` | GET | Get lock status for project |
+| `/api/finance/project-lock-status` | GET | Get lock status for all projects |
+| `/api/finance/project-lock-override/{id}` | PUT | Override lock % (Admin) |
+| `/api/finance/project-lock-override/{id}` | DELETE | Remove override (Admin) |
+| `/api/finance/safe-use-summary` | GET | Dashboard safe-use summary |
+
+### New Database Collections:
+| Collection | Purpose |
+|------------|---------|
+| `finance_lock_config` | Global lock settings |
+| `project_lock_overrides` | Per-project lock overrides |
+| `project_lock_history` | Audit trail for lock changes |
+
+### New Permissions:
+| Permission | Description |
+|------------|-------------|
+| `finance.lock_config` | Configure global lock settings |
+| `finance.lock_override` | Override project lock % |
+| `finance.view_lock_status` | View locked vs usable amounts |
+
+### UI Components:
+
+#### Founder Dashboard - "Advance Cash Lock" Section
+- Total Received (all projects)
+- Total Locked (amber)
+- Total Commitments (orange)
+- Safe to Use (emerald)
+- Months runway indicator
+- Low Safe Cash Warning banner
+- Top projects by locked amount
+
+#### Project Finance Detail - "Advance Cash Lock" Card
+- Total Received (with receipt count)
+- Locked amount
+- Commitments breakdown (outflows + ERs)
+- Safe to Use
+- Lock Change History
+- Override Lock % button (Admin only)
+
+### Files Modified:
+- `/app/backend/server.py` - Lock APIs (Lines 18315-18830)
+- `/app/frontend/src/pages/FounderDashboard.jsx` - Safe Use Summary section
+- `/app/frontend/src/pages/ProjectFinanceDetail.jsx` - Lock Status section
+
+### Testing:
+- 18/18 backend API tests passed
+- Frontend UI verified with screenshots
+- Test file: `/app/tests/test_advance_cash_lock.py`
