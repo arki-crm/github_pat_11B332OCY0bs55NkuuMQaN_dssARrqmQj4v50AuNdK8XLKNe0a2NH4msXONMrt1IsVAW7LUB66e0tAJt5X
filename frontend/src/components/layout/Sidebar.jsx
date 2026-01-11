@@ -35,7 +35,9 @@ import {
   CalendarRange,
   Gauge,
   RefreshCw,
-  FileCheck
+  FileCheck,
+  PiggyBank,
+  TrendingUp
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
