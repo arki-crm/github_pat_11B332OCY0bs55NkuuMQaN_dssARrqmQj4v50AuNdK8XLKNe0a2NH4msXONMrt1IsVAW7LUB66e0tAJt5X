@@ -74,10 +74,22 @@ const FounderDashboard = () => {
       setAlerts(alertsRes.data);
       setExpenseStats(expenseStatsRes.data);
       setLastUpdated(new Date());
+      
+      // Fetch revenue reality check
+      fetchRevenueReality();
     } catch (error) {
       console.error('Failed to fetch founder dashboard:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRevenueReality = async () => {
+    try {
+      const res = await axios.get(`${API}/finance/revenue-reality-check?period=${revenuePeriod}`, { withCredentials: true });
+      setRevenueReality(res.data);
+    } catch (error) {
+      console.error('Failed to fetch revenue reality:', error);
     }
   };
 
