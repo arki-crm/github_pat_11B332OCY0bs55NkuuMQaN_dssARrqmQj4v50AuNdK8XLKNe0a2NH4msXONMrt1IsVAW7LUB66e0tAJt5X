@@ -19504,6 +19504,870 @@ async def generate_receipt_pdf(receipt_id: str, request: Request):
     )
 
 
+# ============ SALARY / PAYROLL MODULE ============
+
+# Salary payment types
+SALARY_PAYMENT_TYPES = ["monthly", "advance_balance"]
+SALARY_STATUSES = ["active", "on_hold", "exit"]
+SALARY_CYCLE_STATUSES = ["open", "closed"]
+PAYMENT_TYPES = ["advance", "salary", "final_settlement"]
+
+
+class SalaryMasterCreate(BaseModel):
+    employee_id: str  # user_id
+    monthly_salary: float
+    payment_type: str = "monthly"  # monthly or advance_balance
+    salary_start_date: str  # YYYY-MM-DD
+    notes: Optional[str] = None
+
+
+class SalaryMasterUpdate(BaseModel):
+    monthly_salary: Optional[float] = None
+    payment_type: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    exit_date: Optional[str] = None  # For exit processing
+
+
+class SalaryPaymentCreate(BaseModel):
+    employee_id: str
+    amount: float
+    payment_type: str  # advance, salary, final_settlement
+    account_id: str  # Bank or Cash account
+    payment_date: str  # YYYY-MM-DD
+    month_year: str  # YYYY-MM format for which month this payment applies
+    notes: Optional[str] = None
+
+
+class SalaryCycleClose(BaseModel):
+    month_year: str  # YYYY-MM
+    notes: Optional[str] = None
+
+
+@api_router.get("/finance/salaries")
+async def get_salaries(request: Request, status: Optional[str] = None):
+    """Get all employee salary configurations"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.view_all"):
+        # Can only view own salary
+        if has_permission(user_doc, "finance.salaries.view"):
+            salary = await db.finance_salary_master.find_one(
+                {"employee_id": user.user_id}, {"_id": 0}
+            )
+            return [salary] if salary else []
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    salaries = await db.finance_salary_master.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    # Enrich with employee details
+    for salary in salaries:
+        emp = await db.users.find_one({"user_id": salary["employee_id"]}, {"_id": 0, "name": 1, "email": 1, "role": 1})
+        if emp:
+            salary["employee_name"] = emp.get("name", "Unknown")
+            salary["employee_email"] = emp.get("email", "")
+            salary["employee_role"] = emp.get("role", "")
+    
+    return salaries
+
+
+@api_router.get("/finance/salaries/{employee_id}")
+async def get_salary_detail(employee_id: str, request: Request):
+    """Get salary detail for a specific employee"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    # Check permissions - can view own or all
+    if employee_id != user.user_id and not has_permission(user_doc, "finance.salaries.view_all"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if employee_id == user.user_id and not has_permission(user_doc, "finance.salaries.view"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    salary = await db.finance_salary_master.find_one({"employee_id": employee_id}, {"_id": 0})
+    if not salary:
+        raise HTTPException(status_code=404, detail="Salary record not found")
+    
+    # Get employee details
+    emp = await db.users.find_one({"user_id": employee_id}, {"_id": 0, "name": 1, "email": 1, "role": 1})
+    if emp:
+        salary["employee_name"] = emp.get("name", "Unknown")
+        salary["employee_email"] = emp.get("email", "")
+        salary["employee_role"] = emp.get("role", "")
+    
+    return salary
+
+
+@api_router.post("/finance/salaries")
+async def create_salary(data: SalaryMasterCreate, request: Request):
+    """Create salary configuration for an employee"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.edit_structure"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.salaries.edit_structure permission")
+    
+    # Verify employee exists
+    employee = await db.users.find_one({"user_id": data.employee_id})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Check if salary already exists
+    existing = await db.finance_salary_master.find_one({"employee_id": data.employee_id})
+    if existing:
+        raise HTTPException(status_code=400, detail="Salary record already exists for this employee")
+    
+    # Validate payment type
+    if data.payment_type not in SALARY_PAYMENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid payment type. Must be one of: {SALARY_PAYMENT_TYPES}")
+    
+    salary_id = f"sal_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    new_salary = {
+        "salary_id": salary_id,
+        "employee_id": data.employee_id,
+        "employee_name": employee.get("name", "Unknown"),
+        "monthly_salary": data.monthly_salary,
+        "payment_type": data.payment_type,
+        "salary_start_date": data.salary_start_date,
+        "status": "active",
+        "exit_date": None,
+        "final_settlement_amount": None,
+        "final_settlement_status": None,
+        "notes": data.notes,
+        "created_by": user.user_id,
+        "created_by_name": user_doc.get("name", "Unknown"),
+        "created_at": now,
+        "updated_at": now,
+        "activity_log": [{
+            "action": "created",
+            "by_id": user.user_id,
+            "by_name": user_doc.get("name", "Unknown"),
+            "at": now.isoformat(),
+            "details": f"Salary setup: ₹{data.monthly_salary}/month"
+        }]
+    }
+    
+    await db.finance_salary_master.insert_one(new_salary)
+    del new_salary["_id"]
+    return new_salary
+
+
+@api_router.put("/finance/salaries/{employee_id}")
+async def update_salary(employee_id: str, data: SalaryMasterUpdate, request: Request):
+    """Update salary configuration"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.edit_structure"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.salaries.edit_structure permission")
+    
+    existing = await db.finance_salary_master.find_one({"employee_id": employee_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Salary record not found")
+    
+    now = datetime.now(timezone.utc)
+    update_data = {"updated_at": now}
+    activity_details = []
+    
+    if data.monthly_salary is not None:
+        old_salary = existing.get("monthly_salary", 0)
+        update_data["monthly_salary"] = data.monthly_salary
+        activity_details.append(f"Salary changed: ₹{old_salary} → ₹{data.monthly_salary}")
+    
+    if data.payment_type is not None:
+        if data.payment_type not in SALARY_PAYMENT_TYPES:
+            raise HTTPException(status_code=400, detail=f"Invalid payment type. Must be one of: {SALARY_PAYMENT_TYPES}")
+        update_data["payment_type"] = data.payment_type
+        activity_details.append(f"Payment type: {data.payment_type}")
+    
+    if data.status is not None:
+        if data.status not in SALARY_STATUSES:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {SALARY_STATUSES}")
+        update_data["status"] = data.status
+        activity_details.append(f"Status: {data.status}")
+    
+    if data.exit_date is not None:
+        update_data["exit_date"] = data.exit_date
+        activity_details.append(f"Exit date set: {data.exit_date}")
+    
+    if data.notes is not None:
+        update_data["notes"] = data.notes
+    
+    # Add activity log
+    activity_log = existing.get("activity_log", [])
+    activity_log.append({
+        "action": "updated",
+        "by_id": user.user_id,
+        "by_name": user_doc.get("name", "Unknown"),
+        "at": now.isoformat(),
+        "details": "; ".join(activity_details) if activity_details else "Updated"
+    })
+    update_data["activity_log"] = activity_log
+    
+    await db.finance_salary_master.update_one(
+        {"employee_id": employee_id},
+        {"$set": update_data}
+    )
+    
+    updated = await db.finance_salary_master.find_one({"employee_id": employee_id}, {"_id": 0})
+    return updated
+
+
+@api_router.get("/finance/salaries/{employee_id}/history")
+async def get_salary_history(employee_id: str, request: Request, months: int = 12):
+    """Get salary payment history for an employee (last N months)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    # Check permissions
+    if employee_id != user.user_id and not has_permission(user_doc, "finance.salaries.view_all"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if employee_id == user.user_id and not has_permission(user_doc, "finance.salaries.view"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get salary master
+    salary_master = await db.finance_salary_master.find_one({"employee_id": employee_id}, {"_id": 0})
+    if not salary_master:
+        raise HTTPException(status_code=404, detail="Salary record not found")
+    
+    # Get salary cycles for the last N months
+    cycles = await db.finance_salary_cycles.find(
+        {"employee_id": employee_id},
+        {"_id": 0}
+    ).sort("month_year", -1).limit(months).to_list(months)
+    
+    # Get all payments for this employee
+    payments = await db.finance_salary_payments.find(
+        {"employee_id": employee_id},
+        {"_id": 0}
+    ).sort("payment_date", -1).to_list(500)
+    
+    # Group payments by month
+    payments_by_month = {}
+    for payment in payments:
+        month = payment.get("month_year", "")
+        if month not in payments_by_month:
+            payments_by_month[month] = []
+        payments_by_month[month].append(payment)
+    
+    return {
+        "salary_master": salary_master,
+        "cycles": cycles,
+        "payments_by_month": payments_by_month,
+        "total_payments": len(payments)
+    }
+
+
+@api_router.get("/finance/salary-cycles")
+async def get_salary_cycles(request: Request, month_year: Optional[str] = None, employee_id: Optional[str] = None):
+    """Get salary cycles with summary"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.view_all"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {}
+    if month_year:
+        query["month_year"] = month_year
+    if employee_id:
+        query["employee_id"] = employee_id
+    
+    cycles = await db.finance_salary_cycles.find(query, {"_id": 0}).sort("month_year", -1).to_list(500)
+    
+    # Enrich with employee details
+    for cycle in cycles:
+        emp = await db.users.find_one({"user_id": cycle["employee_id"]}, {"_id": 0, "name": 1, "role": 1})
+        if emp:
+            cycle["employee_name"] = emp.get("name", "Unknown")
+            cycle["employee_role"] = emp.get("role", "")
+    
+    return cycles
+
+
+@api_router.post("/finance/salary-payments")
+async def create_salary_payment(data: SalaryPaymentCreate, request: Request):
+    """Record a salary payment (advance or final salary)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.pay"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.salaries.pay permission")
+    
+    # Validate payment type
+    if data.payment_type not in PAYMENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid payment type. Must be one of: {PAYMENT_TYPES}")
+    
+    # Verify employee salary exists
+    salary_master = await db.finance_salary_master.find_one({"employee_id": data.employee_id})
+    if not salary_master:
+        raise HTTPException(status_code=404, detail="Salary record not found for this employee")
+    
+    # Check if employee is on exit and payment is not final settlement
+    if salary_master.get("status") == "exit" and data.payment_type != "final_settlement":
+        raise HTTPException(status_code=400, detail="Employee is marked as exit. Only final settlement payments allowed.")
+    
+    # Verify account exists
+    account = await db.accounts.find_one({"account_id": data.account_id})
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    
+    # Get or create salary cycle for the month
+    cycle = await db.finance_salary_cycles.find_one({
+        "employee_id": data.employee_id,
+        "month_year": data.month_year
+    })
+    
+    if not cycle:
+        # Create new cycle
+        cycle = {
+            "cycle_id": f"cycle_{uuid.uuid4().hex[:12]}",
+            "employee_id": data.employee_id,
+            "employee_name": salary_master.get("employee_name", "Unknown"),
+            "month_year": data.month_year,
+            "monthly_salary": salary_master.get("monthly_salary", 0),
+            "total_advances": 0,
+            "total_salary_paid": 0,
+            "balance_payable": salary_master.get("monthly_salary", 0),
+            "carry_forward_recovery": 0,
+            "status": "open",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        }
+        await db.finance_salary_cycles.insert_one(cycle)
+    else:
+        # Check if cycle is closed
+        if cycle.get("status") == "closed":
+            raise HTTPException(status_code=400, detail="Salary cycle is closed for this month")
+    
+    now = datetime.now(timezone.utc)
+    payment_id = f"sp_{uuid.uuid4().hex[:12]}"
+    
+    # Create payment record
+    new_payment = {
+        "payment_id": payment_id,
+        "employee_id": data.employee_id,
+        "employee_name": salary_master.get("employee_name", "Unknown"),
+        "month_year": data.month_year,
+        "amount": data.amount,
+        "payment_type": data.payment_type,
+        "account_id": data.account_id,
+        "account_name": account.get("name", "Unknown"),
+        "payment_date": data.payment_date,
+        "notes": data.notes,
+        "transaction_id": None,  # Will be set after cashbook entry
+        "paid_by": user.user_id,
+        "paid_by_name": user_doc.get("name", "Unknown"),
+        "created_at": now
+    }
+    
+    # Update cycle based on payment type
+    if data.payment_type == "advance":
+        cycle_update = {
+            "total_advances": cycle.get("total_advances", 0) + data.amount,
+            "balance_payable": cycle.get("balance_payable", 0) - data.amount,
+            "updated_at": now
+        }
+    else:  # salary or final_settlement
+        cycle_update = {
+            "total_salary_paid": cycle.get("total_salary_paid", 0) + data.amount,
+            "balance_payable": cycle.get("balance_payable", 0) - data.amount,
+            "updated_at": now
+        }
+    
+    # Check for over-payment (creates carry forward)
+    new_balance = cycle.get("balance_payable", 0) - data.amount
+    if new_balance < 0:
+        cycle_update["carry_forward_recovery"] = abs(new_balance)
+        cycle_update["balance_payable"] = 0
+    
+    # Create cashbook entry (outflow)
+    transaction_id = f"txn_{uuid.uuid4().hex[:12]}"
+    cashbook_entry = {
+        "transaction_id": transaction_id,
+        "date": data.payment_date,
+        "type": "outflow",
+        "category_id": "salary",  # Link to salary expense category
+        "category_name": "Salary Payment",
+        "description": f"Salary {data.payment_type}: {salary_master.get('employee_name', 'Employee')} ({data.month_year})",
+        "amount": data.amount,
+        "account_id": data.account_id,
+        "account_name": account.get("name", "Unknown"),
+        "project_id": None,
+        "project_name": None,
+        "vendor_id": None,
+        "vendor_name": salary_master.get("employee_name", "Employee"),
+        "notes": data.notes or f"Salary {data.payment_type} for {data.month_year}",
+        "verified": False,
+        "created_by": user.user_id,
+        "created_by_name": user_doc.get("name", "Unknown"),
+        "created_at": now,
+        "updated_at": now,
+        "locked": False,
+        "reference_type": "salary_payment",
+        "reference_id": payment_id
+    }
+    
+    # Check if day is locked
+    day_closing = await db.finance_daily_closings.find_one({"date": data.payment_date, "status": "closed"})
+    if day_closing:
+        raise HTTPException(status_code=400, detail=f"Day {data.payment_date} is already closed. Cannot add transactions.")
+    
+    # Insert cashbook entry
+    await db.cashbook.insert_one(cashbook_entry)
+    
+    # Update payment with transaction ID
+    new_payment["transaction_id"] = transaction_id
+    await db.finance_salary_payments.insert_one(new_payment)
+    
+    # Update cycle
+    await db.finance_salary_cycles.update_one(
+        {"employee_id": data.employee_id, "month_year": data.month_year},
+        {"$set": cycle_update}
+    )
+    
+    # Update budget actuals if salary budget exists
+    await update_salary_budget_actuals(data.month_year, data.amount)
+    
+    del new_payment["_id"]
+    return {
+        "payment": new_payment,
+        "transaction_id": transaction_id,
+        "cycle_balance": new_balance if new_balance >= 0 else 0,
+        "carry_forward": abs(new_balance) if new_balance < 0 else 0
+    }
+
+
+async def update_salary_budget_actuals(month_year: str, amount: float):
+    """Update salary budget actuals when a payment is made"""
+    # Parse month_year to find active budget
+    try:
+        year, month = month_year.split("-")
+        # Find active budget for this period
+        budget = await db.finance_budgets.find_one({
+            "status": "active",
+            "period_start": {"$lte": f"{year}-{month}-01"},
+            "period_end": {"$gte": f"{year}-{month}-01"}
+        })
+        
+        if budget:
+            # Budget tracking is automatic through cashbook entries
+            # The budget vs actual comparison pulls from cashbook
+            pass
+    except:
+        pass
+
+
+@api_router.post("/finance/salary-cycles/{employee_id}/{month_year}/close")
+async def close_salary_cycle(employee_id: str, month_year: str, request: Request):
+    """Close a salary cycle for an employee for a specific month"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.close_month"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.salaries.close_month permission")
+    
+    cycle = await db.finance_salary_cycles.find_one({
+        "employee_id": employee_id,
+        "month_year": month_year
+    })
+    
+    if not cycle:
+        raise HTTPException(status_code=404, detail="Salary cycle not found")
+    
+    if cycle.get("status") == "closed":
+        raise HTTPException(status_code=400, detail="Cycle is already closed")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Calculate carry forward for next month if balance is negative
+    carry_forward = cycle.get("carry_forward_recovery", 0)
+    balance = cycle.get("balance_payable", 0)
+    
+    # If there's remaining balance, it becomes carry forward for next month
+    if balance > 0:
+        # Unpaid salary - carry forward as liability
+        pass
+    
+    # Close the cycle
+    await db.finance_salary_cycles.update_one(
+        {"employee_id": employee_id, "month_year": month_year},
+        {"$set": {
+            "status": "closed",
+            "closed_at": now,
+            "closed_by": user.user_id,
+            "closed_by_name": user_doc.get("name", "Unknown"),
+            "final_balance": balance,
+            "final_carry_forward": carry_forward
+        }}
+    )
+    
+    # Create next month's cycle with carry forward if any
+    if carry_forward > 0:
+        try:
+            year, month = month_year.split("-")
+            next_month = int(month) + 1
+            next_year = int(year)
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            next_month_year = f"{next_year}-{str(next_month).zfill(2)}"
+            
+            # Get salary master for monthly amount
+            salary_master = await db.finance_salary_master.find_one({"employee_id": employee_id})
+            if salary_master and salary_master.get("status") == "active":
+                monthly_salary = salary_master.get("monthly_salary", 0)
+                
+                # Create next month's cycle with recovery amount
+                next_cycle = {
+                    "cycle_id": f"cycle_{uuid.uuid4().hex[:12]}",
+                    "employee_id": employee_id,
+                    "employee_name": salary_master.get("employee_name", "Unknown"),
+                    "month_year": next_month_year,
+                    "monthly_salary": monthly_salary,
+                    "total_advances": 0,
+                    "total_salary_paid": 0,
+                    "balance_payable": monthly_salary - carry_forward,  # Deduct carry forward
+                    "carry_forward_recovery": carry_forward,
+                    "status": "open",
+                    "created_at": now,
+                    "updated_at": now
+                }
+                
+                # Check if next cycle already exists
+                existing_next = await db.finance_salary_cycles.find_one({
+                    "employee_id": employee_id,
+                    "month_year": next_month_year
+                })
+                if not existing_next:
+                    await db.finance_salary_cycles.insert_one(next_cycle)
+        except:
+            pass
+    
+    updated = await db.finance_salary_cycles.find_one({
+        "employee_id": employee_id,
+        "month_year": month_year
+    }, {"_id": 0})
+    
+    return updated
+
+
+@api_router.post("/finance/salaries/{employee_id}/exit")
+async def process_exit(employee_id: str, data: SalaryMasterUpdate, request: Request):
+    """Process employee exit with final settlement calculation"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.manage_exit"):
+        raise HTTPException(status_code=403, detail="Access denied - no finance.salaries.manage_exit permission")
+    
+    salary_master = await db.finance_salary_master.find_one({"employee_id": employee_id})
+    if not salary_master:
+        raise HTTPException(status_code=404, detail="Salary record not found")
+    
+    if not data.exit_date:
+        raise HTTPException(status_code=400, detail="Exit date is required")
+    
+    now = datetime.now(timezone.utc)
+    exit_date = data.exit_date
+    
+    # Parse exit date to calculate prorated salary
+    try:
+        exit_dt = datetime.strptime(exit_date, "%Y-%m-%d")
+        exit_month = exit_dt.month
+        exit_year = exit_dt.year
+        exit_day = exit_dt.day
+        
+        # Calculate days worked in exit month (assuming 30 days per month)
+        days_worked = exit_day
+        monthly_salary = salary_master.get("monthly_salary", 0)
+        prorated_salary = (monthly_salary / 30) * days_worked
+        
+        exit_month_year = f"{exit_year}-{str(exit_month).zfill(2)}"
+    except:
+        raise HTTPException(status_code=400, detail="Invalid exit date format")
+    
+    # Get all open cycles and calculate total advances/pending
+    open_cycles = await db.finance_salary_cycles.find({
+        "employee_id": employee_id,
+        "status": "open"
+    }, {"_id": 0}).to_list(100)
+    
+    total_advances = sum(c.get("total_advances", 0) for c in open_cycles)
+    total_paid = sum(c.get("total_salary_paid", 0) for c in open_cycles)
+    
+    # Calculate final settlement
+    # Salary due till exit = prorated salary for exit month + any unpaid balance from previous months
+    previous_unpaid = sum(c.get("balance_payable", 0) for c in open_cycles if c.get("month_year") != exit_month_year)
+    
+    salary_due = prorated_salary + previous_unpaid
+    amount_payable = salary_due - total_advances  # Deduct all advances
+    
+    settlement_type = "payable_to_employee" if amount_payable > 0 else "recoverable_from_employee"
+    
+    # Update salary master
+    activity_log = salary_master.get("activity_log", [])
+    activity_log.append({
+        "action": "exit_processed",
+        "by_id": user.user_id,
+        "by_name": user_doc.get("name", "Unknown"),
+        "at": now.isoformat(),
+        "details": f"Exit date: {exit_date}, Settlement: ₹{abs(amount_payable)} {settlement_type}"
+    })
+    
+    await db.finance_salary_master.update_one(
+        {"employee_id": employee_id},
+        {"$set": {
+            "status": "exit",
+            "exit_date": exit_date,
+            "final_settlement_amount": abs(amount_payable),
+            "final_settlement_type": settlement_type,
+            "final_settlement_status": "pending",
+            "prorated_salary": prorated_salary,
+            "total_advances_at_exit": total_advances,
+            "updated_at": now,
+            "activity_log": activity_log
+        }}
+    )
+    
+    updated = await db.finance_salary_master.find_one({"employee_id": employee_id}, {"_id": 0})
+    
+    return {
+        "salary_master": updated,
+        "settlement_details": {
+            "exit_date": exit_date,
+            "prorated_salary": prorated_salary,
+            "previous_unpaid": previous_unpaid,
+            "total_salary_due": salary_due,
+            "total_advances": total_advances,
+            "final_amount": abs(amount_payable),
+            "settlement_type": settlement_type,
+            "status": "pending"
+        }
+    }
+
+
+@api_router.post("/finance/salaries/{employee_id}/close-settlement")
+async def close_final_settlement(employee_id: str, request: Request):
+    """Mark final settlement as completed"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.manage_exit"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    salary_master = await db.finance_salary_master.find_one({"employee_id": employee_id})
+    if not salary_master:
+        raise HTTPException(status_code=404, detail="Salary record not found")
+    
+    if salary_master.get("status") != "exit":
+        raise HTTPException(status_code=400, detail="Employee is not marked as exit")
+    
+    if salary_master.get("final_settlement_status") == "closed":
+        raise HTTPException(status_code=400, detail="Settlement is already closed")
+    
+    now = datetime.now(timezone.utc)
+    
+    activity_log = salary_master.get("activity_log", [])
+    activity_log.append({
+        "action": "settlement_closed",
+        "by_id": user.user_id,
+        "by_name": user_doc.get("name", "Unknown"),
+        "at": now.isoformat(),
+        "details": "Final settlement marked as complete"
+    })
+    
+    # Close all open cycles for this employee
+    await db.finance_salary_cycles.update_many(
+        {"employee_id": employee_id, "status": "open"},
+        {"$set": {"status": "closed", "closed_at": now, "closed_by": user.user_id}}
+    )
+    
+    await db.finance_salary_master.update_one(
+        {"employee_id": employee_id},
+        {"$set": {
+            "final_settlement_status": "closed",
+            "updated_at": now,
+            "activity_log": activity_log
+        }}
+    )
+    
+    return {"success": True, "message": "Final settlement closed"}
+
+
+@api_router.get("/finance/salary-summary")
+async def get_salary_summary(request: Request):
+    """Get salary summary for dashboard - payable in next 30 days, cash availability"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.view_all") and not has_permission(user_doc, "finance.founder_dashboard"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc)
+    current_month = now.strftime("%Y-%m")
+    
+    # Get all active salaries
+    active_salaries = await db.finance_salary_master.find(
+        {"status": "active"},
+        {"_id": 0}
+    ).to_list(500)
+    
+    total_monthly_salary = sum(s.get("monthly_salary", 0) for s in active_salaries)
+    
+    # Get current month's cycles
+    current_cycles = await db.finance_salary_cycles.find(
+        {"month_year": current_month},
+        {"_id": 0}
+    ).to_list(500)
+    
+    total_paid_this_month = sum(c.get("total_salary_paid", 0) + c.get("total_advances", 0) for c in current_cycles)
+    total_pending_this_month = total_monthly_salary - total_paid_this_month
+    
+    # Get pending settlements
+    pending_settlements = await db.finance_salary_master.find(
+        {"status": "exit", "final_settlement_status": "pending"},
+        {"_id": 0}
+    ).to_list(100)
+    
+    settlement_payable = sum(
+        s.get("final_settlement_amount", 0) 
+        for s in pending_settlements 
+        if s.get("final_settlement_type") == "payable_to_employee"
+    )
+    
+    # Get cash available
+    accounts = await db.accounts.find({"is_active": True}, {"_id": 0}).to_list(100)
+    total_cash = sum(a.get("current_balance", a.get("opening_balance", 0)) for a in accounts)
+    
+    # Calculate risk status
+    salary_due_30_days = total_pending_this_month + settlement_payable
+    
+    if total_cash >= salary_due_30_days * 2:
+        risk_status = "safe"
+        risk_message = "Sufficient cash for salary obligations"
+    elif total_cash >= salary_due_30_days:
+        risk_status = "tight"
+        risk_message = "Cash available but limited buffer"
+    else:
+        risk_status = "critical"
+        risk_message = "Insufficient cash for upcoming salaries"
+    
+    # Budget comparison
+    budget = await db.finance_budgets.find_one({"status": "active"})
+    budget_info = None
+    if budget:
+        salary_allocation = next(
+            (a for a in budget.get("allocations", []) if a.get("category_key") == "salaries"),
+            None
+        )
+        if salary_allocation:
+            planned = salary_allocation.get("planned_amount", 0)
+            # Get actual from cashbook
+            month_start = f"{current_month}-01"
+            # Calculate month end
+            year, month = current_month.split("-")
+            if int(month) == 12:
+                month_end = f"{int(year)+1}-01-01"
+            else:
+                month_end = f"{year}-{str(int(month)+1).zfill(2)}-01"
+            
+            salary_transactions = await db.cashbook.find({
+                "date": {"$gte": month_start, "$lt": month_end},
+                "type": "outflow",
+                "reference_type": "salary_payment"
+            }, {"_id": 0, "amount": 1}).to_list(1000)
+            
+            actual = sum(t.get("amount", 0) for t in salary_transactions)
+            variance = planned - actual
+            
+            if actual > planned:
+                budget_status = "over_budget"
+            elif actual > planned * 0.8:
+                budget_status = "near_limit"
+            else:
+                budget_status = "safe"
+            
+            budget_info = {
+                "planned": planned,
+                "actual": actual,
+                "variance": variance,
+                "status": budget_status,
+                "utilization_percent": round((actual / planned * 100), 1) if planned > 0 else 0
+            }
+    
+    return {
+        "current_month": current_month,
+        "active_employees": len(active_salaries),
+        "total_monthly_salary": total_monthly_salary,
+        "paid_this_month": total_paid_this_month,
+        "pending_this_month": total_pending_this_month,
+        "pending_settlements": len(pending_settlements),
+        "settlement_payable": settlement_payable,
+        "salary_due_30_days": salary_due_30_days,
+        "cash_available": total_cash,
+        "risk_status": risk_status,
+        "risk_message": risk_message,
+        "budget_info": budget_info
+    }
+
+
+@api_router.get("/finance/salary-payments")
+async def get_salary_payments(
+    request: Request, 
+    employee_id: Optional[str] = None,
+    month_year: Optional[str] = None,
+    payment_type: Optional[str] = None
+):
+    """Get salary payments with filters"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.view_all"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {}
+    if employee_id:
+        query["employee_id"] = employee_id
+    if month_year:
+        query["month_year"] = month_year
+    if payment_type:
+        query["payment_type"] = payment_type
+    
+    payments = await db.finance_salary_payments.find(query, {"_id": 0}).sort("payment_date", -1).to_list(500)
+    return payments
+
+
+@api_router.get("/finance/employees-for-salary")
+async def get_employees_for_salary(request: Request):
+    """Get list of employees who don't have salary setup yet"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if not has_permission(user_doc, "finance.salaries.edit_structure"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get all users
+    all_users = await db.users.find({"status": "Active"}, {"_id": 0, "user_id": 1, "name": 1, "email": 1, "role": 1}).to_list(500)
+    
+    # Get users who already have salary
+    salary_users = await db.finance_salary_master.find({}, {"_id": 0, "employee_id": 1}).to_list(500)
+    salary_user_ids = {s["employee_id"] for s in salary_users}
+    
+    # Filter out users with salary
+    available_users = [u for u in all_users if u["user_id"] not in salary_user_ids]
+    
+    return available_users
+
+
 # ============ HEALTH CHECK ============
 
 @api_router.get("/")
