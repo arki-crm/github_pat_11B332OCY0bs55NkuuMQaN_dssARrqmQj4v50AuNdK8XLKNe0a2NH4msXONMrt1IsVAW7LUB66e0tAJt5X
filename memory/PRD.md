@@ -1340,3 +1340,123 @@ Fixed partially implemented feature:
 
 **Testing**: 13 backend + 8 frontend tests passed (100%)
 
+
+## ✅ BUCKET 1 - Operational Hygiene - COMPLETED Jan 11, 2026
+
+Mandatory features for control and safety before production rollout.
+
+### 1. Audit Trail Enhancement
+Full read-only audit trail for all finance-related actions.
+
+**Features:**
+- Comprehensive logging of all finance operations (create/edit/delete/verify/settle)
+- Logged entity types: cashbook, receipt, liability, project_finance, recurring_template, payment_reminder, system
+- Logged actions: create, edit, delete, verify, settle, freeze, lock_override, allow_overrun, backup_created, backup_restored
+- Filters: entity_type, action, date_from, date_to, user_id
+- Pagination support
+- Entity-specific history view
+- Admin/Founder only access
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/finance/audit-log` | GET | Get all audit entries with filters |
+| `/api/finance/audit-log/entity/{type}/{id}` | GET | Get history for specific entity |
+
+**Audit Log Entry Structure:**
+- audit_id, entity_type, entity_id, action
+- old_value (for edits/deletes), new_value (for creates/edits)
+- user_id, user_name, timestamp, details
+
+### 2. Scheduled Backups
+Daily automated database backups via backend cron job.
+
+**Features:**
+- Manual backup creation (Admin only)
+- Backup listing with metadata
+- Backup restoration (Admin only, with confirmation)
+- Backups stored as JSON files in `/app/backend/backups/`
+- Includes: finance, accounting, projects, leads, users, and more (18+ collections)
+- Metadata-only for attachments (files not included)
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/backup/create` | POST | Create manual backup |
+| `/api/admin/backup/list` | GET | List available backups |
+| `/api/admin/backup/restore/{id}` | POST | Restore from backup |
+
+### 3. Customer Payment Reminders (MOCKED)
+Email reminder system for overdue payments - logs to DB instead of sending actual emails.
+
+**Features:**
+- Get overdue payments with configurable threshold (default 7 days)
+- Send manual reminders from project finance
+- Custom reminder messages supported
+- Reminder history tracking
+- Days since last reminder shown
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/finance/reminders/overdue` | GET | Get projects with overdue payments |
+| `/api/finance/reminders/send` | POST | Send (log) reminder |
+| `/api/finance/reminders/history` | GET | Get reminder history |
+
+**Note:** Emails are MOCKED - logged to `payment_reminders` collection instead of actually sent. Frontend shows "Mocked - Emails logged only" indicator.
+
+### 4. Recurring Transactions
+Monthly recurring templates for auto-generating cashbook entries.
+
+**Features:**
+- Create recurring templates (Admin/Founder/SeniorAccountant)
+- Fields: name, amount, category, account, day_of_month (1-28), description, paid_to
+- Active/Paused status toggle
+- Auto-creates cashbook entries on due date
+- Run due templates manually (Admin only)
+- Tracks: last_run, next_run, total_entries_created
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/finance/recurring/templates` | GET | List templates |
+| `/api/finance/recurring/templates` | POST | Create template |
+| `/api/finance/recurring/templates/{id}` | PUT | Update template |
+| `/api/finance/recurring/templates/{id}/toggle` | POST | Pause/Resume |
+| `/api/finance/recurring/run-scheduled` | POST | Run due templates |
+
+### Frontend Pages
+| Route | Component | Access |
+|-------|-----------|--------|
+| `/admin/audit-trail` | AuditTrail.jsx | Admin/Founder |
+| `/admin/backup` | BackupManagement.jsx | Admin |
+| `/finance/payment-reminders` | PaymentReminders.jsx | Finance team |
+| `/finance/recurring-transactions` | RecurringTransactions.jsx | Admin/Founder/SeniorAccountant |
+
+### Files Added/Modified
+- **Backend**: `/app/backend/server.py` (audit logging integration + BUCKET 1 endpoints)
+- **Frontend Pages**: 
+  - `/app/frontend/src/pages/AuditTrail.jsx`
+  - `/app/frontend/src/pages/BackupManagement.jsx`
+  - `/app/frontend/src/pages/PaymentReminders.jsx`
+  - `/app/frontend/src/pages/RecurringTransactions.jsx`
+- **Sidebar**: Added navigation links for all 4 pages
+
+**Testing**: 24 backend + frontend tests passed (100%)
+
+---
+
+## 🔜 Upcoming Tasks
+
+### P0 - High Priority
+- [ ] Backend Cron Jobs for scheduled backups and recurring transactions (apscheduler integration)
+- [ ] Real email integration for payment reminders (when needed)
+
+### P1 - Medium Priority
+- [ ] Backend refactoring of server.py monolith (~23,000+ lines)
+- [ ] API endpoint deduplication
+
+### P2 - Lower Priority
+- [ ] Python linting cleanup
+- [ ] 27 potential enhancements (AI insights, bank reconciliation, multi-currency, etc.)
+
