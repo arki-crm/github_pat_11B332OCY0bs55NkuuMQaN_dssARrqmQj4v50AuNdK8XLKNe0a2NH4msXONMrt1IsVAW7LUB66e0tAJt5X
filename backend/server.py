@@ -1248,7 +1248,9 @@ VALID_ROLES = [
     "OperationLead",          # Ground-level execution: delivery, installation, handover milestones
     "Technician",             # Service requests, visit completion, SLA tracking
     "Accountant",             # Finance: add/view transactions, basic reports
-    "SeniorAccountant"        # Finance: verify transactions, all reports, manage categories
+    "SeniorAccountant",       # Finance: verify transactions, all reports, manage categories
+    "CharteredAccountant",    # Finance: read-only audit access, exports, no operational edits
+    "Founder"                 # Full visibility, final override, not required for daily tasks
 ]
 
 # ============ PERMISSION SYSTEM ============
