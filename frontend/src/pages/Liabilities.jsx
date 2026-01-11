@@ -34,9 +34,12 @@ import {
   Building2,
   Calendar,
   Filter,
-  Download
+  Download,
+  Eye,
+  Paperclip
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import AttachmentUploader from '../components/AttachmentUploader';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api';
 
