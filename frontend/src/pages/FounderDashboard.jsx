@@ -35,7 +35,8 @@ import {
   BarChart3,
   TrendingUp as TrendUp,
   Ban,
-  PiggyBank
+  PiggyBank,
+  FileText
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
