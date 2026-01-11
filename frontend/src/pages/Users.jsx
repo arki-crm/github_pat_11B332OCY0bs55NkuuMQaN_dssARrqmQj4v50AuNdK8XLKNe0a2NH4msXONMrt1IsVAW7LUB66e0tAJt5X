@@ -124,6 +124,9 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   
+  // Available roles from API
+  const [availableRoles, setAvailableRoles] = useState([]);
+  
   // Create user dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -141,6 +144,25 @@ const Users = () => {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+
+  // Fetch available roles on mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/roles/available`, { withCredentials: true });
+        setAvailableRoles(response.data.roles || []);
+      } catch (err) {
+        console.error('Error fetching roles:', err);
+        // Fallback to basic roles if API fails
+        setAvailableRoles([
+          { id: 'Admin', name: 'Admin', category: 'Administration' },
+          { id: 'Designer', name: 'Designer', category: 'Design' },
+          { id: 'SalesManager', name: 'Sales Manager', category: 'Sales' }
+        ]);
+      }
+    };
+    fetchRoles();
+  }, []);
 
   useEffect(() => {
     fetchUsers();
