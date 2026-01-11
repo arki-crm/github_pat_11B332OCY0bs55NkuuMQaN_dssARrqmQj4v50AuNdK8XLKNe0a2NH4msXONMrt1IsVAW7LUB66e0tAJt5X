@@ -493,6 +493,115 @@ const FounderDashboard = () => {
         </Card>
       )}
 
+      {/* Revenue Reality Check */}
+      {revenueReality && (
+        <Card className="bg-slate-800/50 border-slate-700" data-testid="revenue-reality-check">
+          <CardHeader className="border-b border-slate-700 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg text-white flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-blue-400" />
+                Revenue Reality Check
+              </CardTitle>
+              <Select value={revenuePeriod} onValueChange={setRevenuePeriod}>
+                <SelectTrigger className="w-32 h-8 bg-slate-700 border-slate-600 text-white text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectItem value="month" className="text-white hover:bg-slate-700">Month</SelectItem>
+                  <SelectItem value="quarter" className="text-white hover:bg-slate-700">Quarter</SelectItem>
+                  <SelectItem value="year" className="text-white hover:bg-slate-700">Year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-slate-400 text-sm mt-1">{revenueReality.period_label}</p>
+          </CardHeader>
+          <CardContent className="p-4">
+            {/* Main Metrics - 4 Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* Total Booked Value */}
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="w-4 h-4 text-blue-400" />
+                  <p className="text-slate-400 text-xs">Total Booked</p>
+                </div>
+                <p className="text-2xl font-bold text-white">{formatCurrency(revenueReality.total_booked_value)}</p>
+                <p className="text-xs text-slate-500 mt-1">{revenueReality.booked_count} projects</p>
+              </div>
+              
+              {/* Active Project Value */}
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendUp className="w-4 h-4 text-emerald-400" />
+                  <p className="text-slate-400 text-xs">Active Value</p>
+                </div>
+                <p className="text-2xl font-bold text-emerald-400">{formatCurrency(revenueReality.active_project_value)}</p>
+                <p className="text-xs text-slate-500 mt-1">{revenueReality.active_count} projects</p>
+              </div>
+              
+              {/* Revenue Realised */}
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="w-4 h-4 text-green-400" />
+                  <p className="text-slate-400 text-xs">Cash Received</p>
+                </div>
+                <p className="text-2xl font-bold text-green-400">{formatCurrency(revenueReality.revenue_realised)}</p>
+                <p className="text-xs text-slate-500 mt-1">{revenueReality.realisation_rate}% realised</p>
+              </div>
+              
+              {/* Lost Value */}
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Ban className="w-4 h-4 text-red-400" />
+                  <p className="text-slate-400 text-xs">Lost Value</p>
+                </div>
+                <p className="text-2xl font-bold text-red-400">{formatCurrency(revenueReality.lost_value)}</p>
+                <p className="text-xs text-slate-500 mt-1">{revenueReality.lost_count} cancelled</p>
+              </div>
+            </div>
+            
+            {/* Gap Insight */}
+            {revenueReality.booking_to_realised_gap > 0 && (
+              <div className="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <p className="text-sm text-amber-300">
+                    <span className="font-semibold">{formatCurrency(revenueReality.booking_to_realised_gap)}</span> gap between booked and realised revenue
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Top Cancellation Reasons */}
+            {revenueReality.top_cancellation_reasons?.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <p className="text-sm text-slate-400 mb-3">Top Cancellation Reasons</p>
+                <div className="flex flex-wrap gap-2">
+                  {revenueReality.top_cancellation_reasons.map((reason, idx) => (
+                    <div 
+                      key={reason.reason}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs flex items-center gap-2",
+                        idx === 0 ? "bg-red-900/40 text-red-300" : "bg-slate-700 text-slate-300"
+                      )}
+                    >
+                      <span className="capitalize">{reason.reason.replace(/_/g, ' ')}</span>
+                      <Badge variant="secondary" className="text-xs bg-slate-600 text-slate-200">
+                        {reason.count}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                {revenueReality.loss_rate > 10 && (
+                  <p className="text-xs text-red-400 mt-3">
+                    ⚠️ Loss rate at {revenueReality.loss_rate}% - consider reviewing sales qualification process
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Risky Projects */}
       {data.risky_projects?.length > 0 && (
         <Card className="bg-slate-800/50 border-slate-700">
