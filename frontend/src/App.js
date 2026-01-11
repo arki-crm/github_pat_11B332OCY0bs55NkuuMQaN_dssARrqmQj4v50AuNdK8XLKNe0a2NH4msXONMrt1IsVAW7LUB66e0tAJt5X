@@ -66,6 +66,7 @@ import FinancialForecast from './pages/FinancialForecast';
 import Salaries from './pages/Salaries';
 import Liabilities from './pages/Liabilities';
 import PnLSnapshot from './pages/PnLSnapshot';
+import ImportExport from './pages/ImportExport';
 
 import './App.css';
 
@@ -152,6 +153,9 @@ const AppRouter = () => {
         
         {/* Settings Routes */}
         <Route path="/settings/company-profile" element={<CompanyProfile />} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin/import-export" element={<ImportExport />} />
       </Route>
 
       {/* Redirect root to dashboard */}
