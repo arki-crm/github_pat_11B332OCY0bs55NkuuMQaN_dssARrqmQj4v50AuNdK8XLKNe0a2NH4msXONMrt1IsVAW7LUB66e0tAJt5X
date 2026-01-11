@@ -22752,15 +22752,21 @@ async def list_backups(request: Request):
             if backup_folder.is_dir() and backup_folder.name.startswith("backup_"):
                 meta_path = backup_folder / "backup_meta.json"
                 if meta_path.exists():
-                    async with aiofiles.open(meta_path, 'r') as f:
-                        meta = json.loads(await f.read())
-                        backups.append({
-                            "backup_id": meta.get("backup_id"),
-                            "created_at": meta.get("created_at"),
-                            "created_by_name": meta.get("created_by_name"),
-                            "status": meta.get("status"),
-                            "collections_count": len(meta.get("collections", {}))
-                        })
+                    try:
+                        async with aiofiles.open(meta_path, 'r') as f:
+                            content = await f.read()
+                            if content.strip():  # Skip empty files
+                                meta = json.loads(content)
+                                backups.append({
+                                    "backup_id": meta.get("backup_id"),
+                                    "created_at": meta.get("created_at"),
+                                    "created_by_name": meta.get("created_by_name"),
+                                    "status": meta.get("status"),
+                                    "collections_count": len(meta.get("collections", {}))
+                                })
+                    except (json.JSONDecodeError, Exception):
+                        # Skip corrupt backup meta files
+                        pass
     
     return {"backups": backups[:50]}  # Last 50 backups
 
