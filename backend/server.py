@@ -2228,7 +2228,40 @@ async def admin_reset_password(reset_data: PasswordReset, request: Request):
     return {"success": True, "message": f"Password reset for {reset_data.email}"}
 
 
-# ============ PERMISSIONS MANAGEMENT ENDPOINTS ============
+# ============ ROLES & PERMISSIONS MANAGEMENT ENDPOINTS ============
+
+@api_router.get("/roles/available")
+async def get_available_roles_endpoint(request: Request):
+    """Get all available roles with descriptions and categories"""
+    user = await get_current_user(request)
+    
+    return {
+        "roles": AVAILABLE_ROLES,
+        "categories": {
+            "Administration": "Full system administration",
+            "Sales": "Sales and pre-sales activities",
+            "Design": "Design team roles",
+            "Operations": "Production and delivery operations",
+            "Service": "After-sales service",
+            "Finance": "Accounting and finance roles",
+            "Leadership": "Executive oversight"
+        }
+    }
+
+
+@api_router.get("/roles/{role_id}/default-permissions")
+async def get_role_default_permissions(role_id: str, request: Request):
+    """Get default permissions for a role (for pre-filling when creating users)"""
+    user = await get_current_user(request)
+    
+    if role_id not in DEFAULT_ROLE_PERMISSIONS:
+        raise HTTPException(status_code=404, detail="Role not found")
+    
+    return {
+        "role": role_id,
+        "default_permissions": DEFAULT_ROLE_PERMISSIONS.get(role_id, [])
+    }
+
 
 @api_router.get("/permissions/available")
 async def get_available_permissions(request: Request):
@@ -2240,7 +2273,8 @@ async def get_available_permissions(request: Request):
     
     return {
         "permission_groups": AVAILABLE_PERMISSIONS,
-        "default_role_permissions": DEFAULT_ROLE_PERMISSIONS
+        "default_role_permissions": DEFAULT_ROLE_PERMISSIONS,
+        "available_roles": AVAILABLE_ROLES
     }
 
 
