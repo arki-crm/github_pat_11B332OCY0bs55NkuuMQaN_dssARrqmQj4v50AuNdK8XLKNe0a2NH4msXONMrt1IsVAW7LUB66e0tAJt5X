@@ -1,0 +1,50 @@
+[
+  {
+    "vendor_id": "vnd_0da18e9b",
+    "name": "ABC Furniture Suppliers",
+    "created_at": "2026-01-11T10:47:34.129168+00:00",
+    "auto_created": true
+  },
+  {
+    "vendor_id": "vnd_31b84afc",
+    "name": "Office Supplies Ltd",
+    "created_at": "2026-01-11T10:48:23.223347+00:00",
+    "auto_created": true
+  },
+  {
+    "vendor_id": "vnd_4b8385a7",
+    "name": "Test Vendor",
+    "created_at": "2026-01-11T10:49:47.967125+00:00",
+    "auto_created": true
+  },
+  {
+    "vendor_id": "vnd_f7337e90",
+    "name": "TEST_Vendor_110909",
+    "created_at": "2026-01-11T11:09:09.050304+00:00",
+    "auto_created": true
+  },
+  {
+    "vendor_id": "vnd_a5876df3",
+    "name": "TEST_SingleGet_110909",
+    "created_at": "2026-01-11T11:09:09.063614+00:00",
+    "auto_created": true
+  },
+  {
+    "vendor_id": "vnd_c8146959",
+    "name": "TEST_Settle_110909",
+    "created_at": "2026-01-11T11:09:09.213583+00:00",
+    "auto_created": true
+  },
+  {
+    "vendor_id": "vnd_3fb67a94",
+    "name": "TEST_FullSettle_110909",
+    "created_at": "2026-01-11T11:09:09.239920+00:00",
+    "auto_created": true
+  },
+  {
+    "vendor_id": "vnd_684e1571",
+    "name": "TEST_OverSettle_110909",
+    "created_at": "2026-01-11T11:09:09.311882+00:00",
+    "auto_created": true
+  }
+]

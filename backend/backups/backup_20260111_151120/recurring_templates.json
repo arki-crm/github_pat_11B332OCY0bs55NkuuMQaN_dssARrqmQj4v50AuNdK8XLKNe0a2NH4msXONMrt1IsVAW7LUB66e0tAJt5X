@@ -1,0 +1,23 @@
+[
+  {
+    "template_id": "rec_e99b3529cedd",
+    "name": "Office Rent",
+    "amount": 25000.0,
+    "category_id": "cat_1a54fe27",
+    "category_name": "Project Expenses",
+    "account_id": "acc_d3cd5544",
+    "account_name": "",
+    "frequency": "monthly",
+    "day_of_month": 1,
+    "description": "Monthly office rent payment",
+    "paid_to": "Landlord",
+    "is_active": true,
+    "last_run": null,
+    "next_run": "2026-02-01",
+    "total_entries_created": 0,
+    "created_by": "test-user-1768140463239",
+    "created_by_name": "Thaha Pakayil",
+    "created_at": "2026-01-11T15:09:03.389493+00:00",
+    "updated_at": "2026-01-11T15:09:03.389493+00:00"
+  }
+]

@@ -1,0 +1,111 @@
+[
+  {
+    "salary_id": "sal_d68f3a91ddbf",
+    "employee_id": "user_1b53cadd2b8f",
+    "employee_name": "Duplicate Email User",
+    "monthly_salary": 45000.0,
+    "payment_type": "monthly",
+    "salary_start_date": "2026-01-11",
+    "status": "active",
+    "exit_date": null,
+    "final_settlement_amount": null,
+    "final_settlement_status": null,
+    "notes": "TEST_salary_setup",
+    "created_by": "local_admin_63dbaba4",
+    "created_by_name": "Thaha Pakayil",
+    "created_at": "2026-01-11 07:01:43.122000",
+    "updated_at": "2026-01-11 07:01:43.122000",
+    "activity_log": [
+      {
+        "action": "created",
+        "by_id": "local_admin_63dbaba4",
+        "by_name": "Thaha Pakayil",
+        "at": "2026-01-11T07:01:43.122138+00:00",
+        "details": "Salary setup: \u20b945000.0/month"
+      }
+    ]
+  },
+  {
+    "salary_id": "sal_fe9eb4ee8cc5",
+    "employee_id": "dm_b68670ec",
+    "employee_name": "Arya (Design Manager)",
+    "monthly_salary": 45000.0,
+    "payment_type": "monthly",
+    "salary_start_date": "2026-01-11",
+    "status": "active",
+    "exit_date": null,
+    "final_settlement_amount": null,
+    "final_settlement_status": null,
+    "notes": "TEST_salary_setup",
+    "created_by": "local_admin_63dbaba4",
+    "created_by_name": "Thaha Pakayil",
+    "created_at": "2026-01-11 07:03:06.475000",
+    "updated_at": "2026-01-11 07:03:06.475000",
+    "activity_log": [
+      {
+        "action": "created",
+        "by_id": "local_admin_63dbaba4",
+        "by_name": "Thaha Pakayil",
+        "at": "2026-01-11T07:03:06.475133+00:00",
+        "details": "Salary setup: \u20b945000.0/month"
+      }
+    ]
+  },
+  {
+    "salary_id": "sal_11fa87b5a777",
+    "employee_id": "des_0870a56e",
+    "employee_name": "Priya Designer",
+    "monthly_salary": 7000.0,
+    "payment_type": "monthly",
+    "salary_start_date": "2026-01-11",
+    "status": "active",
+    "exit_date": null,
+    "final_settlement_amount": null,
+    "final_settlement_status": null,
+    "notes": "",
+    "created_by": "user_56b6020c857d",
+    "created_by_name": "sidheeeq abdulla",
+    "created_at": "2026-01-11 07:11:20.434000",
+    "updated_at": "2026-01-11 07:41:40.088000",
+    "activity_log": [
+      {
+        "action": "created",
+        "by_id": "user_56b6020c857d",
+        "by_name": "sidheeeq abdulla",
+        "at": "2026-01-11T07:11:20.434719+00:00",
+        "details": "Salary setup: \u20b97000.0/month"
+      },
+      {
+        "action": "salary_promotion",
+        "by_id": "local_admin_63dbaba4",
+        "by_name": "Thaha Pakayil",
+        "at": "2026-01-11T07:40:14.055444+00:00",
+        "details": "Salary changed: \u20b97000.0 \u2192 \u20b98000.0 (promotion)"
+      },
+      {
+        "action": "salary_correction",
+        "by_id": "local_admin_63dbaba4",
+        "by_name": "Thaha Pakayil",
+        "at": "2026-01-11T07:40:14.121463+00:00",
+        "details": "Salary changed: \u20b98000.0 \u2192 \u20b97000.0 (correction)"
+      },
+      {
+        "action": "salary_promotion",
+        "by_id": "local_admin_63dbaba4",
+        "by_name": "Thaha Pakayil",
+        "at": "2026-01-11T07:41:40.076792+00:00",
+        "details": "Salary changed: \u20b97000.0 \u2192 \u20b98000.0 (promotion)"
+      },
+      {
+        "action": "salary_correction",
+        "by_id": "local_admin_63dbaba4",
+        "by_name": "Thaha Pakayil",
+        "at": "2026-01-11T07:41:40.088299+00:00",
+        "details": "Salary changed: \u20b98000.0 \u2192 \u20b97000.0 (correction)"
+      }
+    ],
+    "last_salary_change_date": "2026-01-11",
+    "last_salary_change_reason": "correction",
+    "salary_level": ""
+  }
+]

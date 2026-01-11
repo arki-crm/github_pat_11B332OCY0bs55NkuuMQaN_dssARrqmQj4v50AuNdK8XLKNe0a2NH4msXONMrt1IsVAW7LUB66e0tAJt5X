@@ -1,0 +1,48 @@
+[
+  {
+    "audit_id": "aud_137ff34efd9e",
+    "entity_type": "cashbook",
+    "entity_id": "txn_c969d9ff",
+    "action": "create",
+    "old_value": null,
+    "new_value": {
+      "amount": 500.0,
+      "type": "outflow",
+      "remarks": "Test transaction for audit trail"
+    },
+    "details": "Created outflow of \u20b9500",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:06:27.412089+00:00",
+    "ip_address": null
+  },
+  {
+    "audit_id": "aud_9674da4d39e3",
+    "entity_type": "system",
+    "entity_id": "backup_20260111_150742",
+    "action": "backup_created",
+    "old_value": null,
+    "new_value": null,
+    "details": "Manual backup created with 18 collections",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:07:42.563485+00:00",
+    "ip_address": null
+  },
+  {
+    "audit_id": "aud_3154b9879a34",
+    "entity_type": "recurring_template",
+    "entity_id": "rec_e99b3529cedd",
+    "action": "create",
+    "old_value": null,
+    "new_value": {
+      "name": "Office Rent",
+      "amount": 25000.0
+    },
+    "details": "Created recurring template: Office Rent",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:09:03.399129+00:00",
+    "ip_address": null
+  }
+]

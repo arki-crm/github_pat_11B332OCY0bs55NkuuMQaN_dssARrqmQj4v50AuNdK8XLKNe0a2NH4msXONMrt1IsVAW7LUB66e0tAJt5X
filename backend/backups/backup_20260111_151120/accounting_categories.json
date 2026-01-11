@@ -1,0 +1,60 @@
+[
+  {
+    "category_id": "cat_1a54fe27",
+    "name": "Project Expenses",
+    "description": "Expenses linked to specific projects",
+    "is_active": true,
+    "created_at": "2026-01-10T13:45:57.509758+00:00"
+  },
+  {
+    "category_id": "cat_b62dbd70",
+    "name": "Office Expenses",
+    "description": "General office running costs",
+    "is_active": true,
+    "created_at": "2026-01-10T13:45:57.509758+00:00"
+  },
+  {
+    "category_id": "cat_d1ec7ad4",
+    "name": "Sales & Marketing",
+    "description": "Marketing and promotional expenses",
+    "is_active": true,
+    "created_at": "2026-01-10T13:45:57.509758+00:00"
+  },
+  {
+    "category_id": "cat_f12a5fb9",
+    "name": "Travel / TA",
+    "description": "Travel and transportation allowances",
+    "is_active": true,
+    "created_at": "2026-01-10T13:45:57.509758+00:00"
+  },
+  {
+    "category_id": "cat_12ab2da1",
+    "name": "Site Expenses",
+    "description": "On-site operational costs",
+    "is_active": true,
+    "created_at": "2026-01-10T13:45:57.509758+00:00"
+  },
+  {
+    "category_id": "cat_51c37c36",
+    "name": "Miscellaneous",
+    "description": "Other uncategorized expenses",
+    "is_active": true,
+    "created_at": "2026-01-10T13:45:57.509758+00:00"
+  },
+  {
+    "category_id": "cat_5ef400ed",
+    "name": "TEST_Test Category",
+    "description": "Test category for automated testing",
+    "is_active": true,
+    "created_at": "2026-01-10T13:49:32.562081+00:00",
+    "created_by": "local_admin_63dbaba4"
+  },
+  {
+    "category_id": "cat_75b9b555",
+    "name": "TEST_Test Category",
+    "description": "Test category for automated testing",
+    "is_active": true,
+    "created_at": "2026-01-10T13:50:17.859083+00:00",
+    "created_by": "local_admin_63dbaba4"
+  }
+]
