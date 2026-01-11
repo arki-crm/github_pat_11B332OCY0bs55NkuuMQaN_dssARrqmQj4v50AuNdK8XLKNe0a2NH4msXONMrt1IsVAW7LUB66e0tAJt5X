@@ -47,6 +47,8 @@ const SIDEBAR_EXPANDED_KEY = 'arkiflo_sidebar_expanded_menus';
 // Finance submenu items - only routes that exist
 const financeSubItems = [
   { path: '/finance/founder-dashboard', label: 'Overview', icon: Gauge },
+  { path: '/finance/forecast', label: 'Forecast', icon: TrendingUp },
+  { path: '/finance/budgets', label: 'Budgets', icon: PiggyBank },
   { path: '/finance/cashbook', label: 'Cash Book', icon: Wallet },
   { path: '/finance/expense-requests', label: 'Expense Requests', icon: FileCheck },
   { path: '/finance/receipts', label: 'Receipts', icon: Receipt },
