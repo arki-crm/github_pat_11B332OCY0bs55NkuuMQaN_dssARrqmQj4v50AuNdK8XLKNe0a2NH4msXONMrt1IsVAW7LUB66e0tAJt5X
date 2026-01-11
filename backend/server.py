@@ -14023,7 +14023,7 @@ async def list_transactions(
 
 @api_router.post("/accounting/transactions")
 async def create_transaction(txn: TransactionCreate, request: Request):
-    """Create a new transaction entry"""
+    """Create a new transaction entry with guardrails"""
     user = await get_current_user(request)
     user_doc = await db.users.find_one({"user_id": user.user_id})
     
@@ -14054,6 +14054,40 @@ async def create_transaction(txn: TransactionCreate, request: Request):
         if not project:
             raise HTTPException(status_code=400, detail="Invalid project ID")
     
+    # ============ GUARDRAILS FOR OUTFLOWS ============
+    needs_review = False
+    approval_status = "not_required"  # not_required, needs_review, approved, pending_approval
+    
+    if txn.transaction_type == "outflow":
+        # Determine approval status based on amount thresholds
+        if txn.amount <= CASHBOOK_THRESHOLDS["petty_cash_max"]:
+            # Petty cash - direct entry allowed
+            approval_status = "not_required"
+        elif txn.amount <= CASHBOOK_THRESHOLDS["review_threshold"]:
+            # Mid-range - allow entry but flag for review
+            needs_review = True
+            approval_status = "needs_review"
+        else:
+            # High value - require approver or expense request link
+            if txn.expense_request_id:
+                # Verify expense request is approved
+                expense_req = await db.finance_expense_requests.find_one({"request_id": txn.expense_request_id})
+                if not expense_req:
+                    raise HTTPException(status_code=400, detail="Invalid expense request ID")
+                if expense_req.get("status") != "approved":
+                    raise HTTPException(status_code=400, detail="Expense request is not approved")
+                approval_status = "approved"
+            elif txn.approved_by:
+                # Has approver selected
+                approver = await db.users.find_one({"user_id": txn.approved_by})
+                if not approver:
+                    raise HTTPException(status_code=400, detail="Invalid approver")
+                approval_status = "approved"
+            else:
+                # No approval - must still be allowed but flagged strongly
+                needs_review = True
+                approval_status = "pending_approval"
+    
     now = datetime.now(timezone.utc)
     txn_id = f"txn_{uuid.uuid4().hex[:8]}"
     
@@ -14072,6 +14106,21 @@ async def create_transaction(txn: TransactionCreate, request: Request):
         "is_verified": False,
         "verified_by": None,
         "verified_at": None,
+        # Accountability fields
+        "requested_by": txn.requested_by or user.user_id,
+        "requested_by_name": txn.requested_by_name or user.name,
+        "paid_by": user.user_id,  # Person creating entry = person who paid
+        "paid_by_name": user.name,
+        "paid_from_account": account.get("name", "Unknown"),
+        "approved_by": txn.approved_by,
+        "approved_by_name": txn.approved_by_name,
+        "expense_request_id": txn.expense_request_id,
+        # Guardrail flags
+        "needs_review": needs_review,
+        "approval_status": approval_status,
+        "reviewed_by": None,
+        "reviewed_at": None,
+        # Metadata
         "created_at": now.isoformat(),
         "created_by": user.user_id,
         "created_by_name": user.name,
