@@ -1,0 +1,2112 @@
+[
+  {
+    "lead_id": "lead_39737617",
+    "customer_name": "Integration Test Customer",
+    "customer_phone": "+1-555-0123",
+    "customer_email": "integration.test@example.com",
+    "customer_address": "123 Test St, Test City",
+    "customer_requirements": "Modern kitchen design",
+    "source": "Meta",
+    "budget": 50000,
+    "status": "Qualified",
+    "stage": "New",
+    "assigned_to": "test-admin-0168a0b7",
+    "created_by": "test-admin-0168a0b7",
+    "is_converted": false,
+    "comments": [
+      {
+        "id": "comment_109ae1b7",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Integration Test Admin",
+        "is_system": true,
+        "created_at": "2025-12-29T19:29:23.632949+00:00"
+      },
+      {
+        "id": "comment_3c353958",
+        "user_id": "test-admin-0168a0b7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2025-12-29T19:29:23.674608+00:00"
+      },
+      {
+        "id": "comment_9dcdb121",
+        "user_id": "test-admin-0168a0b7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2025-12-29T19:29:23.717450+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [],
+    "created_at": "2025-12-29T19:29:23.632949+00:00",
+    "updated_at": "2025-12-29T19:29:23.717450+00:00"
+  },
+  {
+    "lead_id": "lead_e5d1f643",
+    "customer_name": "Integration Test Customer",
+    "customer_phone": "+1-555-0123",
+    "customer_email": "integration.test@example.com",
+    "customer_address": "123 Test St, Test City",
+    "customer_requirements": "Modern kitchen design",
+    "source": "Meta",
+    "budget": 50000,
+    "status": "Waiting",
+    "stage": "Waiting for Booking",
+    "assigned_to": "test-admin-301f3925",
+    "created_by": "test-admin-301f3925",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_a6247ead",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Integration Test Admin",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.232961+00:00"
+      },
+      {
+        "id": "comment_1ace4262",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.270297+00:00"
+      },
+      {
+        "id": "comment_d1f396d7",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Waiting",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.315183+00:00"
+      },
+      {
+        "id": "comment_fd2a4aff",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: Waiting \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.355350+00:00"
+      },
+      {
+        "id": "comment_795ef6e3",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00025",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.394171+00:00"
+      },
+      {
+        "id": "comment_9e27e940",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Added Integration Test Designer as collaborator",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.471090+00:00"
+      },
+      {
+        "id": "comment_a2317fa4",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.547864+00:00"
+      },
+      {
+        "id": "comment_7d2741b6",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"BOQ Shared\" to \"Site Meeting\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.591450+00:00"
+      },
+      {
+        "id": "comment_d944f03d",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"Site Meeting\" to \"Revised BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.636707+00:00"
+      },
+      {
+        "id": "comment_85750f40",
+        "user_id": "test-admin-301f3925",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"Revised BOQ Shared\" to \"Waiting for Booking\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:09.680406+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "test-admin-301f3925",
+        "role": "PreSales",
+        "added_at": "2025-12-29T19:30:09.394171+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      },
+      {
+        "user_id": "test-designer-5f2cad89",
+        "role": "Designer",
+        "added_at": "2025-12-29T19:30:09.471090+00:00",
+        "added_by": "test-admin-301f3925",
+        "reason": "Added by user",
+        "can_edit": true
+      }
+    ],
+    "created_at": "2025-12-29T19:30:09.232961+00:00",
+    "updated_at": "2025-12-29T19:30:09.680406+00:00",
+    "pid": "ARKI-PID-00025",
+    "timeline": []
+  },
+  {
+    "lead_id": "lead_33788e41",
+    "customer_name": "Integration Test Customer",
+    "customer_phone": "+1-555-0123",
+    "customer_email": "integration.test@example.com",
+    "customer_address": "123 Test St, Test City",
+    "customer_requirements": "Modern kitchen design",
+    "source": "Meta",
+    "budget": 50000,
+    "status": "Waiting",
+    "stage": "Waiting for Booking",
+    "assigned_to": "test-admin-b92bdda7",
+    "created_by": "test-admin-b92bdda7",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_4bc64807",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Integration Test Admin",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.189441+00:00"
+      },
+      {
+        "id": "comment_51c1c632",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.232920+00:00"
+      },
+      {
+        "id": "comment_7a39d892",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Waiting",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.271250+00:00"
+      },
+      {
+        "id": "comment_cee6e4ae",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: Waiting \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.312399+00:00"
+      },
+      {
+        "id": "comment_ea6d8a37",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00026",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.357922+00:00"
+      },
+      {
+        "id": "comment_cd4df557",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Added Integration Test Designer as collaborator",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.431874+00:00"
+      },
+      {
+        "id": "comment_0e170e2a",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.509871+00:00"
+      },
+      {
+        "id": "comment_3805126a",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"BOQ Shared\" to \"Site Meeting\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.548065+00:00"
+      },
+      {
+        "id": "comment_25e696b2",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"Site Meeting\" to \"Revised BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.588377+00:00"
+      },
+      {
+        "id": "comment_9d806b02",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"Revised BOQ Shared\" to \"Waiting for Booking\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.628469+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "test-admin-b92bdda7",
+        "role": "PreSales",
+        "added_at": "2025-12-29T19:30:54.357922+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      },
+      {
+        "user_id": "test-designer-a0856b55",
+        "role": "Designer",
+        "added_at": "2025-12-29T19:30:54.431874+00:00",
+        "added_by": "test-admin-b92bdda7",
+        "reason": "Added by user",
+        "can_edit": true
+      }
+    ],
+    "created_at": "2025-12-29T19:30:54.189441+00:00",
+    "updated_at": "2025-12-29T19:30:54.628469+00:00",
+    "pid": "ARKI-PID-00026",
+    "timeline": []
+  },
+  {
+    "lead_id": "lead_2c1bf0eb",
+    "customer_name": "Project Conversion Test Customer",
+    "customer_phone": "+1-555-0456",
+    "customer_email": "project.conversion@example.com",
+    "customer_address": "456 Project St, Test City",
+    "customer_requirements": "Office renovation",
+    "source": "Website",
+    "budget": 75000,
+    "status": "Qualified",
+    "stage": "BC Call Done",
+    "assigned_to": "test-admin-b92bdda7",
+    "created_by": "test-admin-b92bdda7",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_7442239b",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Integration Test Admin",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.746202+00:00"
+      },
+      {
+        "id": "comment_07cc1127",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.824266+00:00"
+      },
+      {
+        "id": "comment_27b03bc2",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00027",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.861556+00:00"
+      },
+      {
+        "id": "comment_bc1273ee",
+        "user_id": "test-admin-b92bdda7",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Added Integration Test Designer as collaborator",
+        "is_system": true,
+        "created_at": "2025-12-29T19:30:54.900064+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "test-admin-b92bdda7",
+        "role": "PreSales",
+        "added_at": "2025-12-29T19:30:54.861556+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      },
+      {
+        "user_id": "test-designer-a0856b55",
+        "role": "Designer",
+        "added_at": "2025-12-29T19:30:54.900064+00:00",
+        "added_by": "test-admin-b92bdda7",
+        "reason": "Added by user",
+        "can_edit": true
+      }
+    ],
+    "created_at": "2025-12-29T19:30:54.746202+00:00",
+    "updated_at": "2025-12-29T19:30:54.900064+00:00",
+    "pid": "ARKI-PID-00027"
+  },
+  {
+    "lead_id": "lead_a1189bb8",
+    "customer_name": "Integration Test Customer",
+    "customer_phone": "+1-555-0123",
+    "customer_email": "integration.test@example.com",
+    "customer_address": "123 Test St, Test City",
+    "customer_requirements": "Modern kitchen design",
+    "source": "Meta",
+    "budget": 50000,
+    "status": "Waiting",
+    "stage": "Waiting for Booking",
+    "assigned_to": "test-admin-ec1d0942",
+    "created_by": "test-admin-ec1d0942",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_ca18fcb4",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Integration Test Admin",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:12.999451+00:00"
+      },
+      {
+        "id": "comment_5b3d1641",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.040818+00:00"
+      },
+      {
+        "id": "comment_777c811f",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Waiting",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.081723+00:00"
+      },
+      {
+        "id": "comment_88f3ccdb",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: Waiting \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.120662+00:00"
+      },
+      {
+        "id": "comment_b6ff17c9",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00028",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.156945+00:00"
+      },
+      {
+        "id": "comment_ae481bfa",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Added Integration Test Designer as collaborator",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.234412+00:00"
+      },
+      {
+        "id": "comment_3cd6f449",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.318748+00:00"
+      },
+      {
+        "id": "comment_0fab7fbe",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"BOQ Shared\" to \"Site Meeting\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.359098+00:00"
+      },
+      {
+        "id": "comment_9a2aa241",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"Site Meeting\" to \"Revised BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.402420+00:00"
+      },
+      {
+        "id": "comment_7223818d",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"Revised BOQ Shared\" to \"Waiting for Booking\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.445499+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "test-admin-ec1d0942",
+        "role": "PreSales",
+        "added_at": "2025-12-29T19:31:13.156945+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      },
+      {
+        "user_id": "test-designer-7f1c0957",
+        "role": "Designer",
+        "added_at": "2025-12-29T19:31:13.234412+00:00",
+        "added_by": "test-admin-ec1d0942",
+        "reason": "Added by user",
+        "can_edit": true
+      }
+    ],
+    "created_at": "2025-12-29T19:31:12.999451+00:00",
+    "updated_at": "2025-12-29T19:31:13.445499+00:00",
+    "pid": "ARKI-PID-00028",
+    "timeline": []
+  },
+  {
+    "lead_id": "lead_4e8c5e2c",
+    "customer_name": "Project Conversion Test Customer",
+    "customer_phone": "+1-555-0456",
+    "customer_email": "project.conversion@example.com",
+    "customer_address": "456 Project St, Test City",
+    "customer_requirements": "Office renovation",
+    "source": "Website",
+    "budget": 75000,
+    "status": "Qualified",
+    "stage": "Booking Completed",
+    "assigned_to": "test-admin-ec1d0942",
+    "created_by": "test-admin-ec1d0942",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_50212591",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Integration Test Admin",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.609725+00:00"
+      },
+      {
+        "id": "comment_803d65ef",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.646476+00:00"
+      },
+      {
+        "id": "comment_4c0abe37",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00029",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.682705+00:00"
+      },
+      {
+        "id": "comment_6e2bc88f",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Added Integration Test Designer as collaborator",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.720531+00:00"
+      },
+      {
+        "id": "comment_8878a2d0",
+        "user_id": "test-admin-ec1d0942",
+        "user_name": "Integration Test Admin",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"Booking Completed\"",
+        "is_system": true,
+        "created_at": "2025-12-29T19:31:13.755758+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "test-admin-ec1d0942",
+        "role": "PreSales",
+        "added_at": "2025-12-29T19:31:13.682705+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      },
+      {
+        "user_id": "test-designer-7f1c0957",
+        "role": "Designer",
+        "added_at": "2025-12-29T19:31:13.720531+00:00",
+        "added_by": "test-admin-ec1d0942",
+        "reason": "Added by user",
+        "can_edit": true
+      }
+    ],
+    "created_at": "2025-12-29T19:31:13.609725+00:00",
+    "updated_at": "2025-12-29T19:31:13.755758+00:00",
+    "pid": "ARKI-PID-00029",
+    "timeline": []
+  },
+  {
+    "lead_id": "lead_a020231d",
+    "customer_name": "Thaha",
+    "customer_phone": "9846690822",
+    "customer_email": "thaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "ewe",
+    "source": "Meta",
+    "budget": null,
+    "status": "Qualified",
+    "stage": "BC Call Done",
+    "assigned_to": "user_56b6020c857d",
+    "created_by": "user_56b6020c857d",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_0c246813",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by sidheeeq abdulla",
+        "is_system": true,
+        "created_at": "2026-01-02T12:20:09.037834+00:00"
+      },
+      {
+        "id": "comment_3ecc1217",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2026-01-02T12:20:41.824064+00:00"
+      },
+      {
+        "id": "comment_d1bb3805",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2026-01-02T12:20:47.108601+00:00"
+      },
+      {
+        "id": "comment_adf61fa3",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00030",
+        "is_system": true,
+        "created_at": "2026-01-02T12:20:55.153019+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "user_56b6020c857d",
+        "role": "PreSales",
+        "added_at": "2026-01-02T12:20:55.153019+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      }
+    ],
+    "created_at": "2026-01-02T12:20:09.037834+00:00",
+    "updated_at": "2026-01-02T12:20:55.153019+00:00",
+    "pid": "ARKI-PID-00030"
+  },
+  {
+    "lead_id": "lead_8a38fe5d",
+    "customer_name": "Thaha",
+    "customer_phone": "9846690822",
+    "customer_email": "thaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "ere",
+    "source": "Meta",
+    "budget": null,
+    "status": "Qualified",
+    "stage": "Booking Completed",
+    "assigned_to": "user_56b6020c857d",
+    "created_by": "user_56b6020c857d",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_1c353864",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by sidheeeq abdulla",
+        "is_system": true,
+        "created_at": "2026-01-02T12:23:03.262968+00:00"
+      },
+      {
+        "id": "comment_6b96f25b",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Added Priya Designer as collaborator",
+        "is_system": true,
+        "created_at": "2026-01-02T12:28:16.743271+00:00"
+      },
+      {
+        "id": "comment_4b48a5c4",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Removed Priya Designer from collaborators",
+        "is_system": true,
+        "created_at": "2026-01-02T12:29:16.155712+00:00"
+      },
+      {
+        "id": "comment_f1d9fa70",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Stage updated from \"New\" to \"Booking Completed\"",
+        "is_system": true,
+        "created_at": "2026-01-02T12:30:10.615666+00:00"
+      },
+      {
+        "id": "comment_8af1abdf",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Converted to project proj_bf65f7c5. PID: ARKI-PID-00031",
+        "is_system": true,
+        "created_at": "2026-01-02T12:30:14.192779+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [],
+    "created_at": "2026-01-02T12:23:03.262968+00:00",
+    "updated_at": "2026-01-02T12:30:14.192779+00:00",
+    "timeline": [],
+    "project_id": "proj_bf65f7c5"
+  },
+  {
+    "lead_id": "lead_3caaf420",
+    "customer_name": "Thaha",
+    "customer_phone": "9846690822",
+    "customer_email": "thaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "dgdf",
+    "source": "Meta",
+    "budget": 300000.0,
+    "status": "New",
+    "stage": "BC Call Done",
+    "assigned_to": null,
+    "designer_id": null,
+    "is_converted": false,
+    "project_id": null,
+    "timeline": [
+      {
+        "id": "tl_d835fc",
+        "title": "Lead Created",
+        "expectedDate": "2026-01-02T13:52:08.398083+00:00",
+        "completedDate": "2026-01-02T13:52:08.398083+00:00",
+        "status": "completed",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_699e5b",
+        "title": "BC Call Completed",
+        "expectedDate": "2026-01-03T13:52:08.398083+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_1598dd",
+        "title": "BOQ Shared",
+        "expectedDate": "2026-01-06T13:52:08.398083+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "BOQ Shared"
+      },
+      {
+        "id": "tl_8cbb70",
+        "title": "Site Meeting",
+        "expectedDate": "2026-01-08T13:52:08.398083+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Site Meeting"
+      },
+      {
+        "id": "tl_e3dd00",
+        "title": "Revised BOQ Shared",
+        "expectedDate": "2026-01-10T13:52:08.398083+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Revised BOQ Shared"
+      },
+      {
+        "id": "tl_85acdf",
+        "title": "Waiting for Booking",
+        "expectedDate": "2026-01-12T13:52:08.398083+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Waiting for Booking"
+      },
+      {
+        "id": "tl_842418",
+        "title": "Booking Completed",
+        "expectedDate": "2026-01-14T13:52:08.398083+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Booking Completed"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_c49e4105",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created",
+        "is_system": true,
+        "created_at": "2026-01-02T13:52:08.398083+00:00"
+      }
+    ],
+    "created_by": "user_56b6020c857d",
+    "updated_at": "2026-01-02T13:52:08.398083+00:00",
+    "created_at": "2026-01-02T13:52:08.398083+00:00"
+  },
+  {
+    "lead_id": "lead_1ef238ff",
+    "customer_name": "Thaha",
+    "customer_phone": "9846690822",
+    "customer_email": "thaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "dgdf",
+    "source": "Meta",
+    "budget": 300000.0,
+    "status": "New",
+    "stage": "BC Call Done",
+    "assigned_to": null,
+    "designer_id": null,
+    "is_converted": false,
+    "project_id": null,
+    "timeline": [
+      {
+        "id": "tl_742d37",
+        "title": "Lead Created",
+        "expectedDate": "2026-01-02T13:52:10.497606+00:00",
+        "completedDate": "2026-01-02T13:52:10.497606+00:00",
+        "status": "completed",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_dedaa1",
+        "title": "BC Call Completed",
+        "expectedDate": "2026-01-03T13:52:10.497606+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_520e30",
+        "title": "BOQ Shared",
+        "expectedDate": "2026-01-06T13:52:10.497606+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "BOQ Shared"
+      },
+      {
+        "id": "tl_d64a9b",
+        "title": "Site Meeting",
+        "expectedDate": "2026-01-08T13:52:10.497606+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Site Meeting"
+      },
+      {
+        "id": "tl_c17f5e",
+        "title": "Revised BOQ Shared",
+        "expectedDate": "2026-01-10T13:52:10.497606+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Revised BOQ Shared"
+      },
+      {
+        "id": "tl_5041e5",
+        "title": "Waiting for Booking",
+        "expectedDate": "2026-01-12T13:52:10.497606+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Waiting for Booking"
+      },
+      {
+        "id": "tl_6512fc",
+        "title": "Booking Completed",
+        "expectedDate": "2026-01-14T13:52:10.497606+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Booking Completed"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_2f746b22",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created",
+        "is_system": true,
+        "created_at": "2026-01-02T13:52:10.497606+00:00"
+      }
+    ],
+    "created_by": "user_56b6020c857d",
+    "updated_at": "2026-01-02T13:52:10.497606+00:00",
+    "created_at": "2026-01-02T13:52:10.497606+00:00"
+  },
+  {
+    "lead_id": "lead_796ab5db",
+    "customer_name": "Thaha",
+    "customer_phone": "9846690822",
+    "customer_email": "thaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "dfdf",
+    "source": "Meta",
+    "budget": 499998.0,
+    "status": "New",
+    "stage": "BC Call Done",
+    "assigned_to": null,
+    "designer_id": null,
+    "is_converted": false,
+    "project_id": null,
+    "timeline": [
+      {
+        "id": "tl_941188",
+        "title": "Lead Created",
+        "expectedDate": "2026-01-02T13:53:00.067936+00:00",
+        "completedDate": "2026-01-02T13:53:00.067936+00:00",
+        "status": "completed",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_052198",
+        "title": "BC Call Completed",
+        "expectedDate": "2026-01-03T13:53:00.067936+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_a4b44a",
+        "title": "BOQ Shared",
+        "expectedDate": "2026-01-06T13:53:00.067936+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "BOQ Shared"
+      },
+      {
+        "id": "tl_abdc1a",
+        "title": "Site Meeting",
+        "expectedDate": "2026-01-08T13:53:00.067936+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Site Meeting"
+      },
+      {
+        "id": "tl_c54c7c",
+        "title": "Revised BOQ Shared",
+        "expectedDate": "2026-01-10T13:53:00.067936+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Revised BOQ Shared"
+      },
+      {
+        "id": "tl_11018d",
+        "title": "Waiting for Booking",
+        "expectedDate": "2026-01-12T13:53:00.067936+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Waiting for Booking"
+      },
+      {
+        "id": "tl_c8c8fc",
+        "title": "Booking Completed",
+        "expectedDate": "2026-01-14T13:53:00.067936+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Booking Completed"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_936fbde1",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created",
+        "is_system": true,
+        "created_at": "2026-01-02T13:53:00.067936+00:00"
+      }
+    ],
+    "created_by": "user_56b6020c857d",
+    "updated_at": "2026-01-02T13:53:00.067936+00:00",
+    "created_at": "2026-01-02T13:53:00.067936+00:00"
+  },
+  {
+    "lead_id": "lead_dc76a441",
+    "lead_type": "lead",
+    "pid": "ARKI-PID-00032",
+    "customer_name": "Walk-in Customer",
+    "customer_phone": "9876543210",
+    "customer_email": null,
+    "customer_address": null,
+    "customer_requirements": null,
+    "source": "Walk-in",
+    "budget": null,
+    "status": "In Progress",
+    "stage": "BC Call Done",
+    "assigned_to": null,
+    "designer_id": null,
+    "is_converted": false,
+    "project_id": null,
+    "timeline": [
+      {
+        "id": "tl_cee8d7",
+        "title": "Lead Created",
+        "expectedDate": "2026-01-02T14:36:14.972387+00:00",
+        "completedDate": "2026-01-02T14:36:14.972387+00:00",
+        "status": "completed",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_cfce92",
+        "title": "BC Call Completed",
+        "expectedDate": "2026-01-03T14:36:14.972387+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_156bb2",
+        "title": "BOQ Shared",
+        "expectedDate": "2026-01-06T14:36:14.972387+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "BOQ Shared"
+      },
+      {
+        "id": "tl_6e36df",
+        "title": "Site Meeting",
+        "expectedDate": "2026-01-08T14:36:14.972387+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Site Meeting"
+      },
+      {
+        "id": "tl_32ab27",
+        "title": "Revised BOQ Shared",
+        "expectedDate": "2026-01-10T14:36:14.972387+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Revised BOQ Shared"
+      },
+      {
+        "id": "tl_78d295",
+        "title": "Waiting for Booking",
+        "expectedDate": "2026-01-12T14:36:14.972387+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Waiting for Booking"
+      },
+      {
+        "id": "tl_fe55e8",
+        "title": "Booking Completed",
+        "expectedDate": "2026-01-14T14:36:14.972387+00:00",
+        "completedDate": null,
+        "status": "pending",
+        "stage_ref": "Booking Completed"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_0f4e3708",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created directly by Thaha Pakayil. PID: ARKI-PID-00032",
+        "is_system": true,
+        "created_at": "2026-01-02T14:36:14.972387+00:00"
+      }
+    ],
+    "collaborators": [],
+    "files": [],
+    "created_by": "local_admin_63dbaba4",
+    "updated_at": "2026-01-02T14:36:14.972387+00:00",
+    "created_at": "2026-01-02T14:36:14.972387+00:00"
+  },
+  {
+    "lead_id": "lead_9f8ad584",
+    "lead_type": "presales",
+    "customer_name": "Pre-Sales Test",
+    "customer_phone": "1234567890",
+    "customer_email": "",
+    "customer_address": "",
+    "customer_requirements": "",
+    "source": "Website",
+    "budget": null,
+    "status": "New",
+    "stage": "New",
+    "assigned_to": "local_admin_63dbaba4",
+    "created_by": "local_admin_63dbaba4",
+    "is_converted": false,
+    "comments": [
+      {
+        "id": "comment_903d15c9",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Thaha Pakayil",
+        "is_system": true,
+        "created_at": "2026-01-02T14:36:15.053960+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [],
+    "created_at": "2026-01-02T14:36:15.053960+00:00",
+    "updated_at": "2026-01-02T14:36:15.053960+00:00"
+  },
+  {
+    "lead_id": "lead_8c33fbaf",
+    "lead_type": "lead",
+    "customer_name": "Conversion Test",
+    "customer_phone": "5555555555",
+    "customer_email": "",
+    "customer_address": "",
+    "customer_requirements": "",
+    "source": "Referral",
+    "budget": null,
+    "status": "Contacted",
+    "stage": "BOQ Shared",
+    "assigned_to": "local_admin_63dbaba4",
+    "created_by": "local_admin_63dbaba4",
+    "is_converted": false,
+    "comments": [
+      {
+        "id": "comment_f1ffad44",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Thaha Pakayil",
+        "is_system": true,
+        "created_at": "2026-01-02T14:36:43.889735+00:00"
+      },
+      {
+        "id": "comment_91b95b2a",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2026-01-02T14:36:43.951179+00:00"
+      },
+      {
+        "id": "comment_6e86c008",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00033",
+        "is_system": true,
+        "created_at": "2026-01-02T14:36:43.992165+00:00"
+      },
+      {
+        "id": "comment_55b9d6bc",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:27:36.897308+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "local_admin_63dbaba4",
+        "role": "PreSales",
+        "added_at": "2026-01-02T14:36:43.992165+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      }
+    ],
+    "created_at": "2026-01-02T14:36:43.889735+00:00",
+    "updated_at": "2026-01-06T17:27:36.897308+00:00",
+    "converted_from_presales": true,
+    "pid": "ARKI-PID-00033",
+    "presales_converted_at": "2026-01-02T14:36:43.992165+00:00",
+    "timeline": []
+  },
+  {
+    "lead_id": "lead_6b569b51",
+    "lead_type": "lead",
+    "pid": "ARKI-PID-00034",
+    "customer_name": "Thaha",
+    "customer_phone": "9846690822",
+    "customer_email": "thaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "jgvg",
+    "source": "Meta",
+    "budget": 500000.0,
+    "status": "Qualified",
+    "stage": "Booking Completed",
+    "assigned_to": null,
+    "designer_id": null,
+    "is_converted": true,
+    "project_id": "proj_6d8a69ee",
+    "timeline": [
+      {
+        "id": "tl_3a7b9d",
+        "title": "Lead Created",
+        "expectedDate": "2026-01-02T15:59:13.270429+00:00",
+        "completedDate": "2026-01-02T15:59:13.270429+00:00",
+        "status": "completed",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_70ee94",
+        "title": "BC Call Completed",
+        "expectedDate": "2026-01-03T15:59:13.270429+00:00",
+        "completedDate": "2026-01-02T15:59:55.824669+00:00",
+        "status": "completed",
+        "stage_ref": "BC Call Done"
+      },
+      {
+        "id": "tl_2ff0b5",
+        "title": "BOQ Shared",
+        "expectedDate": "2026-01-06T15:59:13.270429+00:00",
+        "completedDate": "2026-01-02T15:59:55.824669+00:00",
+        "status": "completed",
+        "stage_ref": "BOQ Shared"
+      },
+      {
+        "id": "tl_faf9e6",
+        "title": "Site Meeting",
+        "expectedDate": "2026-01-08T15:59:13.270429+00:00",
+        "completedDate": "2026-01-02T15:59:55.824669+00:00",
+        "status": "completed",
+        "stage_ref": "Site Meeting"
+      },
+      {
+        "id": "tl_5817f4",
+        "title": "Revised BOQ Shared",
+        "expectedDate": "2026-01-10T15:59:13.270429+00:00",
+        "completedDate": "2026-01-02T15:59:55.824669+00:00",
+        "status": "completed",
+        "stage_ref": "Revised BOQ Shared"
+      },
+      {
+        "id": "tl_f50a18",
+        "title": "Waiting for Booking",
+        "expectedDate": "2026-01-12T15:59:13.270429+00:00",
+        "completedDate": "2026-01-02T15:59:55.824669+00:00",
+        "status": "completed",
+        "stage_ref": "Waiting for Booking"
+      },
+      {
+        "id": "tl_fd9607",
+        "title": "Booking Completed",
+        "expectedDate": "2026-01-14T15:59:13.270429+00:00",
+        "completedDate": "2026-01-02T15:59:55.824669+00:00",
+        "status": "completed",
+        "stage_ref": "Booking Completed"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_683f58e1",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created directly by sidheeeq abdulla. PID: ARKI-PID-00034",
+        "is_system": true,
+        "created_at": "2026-01-02T15:59:13.270429+00:00"
+      },
+      {
+        "id": "comment_6d02b8c7",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"Booking Completed\"",
+        "is_system": true,
+        "created_at": "2026-01-02T15:59:55.824669+00:00"
+      },
+      {
+        "id": "comment_59a88029",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Converted to project proj_6d8a69ee. PID: ARKI-PID-00034",
+        "is_system": true,
+        "created_at": "2026-01-02T15:59:58.625034+00:00"
+      }
+    ],
+    "collaborators": [],
+    "files": [],
+    "created_by": "user_56b6020c857d",
+    "updated_at": "2026-01-02T15:59:58.625034+00:00",
+    "created_at": "2026-01-02T15:59:13.270429+00:00"
+  },
+  {
+    "lead_id": "lead_d2bb1963",
+    "lead_type": "presales",
+    "customer_name": "Thaha",
+    "customer_phone": "9846690822",
+    "customer_email": "thaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "ftft",
+    "source": "Meta",
+    "budget": 550000,
+    "status": "New",
+    "stage": "New",
+    "assigned_to": "user_56b6020c857d",
+    "created_by": "user_56b6020c857d",
+    "is_converted": false,
+    "comments": [
+      {
+        "id": "comment_212a3517",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by sidheeeq abdulla",
+        "is_system": true,
+        "created_at": "2026-01-06T17:28:10.733401+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [],
+    "created_at": "2026-01-06T17:28:10.733401+00:00",
+    "updated_at": "2026-01-06T17:28:10.733401+00:00"
+  },
+  {
+    "lead_id": "lead_4b9cf2d1",
+    "lead_type": "presales",
+    "customer_name": "sharan",
+    "customer_phone": "9846690821",
+    "customer_email": "thaaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "fdf",
+    "source": "Meta",
+    "budget": 200000,
+    "status": "New",
+    "stage": "New",
+    "assigned_to": "user_56b6020c857d",
+    "created_by": "user_56b6020c857d",
+    "is_converted": false,
+    "comments": [
+      {
+        "id": "comment_d07b8a69",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by sidheeeq abdulla",
+        "is_system": true,
+        "created_at": "2026-01-06T17:29:13.342658+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [],
+    "created_at": "2026-01-06T17:29:13.342658+00:00",
+    "updated_at": "2026-01-06T17:29:13.342658+00:00"
+  },
+  {
+    "lead_id": "lead_2ae66bb8",
+    "lead_type": "presales",
+    "customer_name": "sharan",
+    "customer_phone": "9846690821",
+    "customer_email": "thaaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "gvvc",
+    "source": "Meta",
+    "budget": 4500000,
+    "status": "New",
+    "stage": "New",
+    "assigned_to": "user_56b6020c857d",
+    "created_by": "user_56b6020c857d",
+    "is_converted": false,
+    "comments": [
+      {
+        "id": "comment_0017c87c",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by sidheeeq abdulla",
+        "is_system": true,
+        "created_at": "2026-01-06T17:30:17.056988+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [],
+    "created_at": "2026-01-06T17:30:17.056988+00:00",
+    "updated_at": "2026-01-06T17:30:17.056988+00:00"
+  },
+  {
+    "lead_id": "lead_c6d5b9fc",
+    "lead_type": "lead",
+    "customer_name": "STABILITY_TEST_1767721172",
+    "customer_phone": "9991767721172",
+    "customer_email": "",
+    "customer_address": "",
+    "customer_requirements": "",
+    "source": "Website",
+    "budget": null,
+    "status": "Qualified",
+    "stage": "Booking Completed",
+    "assigned_to": "local_admin_63dbaba4",
+    "created_by": "local_admin_63dbaba4",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_64ecb39e",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Thaha Pakayil",
+        "is_system": true,
+        "created_at": "2026-01-06T17:39:32.260521+00:00"
+      },
+      {
+        "id": "comment_10896535",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2026-01-06T17:39:58.938735+00:00"
+      },
+      {
+        "id": "comment_9e1b8e36",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Waiting",
+        "is_system": true,
+        "created_at": "2026-01-06T17:39:59.004736+00:00"
+      },
+      {
+        "id": "comment_c3e7ddc7",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: Waiting \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2026-01-06T17:39:59.067426+00:00"
+      },
+      {
+        "id": "comment_526b449d",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00035",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:11.907704+00:00"
+      },
+      {
+        "id": "comment_a94e7dac",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:26.140468+00:00"
+      },
+      {
+        "id": "comment_77209e83",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"BOQ Shared\" to \"Revised BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:26.269158+00:00"
+      },
+      {
+        "id": "comment_6b6597ea",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Revised BOQ Shared\" to \"Waiting for Booking\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:26.338144+00:00"
+      },
+      {
+        "id": "comment_a87a0d3b",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Waiting for Booking\" to \"Site Meeting\" (Admin rollback from 'Waiting for Booking')",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:37.847610+00:00"
+      },
+      {
+        "id": "comment_594098cd",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Site Meeting\" to \"Revised BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:37.899945+00:00"
+      },
+      {
+        "id": "comment_ef035d51",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Revised BOQ Shared\" to \"Waiting for Booking\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:37.960302+00:00"
+      },
+      {
+        "id": "comment_8b48397d",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Waiting for Booking\" to \"Booking Completed\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:38.018472+00:00"
+      },
+      {
+        "id": "comment_d3d4864e",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Converted to project proj_4ddc5c72. PID: ARKI-PID-00035",
+        "is_system": true,
+        "created_at": "2026-01-06T17:40:50.249416+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "local_admin_63dbaba4",
+        "role": "PreSales",
+        "added_at": "2026-01-06T17:40:11.907704+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      }
+    ],
+    "created_at": "2026-01-06T17:39:32.260521+00:00",
+    "updated_at": "2026-01-06T17:40:50.249416+00:00",
+    "converted_from_presales": true,
+    "pid": "ARKI-PID-00035",
+    "presales_converted_at": "2026-01-06T17:40:11.907704+00:00",
+    "timeline": [],
+    "project_id": "proj_4ddc5c72"
+  },
+  {
+    "lead_id": "lead_f7aee524",
+    "lead_type": "lead",
+    "customer_name": "sharan",
+    "customer_phone": "9846690821",
+    "customer_email": "thaaha.pakayil@gmail.com",
+    "customer_address": "vatakara",
+    "customer_requirements": "fgfg",
+    "source": "Meta",
+    "budget": 300000,
+    "status": "Qualified",
+    "stage": "Booking Completed",
+    "assigned_to": "user_56b6020c857d",
+    "created_by": "user_56b6020c857d",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_55ff4ae7",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by sidheeeq abdulla",
+        "is_system": true,
+        "created_at": "2026-01-06T17:51:40.009506+00:00"
+      },
+      {
+        "id": "comment_040f7330",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2026-01-06T18:07:43.467540+00:00"
+      },
+      {
+        "id": "comment_1ccc104d",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2026-01-06T18:07:53.336049+00:00"
+      },
+      {
+        "id": "comment_00b97661",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00037",
+        "is_system": true,
+        "created_at": "2026-01-06T18:08:07.829535+00:00"
+      },
+      {
+        "id": "comment_4f216011",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:08:36.786159+00:00"
+      },
+      {
+        "id": "comment_ecd83b7b",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Stage updated from \"BOQ Shared\" to \"Site Meeting\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:08:46.448341+00:00"
+      },
+      {
+        "id": "comment_778f5eeb",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Stage updated from \"Site Meeting\" to \"Revised BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:08:50.490791+00:00"
+      },
+      {
+        "id": "comment_d2d11623",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Stage updated from \"Revised BOQ Shared\" to \"Waiting for Booking\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:08:53.720898+00:00"
+      },
+      {
+        "id": "comment_12e317a5",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Stage updated from \"Waiting for Booking\" to \"Booking Completed\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:08:57.243798+00:00"
+      },
+      {
+        "id": "comment_9740e296",
+        "user_id": "user_56b6020c857d",
+        "user_name": "sidheeeq abdulla",
+        "role": "Admin",
+        "message": "Converted to project proj_17942869. PID: ARKI-PID-00037",
+        "is_system": true,
+        "created_at": "2026-01-06T18:09:00.967609+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "user_56b6020c857d",
+        "role": "PreSales",
+        "added_at": "2026-01-06T18:08:07.829535+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      }
+    ],
+    "created_at": "2026-01-06T17:51:40.009506+00:00",
+    "updated_at": "2026-01-06T18:09:00.967609+00:00",
+    "converted_from_presales": true,
+    "pid": "ARKI-PID-00037",
+    "presales_converted_at": "2026-01-06T18:08:07.829535+00:00",
+    "timeline": [],
+    "project_id": "proj_17942869"
+  },
+  {
+    "lead_id": "lead_585fcc41",
+    "lead_type": "presales",
+    "customer_name": "BLOCKER_TEST_1767722195",
+    "customer_phone": "1111767722195",
+    "customer_email": "",
+    "customer_address": "",
+    "customer_requirements": "",
+    "source": "Website",
+    "budget": null,
+    "status": "New",
+    "stage": "New",
+    "assigned_to": "local_admin_63dbaba4",
+    "created_by": "local_admin_63dbaba4",
+    "is_converted": false,
+    "comments": [
+      {
+        "id": "comment_6a6e0919",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Thaha Pakayil",
+        "is_system": true,
+        "created_at": "2026-01-06T17:56:35.768823+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [],
+    "created_at": "2026-01-06T17:56:35.768823+00:00",
+    "updated_at": "2026-01-06T17:56:35.768823+00:00"
+  },
+  {
+    "lead_id": "lead_98d17c17",
+    "lead_type": "lead",
+    "customer_name": "FULLTEST_1767722334",
+    "customer_phone": "2221767722334",
+    "customer_email": "",
+    "customer_address": "",
+    "customer_requirements": "",
+    "source": "Referral",
+    "budget": null,
+    "status": "Qualified",
+    "stage": "Booking Completed",
+    "assigned_to": "local_admin_63dbaba4",
+    "created_by": "local_admin_63dbaba4",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_14c3b0cf",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Thaha Pakayil",
+        "is_system": true,
+        "created_at": "2026-01-06T17:58:54.671216+00:00"
+      },
+      {
+        "id": "comment_4e768d23",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2026-01-06T17:58:54.838867+00:00"
+      },
+      {
+        "id": "comment_0d447402",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Waiting",
+        "is_system": true,
+        "created_at": "2026-01-06T17:58:54.886177+00:00"
+      },
+      {
+        "id": "comment_a7b27c73",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: Waiting \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2026-01-06T17:58:54.930360+00:00"
+      },
+      {
+        "id": "comment_28e593e5",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00036",
+        "is_system": true,
+        "created_at": "2026-01-06T17:58:54.973234+00:00"
+      },
+      {
+        "id": "comment_a37b467c",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:59:09.544620+00:00"
+      },
+      {
+        "id": "comment_eecc6fa1",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"BOQ Shared\" to \"Site Meeting\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:59:09.594744+00:00"
+      },
+      {
+        "id": "comment_ded003c6",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Site Meeting\" to \"Revised BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:59:09.644493+00:00"
+      },
+      {
+        "id": "comment_5923f8c1",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Revised BOQ Shared\" to \"Waiting for Booking\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:59:09.692534+00:00"
+      },
+      {
+        "id": "comment_b58e114e",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Waiting for Booking\" to \"Booking Completed\"",
+        "is_system": true,
+        "created_at": "2026-01-06T17:59:09.740979+00:00"
+      },
+      {
+        "id": "comment_05cf2e8e",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Converted to project proj_ada239f2. PID: ARKI-PID-00036",
+        "is_system": true,
+        "created_at": "2026-01-06T17:59:09.871097+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "local_admin_63dbaba4",
+        "role": "PreSales",
+        "added_at": "2026-01-06T17:58:54.973234+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      }
+    ],
+    "created_at": "2026-01-06T17:58:54.671216+00:00",
+    "updated_at": "2026-01-06T17:59:09.871097+00:00",
+    "converted_from_presales": true,
+    "pid": "ARKI-PID-00036",
+    "presales_converted_at": "2026-01-06T17:58:54.973234+00:00",
+    "timeline": [],
+    "project_id": "proj_ada239f2"
+  },
+  {
+    "lead_id": "lead_e29d0e80",
+    "lead_type": "lead",
+    "customer_name": "MILESTONE_TEST_1767723427",
+    "customer_phone": "3331767723427",
+    "customer_email": "",
+    "customer_address": "",
+    "customer_requirements": "",
+    "source": "Website",
+    "budget": null,
+    "status": "Qualified",
+    "stage": "Booking Completed",
+    "assigned_to": "local_admin_63dbaba4",
+    "created_by": "local_admin_63dbaba4",
+    "is_converted": true,
+    "comments": [
+      {
+        "id": "comment_bd60c487",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Thaha Pakayil",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.374441+00:00"
+      },
+      {
+        "id": "comment_b0502d77",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.440514+00:00"
+      },
+      {
+        "id": "comment_080fbf2d",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Waiting",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.489511+00:00"
+      },
+      {
+        "id": "comment_840fb061",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: Waiting \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.532852+00:00"
+      },
+      {
+        "id": "comment_ba2a1888",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00038",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.578441+00:00"
+      },
+      {
+        "id": "comment_6739b576",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.634794+00:00"
+      },
+      {
+        "id": "comment_bda5dfd2",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"BOQ Shared\" to \"Site Meeting\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.686833+00:00"
+      },
+      {
+        "id": "comment_2cfa7935",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Site Meeting\" to \"Revised BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.737463+00:00"
+      },
+      {
+        "id": "comment_93704a31",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Revised BOQ Shared\" to \"Waiting for Booking\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.787784+00:00"
+      },
+      {
+        "id": "comment_0d35939b",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"Waiting for Booking\" to \"Booking Completed\"",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.837271+00:00"
+      },
+      {
+        "id": "comment_4fde9d8a",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Converted to project proj_7d730a72. PID: ARKI-PID-00038",
+        "is_system": true,
+        "created_at": "2026-01-06T18:17:07.885374+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "local_admin_63dbaba4",
+        "role": "PreSales",
+        "added_at": "2026-01-06T18:17:07.578441+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      }
+    ],
+    "created_at": "2026-01-06T18:17:07.374441+00:00",
+    "updated_at": "2026-01-06T18:17:07.885374+00:00",
+    "converted_from_presales": true,
+    "pid": "ARKI-PID-00038",
+    "presales_converted_at": "2026-01-06T18:17:07.578441+00:00",
+    "timeline": [],
+    "project_id": "proj_7d730a72"
+  },
+  {
+    "lead_id": "lead_d07f96e8",
+    "lead_type": "lead",
+    "customer_name": "REGRESSION_1767979785",
+    "customer_phone": "4441767979785",
+    "customer_email": "",
+    "customer_address": "",
+    "customer_requirements": "",
+    "source": "Website",
+    "budget": null,
+    "status": "Contacted",
+    "stage": "BOQ Shared",
+    "assigned_to": "local_admin_63dbaba4",
+    "created_by": "local_admin_63dbaba4",
+    "is_converted": false,
+    "comments": [
+      {
+        "id": "comment_52dbe2d1",
+        "user_id": "system",
+        "user_name": "System",
+        "role": "System",
+        "message": "Lead created by Thaha Pakayil",
+        "is_system": true,
+        "created_at": "2026-01-09T17:29:45.208158+00:00"
+      },
+      {
+        "id": "comment_3846019b",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: New \u2192 Contacted",
+        "is_system": true,
+        "created_at": "2026-01-09T17:29:45.337870+00:00"
+      },
+      {
+        "id": "comment_9e687714",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: Contacted \u2192 Waiting",
+        "is_system": true,
+        "created_at": "2026-01-09T17:29:45.382323+00:00"
+      },
+      {
+        "id": "comment_f60c6e34",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Status changed: Waiting \u2192 Qualified",
+        "is_system": true,
+        "created_at": "2026-01-09T17:29:45.429425+00:00"
+      },
+      {
+        "id": "comment_e4a44e1d",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Converted from Pre-Sales to Lead. PID assigned: ARKI-PID-00039",
+        "is_system": true,
+        "created_at": "2026-01-09T17:29:45.472654+00:00"
+      },
+      {
+        "id": "comment_9ea53875",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Lead assigned to Permission Tester on 10/01/2026 at 09:38",
+        "is_system": true,
+        "created_at": "2026-01-10T09:38:03.559549+00:00"
+      },
+      {
+        "id": "comment_67f0a3c4",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Test comment from API",
+        "is_system": false,
+        "created_at": "2026-01-10T09:38:41.193336+00:00"
+      },
+      {
+        "id": "comment_fd17576d",
+        "user_id": "local_admin_63dbaba4",
+        "user_name": "Thaha Pakayil",
+        "role": "Admin",
+        "message": "Stage updated from \"BC Call Done\" to \"BOQ Shared\"",
+        "is_system": true,
+        "created_at": "2026-01-10T09:38:47.750380+00:00"
+      }
+    ],
+    "files": [],
+    "collaborators": [
+      {
+        "user_id": "local_admin_63dbaba4",
+        "role": "PreSales",
+        "added_at": "2026-01-09T17:29:45.472654+00:00",
+        "added_by": "system",
+        "reason": "Original Pre-Sales creator",
+        "can_edit": false
+      }
+    ],
+    "created_at": "2026-01-09T17:29:45.208158+00:00",
+    "updated_at": "2026-01-10T09:38:47.750380+00:00",
+    "converted_from_presales": true,
+    "pid": "ARKI-PID-00039",
+    "presales_converted_at": "2026-01-09T17:29:45.472654+00:00",
+    "designer_id": "user_075d08bb840b",
+    "timeline": []
+  },
+  {
+    "lead_id": "lead_imp_ff8a7ebaa0",
+    "pid": "PID-00001",
+    "customer_name": "TEST_Execute Lead",
+    "customer_phone": "9999888877",
+    "customer_email": null,
+    "customer_address": null,
+    "customer_requirements": null,
+    "source": "Import Test",
+    "budget": null,
+    "status": "In Progress",
+    "stage": "BC Call Done",
+    "assigned_to": null,
+    "designer_id": null,
+    "is_converted": false,
+    "hold_status": "Active",
+    "hold_history": [],
+    "timeline": [],
+    "comments": [],
+    "files": [],
+    "collaborators": [],
+    "created_at": "2026-01-11T12:14:59.831032+00:00",
+    "updated_at": "2026-01-11T12:14:59.831032+00:00",
+    "imported": true,
+    "import_date": "2026-01-11T12:14:59.831032+00:00",
+    "imported_by": "local_admin_63dbaba4",
+    "imported_by_name": "Thaha Pakayil"
+  }
+]

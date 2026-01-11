@@ -1,0 +1,116 @@
+[
+  {
+    "audit_id": "aud_137ff34efd9e",
+    "entity_type": "cashbook",
+    "entity_id": "txn_c969d9ff",
+    "action": "create",
+    "old_value": null,
+    "new_value": {
+      "amount": 500.0,
+      "type": "outflow",
+      "remarks": "Test transaction for audit trail"
+    },
+    "details": "Created outflow of \u20b9500",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:06:27.412089+00:00",
+    "ip_address": null
+  },
+  {
+    "audit_id": "aud_9674da4d39e3",
+    "entity_type": "system",
+    "entity_id": "backup_20260111_150742",
+    "action": "backup_created",
+    "old_value": null,
+    "new_value": null,
+    "details": "Manual backup created with 18 collections",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:07:42.563485+00:00",
+    "ip_address": null
+  },
+  {
+    "audit_id": "aud_3154b9879a34",
+    "entity_type": "recurring_template",
+    "entity_id": "rec_e99b3529cedd",
+    "action": "create",
+    "old_value": null,
+    "new_value": {
+      "name": "Office Rent",
+      "amount": 25000.0
+    },
+    "details": "Created recurring template: Office Rent",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:09:03.399129+00:00",
+    "ip_address": null
+  },
+  {
+    "audit_id": "aud_f90e53a7e275",
+    "entity_type": "system",
+    "entity_id": "backup_20260111_151120",
+    "action": "backup_restored",
+    "old_value": null,
+    "new_value": null,
+    "details": "Restored 16 collections from backup",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:11:20.189717+00:00",
+    "ip_address": null
+  },
+  {
+    "audit_id": "aud_0172ce371ead",
+    "entity_type": "recurring_template",
+    "entity_id": "rec_e99b3529cedd",
+    "action": "edit",
+    "old_value": {
+      "name": "Office Rent",
+      "amount": 25000.0,
+      "is_active": true
+    },
+    "new_value": {
+      "amount": 2000.0,
+      "description": "Updated description for testing",
+      "updated_at": "2026-01-11T15:11:20.738389+00:00"
+    },
+    "details": "Updated recurring template",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:11:20.738897+00:00",
+    "ip_address": null
+  },
+  {
+    "audit_id": "aud_32d205171ea6",
+    "entity_type": "recurring_template",
+    "entity_id": "rec_e99b3529cedd",
+    "action": "edit",
+    "old_value": {
+      "is_active": true
+    },
+    "new_value": {
+      "is_active": false
+    },
+    "details": "Template paused",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:11:20.837316+00:00",
+    "ip_address": null
+  },
+  {
+    "audit_id": "aud_9481450a1df1",
+    "entity_type": "recurring_template",
+    "entity_id": "rec_e99b3529cedd",
+    "action": "edit",
+    "old_value": {
+      "is_active": false
+    },
+    "new_value": {
+      "is_active": true
+    },
+    "details": "Template resumed",
+    "user_id": "test-user-1768140463239",
+    "user_name": "Thaha Pakayil",
+    "timestamp": "2026-01-11T15:11:20.847710+00:00",
+    "ip_address": null
+  }
+]

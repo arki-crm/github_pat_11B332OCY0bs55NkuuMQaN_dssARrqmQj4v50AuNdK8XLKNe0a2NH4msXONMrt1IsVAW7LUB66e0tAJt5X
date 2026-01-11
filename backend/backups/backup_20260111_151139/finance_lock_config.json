@@ -1,0 +1,9 @@
+[
+  {
+    "config_id": "global",
+    "default_lock_percentage": 85.0,
+    "monthly_operating_expense": 500000.0,
+    "updated_at": "2026-01-11T09:35:03.760125+00:00",
+    "updated_by": "local_admin_63dbaba4"
+  }
+]

@@ -1,0 +1,82 @@
+{
+  "backup_id": "backup_20260111_151139",
+  "created_at": "2026-01-11T15:11:39.494620+00:00",
+  "created_by": "test-user-1768140463239",
+  "created_by_name": "Thaha Pakayil",
+  "collections": {
+    "finance_audit_log": {
+      "count": 7,
+      "file": "finance_audit_log.json"
+    },
+    "finance_attachments": {
+      "count": 20,
+      "file": "finance_attachments.json"
+    },
+    "finance_liabilities": {
+      "count": 7,
+      "file": "finance_liabilities.json"
+    },
+    "finance_receipts": {
+      "count": 12,
+      "file": "finance_receipts.json"
+    },
+    "finance_salary_master": {
+      "count": 3,
+      "file": "finance_salary_master.json"
+    },
+    "finance_salary_payments": {
+      "count": 3,
+      "file": "finance_salary_payments.json"
+    },
+    "finance_lock_config": {
+      "count": 1,
+      "file": "finance_lock_config.json"
+    },
+    "finance_vendors": {
+      "count": 8,
+      "file": "finance_vendors.json"
+    },
+    "accounting_transactions": {
+      "count": 59,
+      "file": "accounting_transactions.json"
+    },
+    "accounting_accounts": {
+      "count": 4,
+      "file": "accounting_accounts.json"
+    },
+    "accounting_categories": {
+      "count": 8,
+      "file": "accounting_categories.json"
+    },
+    "projects": {
+      "count": 14,
+      "file": "projects.json"
+    },
+    "leads": {
+      "count": 25,
+      "file": "leads.json"
+    },
+    "users": {
+      "count": 67,
+      "file": "users.json"
+    },
+    "presales": {
+      "count": 0,
+      "file": "presales.json"
+    },
+    "import_audit_log": {
+      "count": 1,
+      "file": "import_audit_log.json"
+    },
+    "recurring_templates": {
+      "count": 1,
+      "file": "recurring_templates.json"
+    },
+    "payment_reminders": {
+      "count": 0,
+      "file": "payment_reminders.json"
+    }
+  },
+  "status": "completed",
+  "completed_at": "2026-01-11T15:11:39.514043+00:00"
+}
