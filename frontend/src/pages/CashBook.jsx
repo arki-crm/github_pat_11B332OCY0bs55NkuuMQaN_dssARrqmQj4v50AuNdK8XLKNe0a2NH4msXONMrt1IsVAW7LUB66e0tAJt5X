@@ -119,17 +119,20 @@ const CashBook = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [txnRes, accRes, catRes, summaryRes] = await Promise.all([
-        axios.get(`${API}/accounting/transactions?date=${selectedDate}`, { withCredentials: true }),
+      const needsReviewParam = showNeedsReviewOnly ? '&needs_review=true' : '';
+      const [txnRes, accRes, catRes, summaryRes, reviewRes] = await Promise.all([
+        axios.get(`${API}/accounting/transactions?date=${selectedDate}${needsReviewParam}`, { withCredentials: true }),
         axios.get(`${API}/accounting/accounts`, { withCredentials: true }),
         axios.get(`${API}/accounting/categories`, { withCredentials: true }),
-        axios.get(`${API}/accounting/daily-summary/${selectedDate}`, { withCredentials: true })
+        axios.get(`${API}/accounting/daily-summary/${selectedDate}`, { withCredentials: true }),
+        axios.get(`${API}/accounting/transactions/review-summary`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
       
       setTransactions(txnRes.data);
       setAccounts(accRes.data);
       setCategories(catRes.data.filter(c => c.is_active));
       setDailySummary(summaryRes.data);
+      setReviewSummary(reviewRes.data);
       
       // Set default account if available
       if (accRes.data.length > 0 && !newTxn.account_id) {
@@ -144,6 +147,24 @@ const CashBook = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchApprovers = async () => {
+    try {
+      const res = await axios.get(`${API}/accounting/users-for-approval`, { withCredentials: true });
+      setApprovers(res.data || []);
+    } catch (error) {
+      console.error('Failed to fetch approvers:', error);
+    }
+  };
+
+  const fetchApprovedExpenseRequests = async () => {
+    try {
+      const res = await axios.get(`${API}/accounting/approved-expense-requests`, { withCredentials: true });
+      setApprovedExpenseRequests(res.data || []);
+    } catch (error) {
+      console.error('Failed to fetch expense requests:', error);
     }
   };
 
