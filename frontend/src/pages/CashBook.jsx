@@ -108,6 +108,7 @@ const CashBook = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState(false);
   const [viewTransaction, setViewTransaction] = useState(null); // For viewing transaction details with attachments
+  const [pendingFiles, setPendingFiles] = useState([]); // Files to upload after transaction creation
   
   // New transaction form
   const [newTxn, setNewTxn] = useState({
