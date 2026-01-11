@@ -784,6 +784,7 @@ const CashBook = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Requested By</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Remarks</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">Docs</th>
                     {isAdminOrCEO && <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">Action</th>}
                   </tr>
                 </thead>
