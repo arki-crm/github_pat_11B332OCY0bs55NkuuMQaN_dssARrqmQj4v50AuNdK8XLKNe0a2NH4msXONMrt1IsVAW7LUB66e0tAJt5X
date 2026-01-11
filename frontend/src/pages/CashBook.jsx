@@ -107,6 +107,7 @@ const CashBook = () => {
   const [isCloseDayDialogOpen, setIsCloseDayDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState(false);
+  const [viewTransaction, setViewTransaction] = useState(null); // For viewing transaction details with attachments
   
   // New transaction form
   const [newTxn, setNewTxn] = useState({
