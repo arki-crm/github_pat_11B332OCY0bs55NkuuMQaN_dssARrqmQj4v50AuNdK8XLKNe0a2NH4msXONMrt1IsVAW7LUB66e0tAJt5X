@@ -625,6 +625,71 @@ const FounderDashboard = () => {
         </Card>
       )}
 
+      {/* Outstanding Liabilities Card */}
+      {liabilitiesSummary && liabilitiesSummary.total_outstanding > 0 && (
+        <Card className="bg-slate-800/50 border-slate-700 border-red-700/50" data-testid="liabilities-summary">
+          <CardHeader className="border-b border-slate-700 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg text-white flex items-center gap-2">
+                <FileText className="w-5 h-5 text-red-400" />
+                Outstanding Liabilities
+              </CardTitle>
+              <a href="/finance/liabilities" className="text-sm text-blue-400 hover:text-blue-300">
+                View All →
+              </a>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-3 gap-4">
+              {/* Total Outstanding */}
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <p className="text-slate-400 text-xs mb-1">Total Outstanding</p>
+                <p className="text-2xl font-bold text-red-400">{formatCurrency(liabilitiesSummary.total_outstanding)}</p>
+                <p className="text-xs text-slate-500 mt-1">{liabilitiesSummary.open_count} open</p>
+              </div>
+              
+              {/* Due This Month */}
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <p className="text-slate-400 text-xs mb-1">Due This Month</p>
+                <p className="text-2xl font-bold text-amber-400">{formatCurrency(liabilitiesSummary.due_this_month)}</p>
+              </div>
+              
+              {/* Overdue */}
+              <div className={cn(
+                "rounded-lg p-4",
+                liabilitiesSummary.overdue > 0 ? "bg-red-900/30 border border-red-700/50" : "bg-slate-700/50"
+              )}>
+                <p className="text-slate-400 text-xs mb-1">Overdue</p>
+                <p className={cn(
+                  "text-2xl font-bold",
+                  liabilitiesSummary.overdue > 0 ? "text-red-400" : "text-slate-400"
+                )}>
+                  {formatCurrency(liabilitiesSummary.overdue)}
+                </p>
+                {liabilitiesSummary.overdue_count > 0 && (
+                  <p className="text-xs text-red-400 mt-1">{liabilitiesSummary.overdue_count} overdue</p>
+                )}
+              </div>
+            </div>
+
+            {/* Top Vendors */}
+            {liabilitiesSummary.top_vendors?.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <p className="text-sm text-slate-400 mb-2">Top Vendors</p>
+                <div className="space-y-2">
+                  {liabilitiesSummary.top_vendors.slice(0, 3).map((v, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-white truncate">{v.vendor}</span>
+                      <span className="text-red-400 font-medium">{formatCurrency(v.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Revenue Reality Check */}
       {revenueReality && (
         <Card className="bg-slate-800/50 border-slate-700" data-testid="revenue-reality-check">
