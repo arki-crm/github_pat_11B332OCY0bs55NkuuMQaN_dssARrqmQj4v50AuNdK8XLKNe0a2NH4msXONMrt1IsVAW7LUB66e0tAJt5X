@@ -437,34 +437,34 @@ export default function Liabilities() {
                 <Filter className="w-4 h-4 text-slate-400" />
                 <span className="text-sm text-slate-500">Filters:</span>
               </div>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="partially_settled">Partial</SelectItem>
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <Select value={filterCategory || "all"} onValueChange={(v) => setFilterCategory(v === "all" ? "" : v)}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {LIABILITY_CATEGORIES.map(cat => (
                     <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filterProject} onValueChange={setFilterProject}>
+              <Select value={filterProject || "all"} onValueChange={(v) => setFilterProject(v === "all" ? "" : v)}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="All Projects" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Projects</SelectItem>
+                  <SelectItem value="all">All Projects</SelectItem>
                   {projects.map(p => (
                     <SelectItem key={p.project_id} value={p.project_id}>
                       {p.project_name || p.name}
