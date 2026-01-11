@@ -22393,6 +22393,228 @@ async def get_employee_promotion_eligibility(employee_id: str, request: Request)
     return eligibility
 
 
+# ============ DOCUMENT ATTACHMENT (PROOF) LAYER ============
+
+# Finance attachments directory
+FINANCE_UPLOADS_DIR = ROOT_DIR / "uploads" / "finance"
+FINANCE_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Allowed file types and max size
+ALLOWED_ATTACHMENT_TYPES = {
+    "application/pdf": ".pdf",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/jpg": ".jpg"
+}
+MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024  # 15MB
+
+# Valid entity types for attachments
+VALID_ATTACHMENT_ENTITIES = ["cashbook", "expense", "project", "liability"]
+
+
+class AttachmentMetadata(BaseModel):
+    description: Optional[str] = None
+
+
+@api_router.post("/finance/attachments/upload")
+async def upload_finance_attachment(
+    request: Request,
+    file: UploadFile = File(...),
+    entity_type: str = "cashbook",
+    entity_id: str = "",
+    description: str = ""
+):
+    """
+    Upload a document attachment for finance entities.
+    Supports: Cashbook, Expense Requests, Project Finance, Liabilities
+    Max size: 15MB
+    Allowed types: PDF, JPG, PNG
+    """
+    user = await get_current_user(request)
+    
+    # Validate entity type
+    if entity_type not in VALID_ATTACHMENT_ENTITIES:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid entity type. Must be one of: {VALID_ATTACHMENT_ENTITIES}"
+        )
+    
+    # Validate entity_id is provided
+    if not entity_id:
+        raise HTTPException(status_code=400, detail="entity_id is required")
+    
+    # Validate file type
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_ATTACHMENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed. Supported: PDF, JPG, PNG"
+        )
+    
+    # Read file content
+    content = await file.read()
+    
+    # Validate file size
+    if len(content) > MAX_ATTACHMENT_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size exceeds maximum limit of 15MB"
+        )
+    
+    # Generate unique filename
+    now = datetime.now(timezone.utc)
+    year_month = now.strftime("%Y/%m")
+    file_ext = ALLOWED_ATTACHMENT_TYPES.get(content_type, ".bin")
+    unique_id = uuid.uuid4().hex[:12]
+    safe_filename = f"{entity_type}_{entity_id}_{unique_id}{file_ext}"
+    
+    # Create directory structure
+    upload_dir = FINANCE_UPLOADS_DIR / year_month
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_path = upload_dir / safe_filename
+    relative_path = f"finance/{year_month}/{safe_filename}"
+    
+    # Save file
+    async with aiofiles.open(file_path, 'wb') as f:
+        await f.write(content)
+    
+    # Create attachment metadata
+    attachment_id = f"att_{uuid.uuid4().hex[:12]}"
+    original_filename = file.filename or "unknown"
+    
+    attachment_doc = {
+        "attachment_id": attachment_id,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "file_name": original_filename,
+        "file_path": relative_path,
+        "file_size": len(content),
+        "mime_type": content_type,
+        "description": description,
+        "uploaded_by": user.user_id,
+        "uploaded_by_name": user.name,
+        "uploaded_at": now.isoformat()
+    }
+    
+    await db.finance_attachments.insert_one(attachment_doc)
+    
+    # Return without _id
+    attachment_doc.pop("_id", None)
+    
+    return {
+        "success": True,
+        "message": "Attachment uploaded successfully",
+        "attachment": attachment_doc
+    }
+
+
+@api_router.get("/finance/attachments/{entity_type}/{entity_id}")
+async def list_finance_attachments(
+    entity_type: str,
+    entity_id: str,
+    request: Request
+):
+    """
+    List all attachments for a specific entity.
+    """
+    user = await get_current_user(request)
+    
+    if entity_type not in VALID_ATTACHMENT_ENTITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid entity type. Must be one of: {VALID_ATTACHMENT_ENTITIES}"
+        )
+    
+    attachments = await db.finance_attachments.find(
+        {"entity_type": entity_type, "entity_id": entity_id},
+        {"_id": 0}
+    ).sort("uploaded_at", -1).to_list(100)
+    
+    return {"attachments": attachments, "count": len(attachments)}
+
+
+@api_router.get("/finance/attachments/download/{attachment_id}")
+async def download_finance_attachment(attachment_id: str, request: Request):
+    """
+    Download an attachment file.
+    """
+    user = await get_current_user(request)
+    
+    attachment = await db.finance_attachments.find_one(
+        {"attachment_id": attachment_id},
+        {"_id": 0}
+    )
+    
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    
+    file_path = ROOT_DIR / "uploads" / attachment["file_path"]
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on server")
+    
+    return FileResponse(
+        path=str(file_path),
+        filename=attachment["file_name"],
+        media_type=attachment["mime_type"]
+    )
+
+
+@api_router.delete("/finance/attachments/{attachment_id}")
+async def delete_finance_attachment(attachment_id: str, request: Request):
+    """
+    Delete an attachment. Only uploader or admin can delete.
+    """
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    attachment = await db.finance_attachments.find_one(
+        {"attachment_id": attachment_id},
+        {"_id": 0}
+    )
+    
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    
+    # Check permission: uploader or admin
+    if attachment["uploaded_by"] != user.user_id and user_doc.get("role") != "Admin":
+        raise HTTPException(status_code=403, detail="You can only delete your own attachments")
+    
+    # Delete file from filesystem
+    file_path = ROOT_DIR / "uploads" / attachment["file_path"]
+    if file_path.exists():
+        file_path.unlink()
+    
+    # Delete from database
+    await db.finance_attachments.delete_one({"attachment_id": attachment_id})
+    
+    return {"success": True, "message": "Attachment deleted successfully"}
+
+
+@api_router.get("/finance/attachments/by-ids")
+async def get_attachments_by_ids(
+    request: Request,
+    ids: str = ""  # Comma-separated attachment IDs
+):
+    """
+    Get attachment metadata by multiple IDs (for exports).
+    """
+    user = await get_current_user(request)
+    
+    if not ids:
+        return {"attachments": []}
+    
+    attachment_ids = [aid.strip() for aid in ids.split(",") if aid.strip()]
+    
+    attachments = await db.finance_attachments.find(
+        {"attachment_id": {"$in": attachment_ids}},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return {"attachments": attachments}
+
+
 # ============ REPORTS & INSIGHTS MODULE ============
 
 @api_router.get("/finance/reports/cash-flow")
