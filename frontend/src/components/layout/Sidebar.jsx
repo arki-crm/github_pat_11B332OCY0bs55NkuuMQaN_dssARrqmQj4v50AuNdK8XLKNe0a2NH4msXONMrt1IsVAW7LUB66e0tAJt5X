@@ -37,7 +37,8 @@ import {
   RefreshCw,
   FileCheck,
   PiggyBank,
-  TrendingUp
+  TrendingUp,
+  Banknote
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
@@ -50,6 +51,7 @@ const financeSubItems = [
   { path: '/finance/forecast', label: 'Forecast', icon: TrendingUp },
   { path: '/finance/budgets', label: 'Budgets', icon: PiggyBank },
   { path: '/finance/cashbook', label: 'Cash Book', icon: Wallet },
+  { path: '/finance/salaries', label: 'Salaries', icon: Banknote },
   { path: '/finance/expense-requests', label: 'Expense Requests', icon: FileCheck },
   { path: '/finance/receipts', label: 'Receipts', icon: Receipt },
   { path: '/finance/invoices', label: 'Invoices', icon: FileText },
