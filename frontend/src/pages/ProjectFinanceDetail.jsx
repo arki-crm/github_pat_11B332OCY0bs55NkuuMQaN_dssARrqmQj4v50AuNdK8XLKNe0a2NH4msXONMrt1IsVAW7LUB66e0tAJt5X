@@ -219,6 +219,39 @@ const ProjectFinanceDetail = () => {
     }
   };
 
+  // Lock Override Handler
+  const handleLockOverride = async () => {
+    if (!lockOverrideForm.lock_percentage || !lockOverrideForm.reason) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await axios.put(`${API}/finance/project-lock-override/${projectId}`, {
+        lock_percentage: parseFloat(lockOverrideForm.lock_percentage),
+        reason: lockOverrideForm.reason
+      }, { withCredentials: true });
+      toast.success('Lock percentage updated');
+      setIsLockOverrideOpen(false);
+      setLockOverrideForm({ lock_percentage: '', reason: '' });
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update lock percentage');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemoveLockOverride = async () => {
+    try {
+      await axios.delete(`${API}/finance/project-lock-override/${projectId}`, { withCredentials: true });
+      toast.success('Lock override removed');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to remove lock override');
+    }
+  };
+
   const handleAddAttribution = async () => {
     if (!overrunForm.reason || !overrunForm.responsible_category) {
       toast.error('Please select reason and responsible category');
