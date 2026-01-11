@@ -14162,6 +14162,17 @@ async def create_transaction(txn: TransactionCreate, request: Request):
         {"$inc": {"current_balance": balance_change}}
     )
     
+    # Audit log for cashbook create
+    await create_audit_log(
+        entity_type="cashbook",
+        entity_id=txn_id,
+        action="create",
+        user_id=user.user_id,
+        user_name=user.name,
+        new_value={"amount": txn.amount, "type": txn.transaction_type, "remarks": txn.remarks[:100] if txn.remarks else ""},
+        details=f"Created {txn.transaction_type} of ₹{txn.amount:,.0f}"
+    )
+    
     return {**new_txn, "_id": None}
 
 
@@ -14216,6 +14227,18 @@ async def update_transaction(transaction_id: str, txn: TransactionUpdate, reques
         {"$inc": {"current_balance": new_balance_change}}
     )
     
+    # Audit log for cashbook edit
+    await create_audit_log(
+        entity_type="cashbook",
+        entity_id=transaction_id,
+        action="edit",
+        user_id=user.user_id,
+        user_name=user.name,
+        old_value={"amount": old_amount, "type": old_type, "account_id": old_account_id},
+        new_value=update_dict,
+        details=f"Edited transaction"
+    )
+    
     updated = await db.accounting_transactions.find_one({"transaction_id": transaction_id}, {"_id": 0})
     return updated
 
@@ -14249,6 +14272,17 @@ async def delete_transaction(transaction_id: str, request: Request):
     )
     
     await db.accounting_transactions.delete_one({"transaction_id": transaction_id})
+    
+    # Audit log for cashbook delete
+    await create_audit_log(
+        entity_type="cashbook",
+        entity_id=transaction_id,
+        action="delete",
+        user_id=user.user_id,
+        user_name=user.name,
+        old_value={"amount": old_amount, "type": old_type, "remarks": existing.get("remarks", "")[:100]},
+        details=f"Deleted {old_type} of ₹{old_amount:,.0f}"
+    )
     
     return {"success": True, "message": "Transaction deleted"}
 
