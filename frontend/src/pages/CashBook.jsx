@@ -59,6 +59,15 @@ const THRESHOLDS = {
   approval_required: 5001    // ₹5001+: Needs approver or expense request
 };
 
+// Static Income Categories for Money In
+const INCOME_CATEGORIES = [
+  { category_id: 'income_project_payment', name: 'Project Payment' },
+  { category_id: 'income_advance_booking', name: 'Advance / Booking Amount' },
+  { category_id: 'income_design_fee', name: 'Design Fee' },
+  { category_id: 'income_refund_reversal', name: 'Refund Reversal' },
+  { category_id: 'income_other', name: 'Other Income' }
+];
+
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
