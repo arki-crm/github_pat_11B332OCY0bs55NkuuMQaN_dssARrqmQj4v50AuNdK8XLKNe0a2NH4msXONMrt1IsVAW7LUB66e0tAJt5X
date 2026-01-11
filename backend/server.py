@@ -1461,7 +1461,19 @@ AVAILABLE_PERMISSIONS = {
             {"id": "finance.salaries.edit_structure", "name": "Edit Salary Structure", "description": "Edit salary amounts and configurations - Admin/Founder only"},
             {"id": "finance.salaries.pay", "name": "Make Salary Payments", "description": "Record salary payments and advances"},
             {"id": "finance.salaries.close_month", "name": "Close Salary Month", "description": "Close monthly salary cycles"},
-            {"id": "finance.salaries.manage_exit", "name": "Manage Exit Settlement", "description": "Process final settlement for exiting employees"}
+            {"id": "finance.salaries.manage_exit", "name": "Manage Exit Settlement", "description": "Process final settlement for exiting employees"},
+            {"id": "finance.salaries.manage_ladder", "name": "Manage Salary Ladder", "description": "Configure salary level definitions - Admin only"},
+            {"id": "finance.salaries.promote", "name": "Promote/Adjust Salary", "description": "Change employee salary with history tracking"}
+        ]
+    },
+    
+    # HR & Promotion Eligibility
+    "hr_promotion": {
+        "name": "Promotion Eligibility",
+        "permissions": [
+            {"id": "hr.promotion.view", "name": "View Own Eligibility", "description": "View own promotion eligibility status"},
+            {"id": "hr.promotion.view_all", "name": "View All Eligibility", "description": "View all employee promotion eligibility"},
+            {"id": "hr.promotion.manage", "name": "Manage Eligibility", "description": "Update eligibility thresholds and review flags"}
         ]
     },
     
