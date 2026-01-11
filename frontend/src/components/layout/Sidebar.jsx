@@ -38,7 +38,8 @@ import {
   FileCheck,
   PiggyBank,
   TrendingUp,
-  Banknote
+  Banknote,
+  FileUp
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
