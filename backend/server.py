@@ -18305,6 +18305,505 @@ async def get_revenue_reality_check(request: Request, period: str = "month"):
 
 
 # ============================================================================
+# ============ ADVANCE CASH LOCK & SAFE-USE SYSTEM ============================
+# ============================================================================
+# Conservative founder-safe advance cash locking for projects
+# Default 85% lock on all customer advances - protects against premature spending
+# Locked funds release only with real commitments (cashbook outflows + approved expense requests)
+
+# Default lock configuration
+DEFAULT_LOCK_PERCENTAGE = 85.0  # 85% locked by default
+DEFAULT_MONTHLY_OPERATING_EXPENSE = 500000  # ₹5 lakhs default baseline
+
+class LockConfigUpdate(BaseModel):
+    default_lock_percentage: Optional[float] = None  # 0-100
+    monthly_operating_expense: Optional[float] = None
+
+class ProjectLockOverride(BaseModel):
+    lock_percentage: float  # 0-100
+    reason: str  # Mandatory reason for audit
+
+
+@api_router.get("/finance/lock-config")
+async def get_lock_config(request: Request):
+    """Get global lock configuration settings"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Get config from database or use defaults
+    config = await db.finance_lock_config.find_one({"config_id": "global"}, {"_id": 0})
+    
+    if not config:
+        config = {
+            "config_id": "global",
+            "default_lock_percentage": DEFAULT_LOCK_PERCENTAGE,
+            "monthly_operating_expense": DEFAULT_MONTHLY_OPERATING_EXPENSE,
+            "updated_at": None,
+            "updated_by": None
+        }
+    
+    # Calculate auto-suggested monthly expense from last 3 months
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)
+    recent_outflows = await db.accounting_transactions.find({
+        "transaction_type": "outflow",
+        "created_at": {"$gte": three_months_ago.isoformat()}
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    
+    total_outflow = sum(t.get("amount", 0) for t in recent_outflows)
+    auto_suggested_expense = round(total_outflow / 3, 0) if recent_outflows else DEFAULT_MONTHLY_OPERATING_EXPENSE
+    
+    config["auto_suggested_monthly_expense"] = auto_suggested_expense
+    
+    return config
+
+
+@api_router.put("/finance/lock-config")
+async def update_lock_config(config: LockConfigUpdate, request: Request):
+    """Update global lock configuration - Admin/Founder only"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Permission check - only Admin/Founder can update
+    if not has_permission(user, "finance.lock_config") and user.get("role") not in ["Admin", "Founder", "CEO"]:
+        raise HTTPException(status_code=403, detail="Only Admin/Founder can update lock configuration")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": user.get("user_id")}
+    
+    if config.default_lock_percentage is not None:
+        if config.default_lock_percentage < 0 or config.default_lock_percentage > 100:
+            raise HTTPException(status_code=400, detail="Lock percentage must be between 0 and 100")
+        update_data["default_lock_percentage"] = config.default_lock_percentage
+    
+    if config.monthly_operating_expense is not None:
+        if config.monthly_operating_expense < 0:
+            raise HTTPException(status_code=400, detail="Operating expense must be positive")
+        update_data["monthly_operating_expense"] = config.monthly_operating_expense
+    
+    await db.finance_lock_config.update_one(
+        {"config_id": "global"},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    return {"success": True, "message": "Lock configuration updated"}
+
+
+@api_router.get("/finance/project-lock-status/{project_id}")
+async def get_project_lock_status(project_id: str, request: Request):
+    """Get lock status for a specific project"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Get project
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get global config
+    config = await db.finance_lock_config.find_one({"config_id": "global"}, {"_id": 0})
+    default_lock_pct = config.get("default_lock_percentage", DEFAULT_LOCK_PERCENTAGE) if config else DEFAULT_LOCK_PERCENTAGE
+    
+    # Get project-specific lock override
+    lock_override = await db.project_lock_overrides.find_one({"project_id": project_id}, {"_id": 0})
+    effective_lock_pct = lock_override.get("lock_percentage", default_lock_pct) if lock_override else default_lock_pct
+    is_overridden = lock_override is not None
+    
+    # Calculate total received from receipts
+    receipts = await db.finance_receipts.find(
+        {"project_id": project_id},
+        {"_id": 0, "amount": 1, "receipt_id": 1, "created_at": 1}
+    ).to_list(1000)
+    total_received = sum(r.get("amount", 0) for r in receipts)
+    
+    # Also include project-linked inflows from cashbook
+    project_inflows = await db.accounting_transactions.find({
+        "project_id": project_id,
+        "transaction_type": "inflow"
+    }, {"_id": 0, "amount": 1}).to_list(1000)
+    total_received += sum(t.get("amount", 0) for t in project_inflows)
+    
+    # Calculate commitments (actual money out + approved expense requests)
+    # 1. Cashbook outflows linked to project
+    project_outflows = await db.accounting_transactions.find({
+        "project_id": project_id,
+        "transaction_type": "outflow"
+    }, {"_id": 0, "amount": 1, "transaction_id": 1, "remarks": 1, "created_at": 1}).to_list(1000)
+    outflow_commitment = sum(t.get("amount", 0) for t in project_outflows)
+    
+    # 2. Approved expense requests for project (even if not yet paid)
+    approved_expense_requests = await db.finance_expense_requests.find({
+        "project_id": project_id,
+        "status": "approved"
+    }, {"_id": 0, "amount": 1, "request_id": 1, "title": 1}).to_list(1000)
+    expense_request_commitment = sum(er.get("amount", 0) for er in approved_expense_requests)
+    
+    # Avoid double counting - if expense request was already paid (has linked transaction)
+    # For simplicity, we assume approved expense requests represent additional commitment
+    # In reality, you might want to track which expense requests have been paid
+    
+    total_commitments = outflow_commitment + expense_request_commitment
+    
+    # Calculate lock amounts
+    gross_locked = total_received * (effective_lock_pct / 100)
+    net_locked = max(gross_locked - total_commitments, 0)
+    safe_to_use = total_received - net_locked
+    
+    # Get lock history
+    lock_history = await db.project_lock_history.find(
+        {"project_id": project_id},
+        {"_id": 0}
+    ).sort("changed_at", -1).to_list(10)
+    
+    return {
+        "project_id": project_id,
+        "project_name": project.get("name") or project.get("project_name"),
+        "project_value": project.get("total_value", 0),
+        
+        # Lock configuration
+        "default_lock_percentage": default_lock_pct,
+        "effective_lock_percentage": effective_lock_pct,
+        "is_overridden": is_overridden,
+        "override_reason": lock_override.get("reason") if lock_override else None,
+        
+        # Financial summary
+        "total_received": total_received,
+        "receipt_count": len(receipts),
+        
+        # Commitments breakdown
+        "outflow_commitment": outflow_commitment,
+        "outflow_count": len(project_outflows),
+        "expense_request_commitment": expense_request_commitment,
+        "expense_request_count": len(approved_expense_requests),
+        "total_commitments": total_commitments,
+        
+        # Lock calculations
+        "gross_locked": round(gross_locked, 2),
+        "net_locked": round(net_locked, 2),
+        "safe_to_use": round(safe_to_use, 2),
+        
+        # History
+        "lock_history": lock_history
+    }
+
+
+@api_router.get("/finance/project-lock-status")
+async def get_all_projects_lock_status(request: Request):
+    """Get lock status summary for all active projects"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Get global config
+    config = await db.finance_lock_config.find_one({"config_id": "global"}, {"_id": 0})
+    default_lock_pct = config.get("default_lock_percentage", DEFAULT_LOCK_PERCENTAGE) if config else DEFAULT_LOCK_PERCENTAGE
+    monthly_operating_expense = config.get("monthly_operating_expense", DEFAULT_MONTHLY_OPERATING_EXPENSE) if config else DEFAULT_MONTHLY_OPERATING_EXPENSE
+    
+    # Get all active projects (not cancelled/dropped)
+    cancelled_stages = ["Cancelled", "Dropped", "Lost", "On Hold", "Rejected"]
+    active_projects = await db.projects.find(
+        {"stage": {"$nin": cancelled_stages}},
+        {"_id": 0, "project_id": 1, "name": 1, "project_name": 1, "total_value": 1, "stage": 1, "pid_display": 1}
+    ).to_list(1000)
+    
+    # Get all lock overrides
+    overrides = await db.project_lock_overrides.find({}, {"_id": 0}).to_list(1000)
+    override_map = {o["project_id"]: o for o in overrides}
+    
+    # Get all receipts grouped by project
+    all_receipts = await db.finance_receipts.find({}, {"_id": 0, "project_id": 1, "amount": 1}).to_list(10000)
+    receipts_by_project = {}
+    for r in all_receipts:
+        pid = r.get("project_id")
+        if pid:
+            receipts_by_project[pid] = receipts_by_project.get(pid, 0) + r.get("amount", 0)
+    
+    # Get all project-linked inflows
+    all_inflows = await db.accounting_transactions.find(
+        {"transaction_type": "inflow", "project_id": {"$ne": None}},
+        {"_id": 0, "project_id": 1, "amount": 1}
+    ).to_list(10000)
+    for t in all_inflows:
+        pid = t.get("project_id")
+        if pid:
+            receipts_by_project[pid] = receipts_by_project.get(pid, 0) + t.get("amount", 0)
+    
+    # Get all project-linked outflows (commitments)
+    all_outflows = await db.accounting_transactions.find(
+        {"transaction_type": "outflow", "project_id": {"$ne": None}},
+        {"_id": 0, "project_id": 1, "amount": 1}
+    ).to_list(10000)
+    outflows_by_project = {}
+    for t in all_outflows:
+        pid = t.get("project_id")
+        if pid:
+            outflows_by_project[pid] = outflows_by_project.get(pid, 0) + t.get("amount", 0)
+    
+    # Get all approved expense requests
+    all_expense_requests = await db.finance_expense_requests.find(
+        {"status": "approved", "project_id": {"$ne": None}},
+        {"_id": 0, "project_id": 1, "amount": 1}
+    ).to_list(10000)
+    expense_requests_by_project = {}
+    for er in all_expense_requests:
+        pid = er.get("project_id")
+        if pid:
+            expense_requests_by_project[pid] = expense_requests_by_project.get(pid, 0) + er.get("amount", 0)
+    
+    # Calculate lock status for each project
+    projects_status = []
+    total_received_all = 0
+    total_locked_all = 0
+    total_commitments_all = 0
+    total_safe_all = 0
+    
+    for project in active_projects:
+        pid = project.get("project_id")
+        
+        # Get effective lock percentage
+        override = override_map.get(pid)
+        effective_lock_pct = override.get("lock_percentage") if override else default_lock_pct
+        
+        # Calculate amounts
+        total_received = receipts_by_project.get(pid, 0)
+        outflow_commitment = outflows_by_project.get(pid, 0)
+        er_commitment = expense_requests_by_project.get(pid, 0)
+        total_commitments = outflow_commitment + er_commitment
+        
+        gross_locked = total_received * (effective_lock_pct / 100)
+        net_locked = max(gross_locked - total_commitments, 0)
+        safe_to_use = total_received - net_locked
+        
+        # Aggregate totals
+        total_received_all += total_received
+        total_locked_all += net_locked
+        total_commitments_all += total_commitments
+        total_safe_all += safe_to_use
+        
+        if total_received > 0:  # Only include projects with receipts
+            projects_status.append({
+                "project_id": pid,
+                "project_name": project.get("name") or project.get("project_name"),
+                "pid_display": project.get("pid_display"),
+                "stage": project.get("stage"),
+                "total_value": project.get("total_value", 0),
+                "effective_lock_pct": effective_lock_pct,
+                "is_overridden": override is not None,
+                "total_received": total_received,
+                "total_commitments": total_commitments,
+                "net_locked": round(net_locked, 2),
+                "safe_to_use": round(safe_to_use, 2)
+            })
+    
+    # Sort by total_received descending
+    projects_status.sort(key=lambda x: x["total_received"], reverse=True)
+    
+    # Calculate warning status
+    safe_use_warning = total_safe_all < monthly_operating_expense
+    safe_use_months = round(total_safe_all / monthly_operating_expense, 1) if monthly_operating_expense > 0 else 0
+    
+    return {
+        "default_lock_percentage": default_lock_pct,
+        "monthly_operating_expense": monthly_operating_expense,
+        
+        # Global totals
+        "total_received_all": round(total_received_all, 2),
+        "total_locked_all": round(total_locked_all, 2),
+        "total_commitments_all": round(total_commitments_all, 2),
+        "total_safe_all": round(total_safe_all, 2),
+        
+        # Warning indicators
+        "safe_use_warning": safe_use_warning,
+        "safe_use_months": safe_use_months,
+        
+        # Project breakdown
+        "projects": projects_status,
+        "project_count": len(projects_status)
+    }
+
+
+@api_router.put("/finance/project-lock-override/{project_id}")
+async def override_project_lock(project_id: str, override: ProjectLockOverride, request: Request):
+    """Override lock percentage for a specific project - Admin/Founder only"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Permission check - only Admin/Founder/CEO can override
+    if not has_permission(user, "finance.lock_override") and user.get("role") not in ["Admin", "Founder", "CEO"]:
+        raise HTTPException(status_code=403, detail="Only Admin/Founder can override lock percentage")
+    
+    # Validate lock percentage
+    if override.lock_percentage < 0 or override.lock_percentage > 100:
+        raise HTTPException(status_code=400, detail="Lock percentage must be between 0 and 100")
+    
+    # Get project
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0, "name": 1, "project_name": 1})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get current override (if any)
+    current_override = await db.project_lock_overrides.find_one({"project_id": project_id}, {"_id": 0})
+    
+    # Get default lock percentage
+    config = await db.finance_lock_config.find_one({"config_id": "global"}, {"_id": 0})
+    default_lock_pct = config.get("default_lock_percentage", DEFAULT_LOCK_PERCENTAGE) if config else DEFAULT_LOCK_PERCENTAGE
+    
+    previous_pct = current_override.get("lock_percentage") if current_override else default_lock_pct
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create audit record in project_lock_history
+    history_record = {
+        "history_id": f"plh_{uuid.uuid4().hex[:8]}",
+        "project_id": project_id,
+        "previous_percentage": previous_pct,
+        "new_percentage": override.lock_percentage,
+        "reason": override.reason,
+        "changed_by": user.get("user_id"),
+        "changed_by_name": user.get("name"),
+        "changed_at": now.isoformat()
+    }
+    await db.project_lock_history.insert_one(history_record)
+    
+    # Also add to project_decisions_log for contextual visibility
+    decision_record = {
+        "decision_id": f"dec_{uuid.uuid4().hex[:8]}",
+        "project_id": project_id,
+        "decision_type": "lock_override",
+        "title": f"Lock % changed: {previous_pct}% → {override.lock_percentage}%",
+        "description": override.reason,
+        "made_by": user.get("user_id"),
+        "made_by_name": user.get("name"),
+        "created_at": now.isoformat(),
+        "metadata": {
+            "previous_percentage": previous_pct,
+            "new_percentage": override.lock_percentage
+        }
+    }
+    await db.project_decisions_log.insert_one(decision_record)
+    
+    # Update or insert override
+    await db.project_lock_overrides.update_one(
+        {"project_id": project_id},
+        {"$set": {
+            "project_id": project_id,
+            "lock_percentage": override.lock_percentage,
+            "reason": override.reason,
+            "updated_by": user.get("user_id"),
+            "updated_by_name": user.get("name"),
+            "updated_at": now.isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {
+        "success": True,
+        "message": f"Lock percentage updated from {previous_pct}% to {override.lock_percentage}%",
+        "project_id": project_id,
+        "previous_percentage": previous_pct,
+        "new_percentage": override.lock_percentage
+    }
+
+
+@api_router.delete("/finance/project-lock-override/{project_id}")
+async def remove_project_lock_override(project_id: str, request: Request):
+    """Remove lock override and revert to default - Admin/Founder only"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Permission check
+    if not has_permission(user, "finance.lock_override") and user.get("role") not in ["Admin", "Founder", "CEO"]:
+        raise HTTPException(status_code=403, detail="Only Admin/Founder can modify lock settings")
+    
+    # Get current override
+    current_override = await db.project_lock_overrides.find_one({"project_id": project_id}, {"_id": 0})
+    if not current_override:
+        raise HTTPException(status_code=404, detail="No override exists for this project")
+    
+    # Get default lock percentage
+    config = await db.finance_lock_config.find_one({"config_id": "global"}, {"_id": 0})
+    default_lock_pct = config.get("default_lock_percentage", DEFAULT_LOCK_PERCENTAGE) if config else DEFAULT_LOCK_PERCENTAGE
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create audit record
+    history_record = {
+        "history_id": f"plh_{uuid.uuid4().hex[:8]}",
+        "project_id": project_id,
+        "previous_percentage": current_override.get("lock_percentage"),
+        "new_percentage": default_lock_pct,
+        "reason": "Override removed - reverted to default",
+        "changed_by": user.get("user_id"),
+        "changed_by_name": user.get("name"),
+        "changed_at": now.isoformat()
+    }
+    await db.project_lock_history.insert_one(history_record)
+    
+    # Add to decisions log
+    decision_record = {
+        "decision_id": f"dec_{uuid.uuid4().hex[:8]}",
+        "project_id": project_id,
+        "decision_type": "lock_override_removed",
+        "title": f"Lock override removed - reverted to {default_lock_pct}%",
+        "description": f"Previously was {current_override.get('lock_percentage')}%",
+        "made_by": user.get("user_id"),
+        "made_by_name": user.get("name"),
+        "created_at": now.isoformat()
+    }
+    await db.project_decisions_log.insert_one(decision_record)
+    
+    # Delete override
+    await db.project_lock_overrides.delete_one({"project_id": project_id})
+    
+    return {
+        "success": True,
+        "message": f"Override removed. Lock percentage reverted to default {default_lock_pct}%"
+    }
+
+
+@api_router.get("/finance/safe-use-summary")
+async def get_safe_use_summary(request: Request):
+    """Get global safe-use summary for Founder Dashboard"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # This is essentially the same as get_all_projects_lock_status but optimized for dashboard
+    # Re-use the existing endpoint logic
+    lock_status = await get_all_projects_lock_status(request)
+    
+    # Get additional cash info
+    accounts = await db.accounting_accounts.find({"is_active": True}, {"_id": 0}).to_list(100)
+    total_cash_available = sum(acc.get("current_balance", 0) for acc in accounts)
+    
+    # Non-project linked safe cash (cash not tied to any project)
+    non_project_cash = total_cash_available - lock_status["total_received_all"] + lock_status["total_safe_all"]
+    
+    return {
+        # From lock status
+        "total_project_received": lock_status["total_received_all"],
+        "total_locked": lock_status["total_locked_all"],
+        "total_commitments": lock_status["total_commitments_all"],
+        "project_safe_to_use": lock_status["total_safe_all"],
+        
+        # Bank/cash info
+        "total_cash_in_bank": total_cash_available,
+        
+        # Warning indicators
+        "monthly_operating_expense": lock_status["monthly_operating_expense"],
+        "safe_use_warning": lock_status["safe_use_warning"],
+        "safe_use_months": lock_status["safe_use_months"],
+        
+        # Top projects by locked amount
+        "top_projects_by_lock": lock_status["projects"][:5] if lock_status["projects"] else []
+    }
+
+
+# ============================================================================
 # ============ PAYMENT & RECEIPT SYSTEM (PHASE 4) ============================
 # ============================================================================
 # Flexible payment schedules, receipts, invoices, refunds, cancellations
