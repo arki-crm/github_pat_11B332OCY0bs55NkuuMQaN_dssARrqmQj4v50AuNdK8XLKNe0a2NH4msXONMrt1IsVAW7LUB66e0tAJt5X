@@ -371,15 +371,15 @@ const CashBook = () => {
                   Add Entry
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
+              <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
+                <DialogHeader className="flex-shrink-0">
                   <DialogTitle>Add Transaction</DialogTitle>
                   <DialogDescription>
                     Record a new financial entry for {formatDate(selectedDate)}
                   </DialogDescription>
                 </DialogHeader>
                 
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
                   {/* Type */}
                   <div className="flex gap-2">
                     <Button
