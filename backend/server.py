@@ -1448,7 +1448,10 @@ AVAILABLE_PERMISSIONS = {
             {"id": "finance.exception.mark", "name": "Mark Exceptions", "description": "Mark transactions as exceptional cases"},
             {"id": "finance.audit_log.view", "name": "View Audit Log", "description": "View financial audit trail"},
             {"id": "finance.import_data", "name": "Import Data", "description": "Import financial data from files"},
-            {"id": "finance.cancellation.mark", "name": "Mark Cancellation", "description": "Cancel projects and handle forfeitures"}
+            {"id": "finance.cancellation.mark", "name": "Mark Cancellation", "description": "Cancel projects and handle forfeitures"},
+            {"id": "finance.lock_config", "name": "Configure Lock Settings", "description": "Update global lock percentage and operating expense - Admin/Founder only"},
+            {"id": "finance.lock_override", "name": "Override Project Lock", "description": "Override lock percentage for individual projects - Admin/Founder only"},
+            {"id": "finance.view_lock_status", "name": "View Lock Status", "description": "View locked vs usable amounts for projects"}
         ]
     },
     
