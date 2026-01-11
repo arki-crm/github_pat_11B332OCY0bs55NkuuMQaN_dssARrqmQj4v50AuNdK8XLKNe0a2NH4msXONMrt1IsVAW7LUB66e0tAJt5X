@@ -22860,6 +22860,32 @@ async def list_backups(request: Request):
     return {"backups": backups[:50]}  # Last 50 backups
 
 
+@api_router.get("/admin/backup/scheduler-status")
+async def get_backup_scheduler_status(request: Request):
+    """Get backup scheduler status (Admin only)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if user_doc.get("role") not in ["Admin", "Founder"]:
+        raise HTTPException(status_code=403, detail="Only Admin/Founder can view scheduler status")
+    
+    job = backup_scheduler.get_job("daily_backup")
+    
+    status = {
+        "scheduler_running": backup_scheduler.running,
+        "job_id": "daily_backup",
+        "job_name": "Daily Database Backup",
+        "schedule": "Daily at midnight (00:00 server time)",
+        "next_run_time": None,
+        "job_exists": job is not None
+    }
+    
+    if job and job.next_run_time:
+        status["next_run_time"] = job.next_run_time.isoformat()
+    
+    return status
+
+
 @api_router.post("/admin/backup/restore/{backup_id}")
 async def restore_backup(backup_id: str, request: Request):
     """Restore from a backup (Admin only) - USE WITH CAUTION"""
