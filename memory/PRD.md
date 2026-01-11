@@ -608,6 +608,60 @@ A comprehensive financial planning and control system for the founder.
 
 ---
 
+## ✅ Salary / Payroll Control Module - COMPLETED Jan 2026
+
+A lightweight salary management module focused on financial discipline, not HR.
+
+### Features Implemented:
+- [x] **Salary Master** - Employee salary setup linked to Users
+- [x] **Monthly Salary Cycles** - Track advances, payments, balance per month
+- [x] **Partial Payments** - Multiple payments per month (advances + salary)
+- [x] **Budget Integration** - Auto-connects to 'salaries' budget category
+- [x] **Cashbook Integration** - All payments create cashbook entries
+- [x] **Carry Forward Recovery** - Excess advances auto-recovered next month
+- [x] **Exit Processing** - Final settlement with prorated salary calculation
+- [x] **Risk Assessment** - Safe/Tight/Critical cash status for salary obligations
+- [x] **12-Month History** - Payment history per employee
+
+### New Permissions:
+| Permission | Description |
+|------------|-------------|
+| `finance.salaries.view` | View own salary details |
+| `finance.salaries.view_all` | View all employee salaries |
+| `finance.salaries.edit_structure` | Edit salary amounts (Admin/Founder) |
+| `finance.salaries.pay` | Record salary payments |
+| `finance.salaries.close_month` | Close monthly salary cycles |
+| `finance.salaries.manage_exit` | Process employee exits |
+
+### New API Endpoints:
+- `GET /api/finance/salaries` - List salary configurations
+- `POST /api/finance/salaries` - Create salary setup
+- `GET /api/finance/salaries/{employee_id}` - Get salary detail
+- `PUT /api/finance/salaries/{employee_id}` - Update salary
+- `GET /api/finance/salaries/{employee_id}/history` - Get 12-month payment history
+- `POST /api/finance/salary-payments` - Record payment (advance/salary/final)
+- `GET /api/finance/salary-summary` - Dashboard summary with risk status
+- `GET /api/finance/salary-cycles` - Get salary cycles for a month
+- `POST /api/finance/salary-cycles/{employee_id}/{month_year}/close` - Close cycle
+- `POST /api/finance/salaries/{employee_id}/exit` - Process exit
+- `POST /api/finance/salaries/{employee_id}/close-settlement` - Close final settlement
+- `GET /api/finance/employees-for-salary` - Employees without salary setup
+
+### New Pages:
+- `/finance/salaries` - Salary Management page
+
+### Key Data Models:
+- **`finance_salary_master`**: salary_id, employee_id, monthly_salary, payment_type, status (active/on_hold/exit), exit_date, final_settlement_*
+- **`finance_salary_cycles`**: cycle_id, employee_id, month_year, total_advances, total_salary_paid, balance_payable, carry_forward_recovery, status
+- **`finance_salary_payments`**: payment_id, employee_id, amount, payment_type (advance/salary/final_settlement), account_id, transaction_id
+
+### Risk Status Calculation:
+- **Safe**: Cash ≥ 2x salary obligations
+- **Tight**: Cash ≥ 1x salary obligations
+- **Critical**: Cash < salary obligations
+
+---
+
 ### P3 - Future Features (Accounting Phase 2)
 - [x] **Account Master** - ✅ COMPLETED (Jan 2026)
 - [x] **Expense Category Master** - ✅ COMPLETED (Jan 2026)
