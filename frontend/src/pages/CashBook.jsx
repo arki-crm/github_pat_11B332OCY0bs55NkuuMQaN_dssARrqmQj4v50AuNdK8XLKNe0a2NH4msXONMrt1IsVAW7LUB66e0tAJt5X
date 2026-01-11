@@ -725,14 +725,22 @@ const CashBook = () => {
 
       {/* Transactions Table */}
       <Card className="border-slate-200">
-        <CardHeader className="border-b border-slate-200">
-          <CardTitle className="text-lg font-semibold">Transactions ({transactions.length})</CardTitle>
+        <CardHeader className="border-b border-slate-200 flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-semibold">
+            Transactions ({transactions.length})
+            {showNeedsReviewOnly && <Badge className="ml-2 bg-amber-100 text-amber-800">Filtered: Needs Review</Badge>}
+          </CardTitle>
+          {showNeedsReviewOnly && (
+            <Button variant="ghost" size="sm" onClick={() => setShowNeedsReviewOnly(false)}>
+              Show All
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {transactions.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-slate-500">No transactions for this day</p>
-              {canAddTransaction && !isDayLocked && (
+              <p className="text-slate-500">{showNeedsReviewOnly ? 'No transactions needing review' : 'No transactions for this day'}</p>
+              {canAddTransaction && !isDayLocked && !showNeedsReviewOnly && (
                 <Button 
                   variant="outline" 
                   className="mt-4"
@@ -753,15 +761,22 @@ const CashBook = () => {
                     <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Amount</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Account</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Category</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Project</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Paid To</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Requested By</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Remarks</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">Verified</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">Status</th>
+                    {isAdminOrCEO && <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">Action</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {transactions.map((txn) => (
-                    <tr key={txn.transaction_id} className="hover:bg-slate-50" data-testid={`txn-row-${txn.transaction_id}`}>
+                    <tr 
+                      key={txn.transaction_id} 
+                      className={cn(
+                        "hover:bg-slate-50",
+                        txn.needs_review && "bg-amber-50/50"
+                      )} 
+                      data-testid={`txn-row-${txn.transaction_id}`}
+                    >
                       <td className="px-4 py-3 text-sm text-slate-600">{formatTime(txn.created_at)}</td>
                       <td className="px-4 py-3">
                         {txn.transaction_type === 'inflow' ? (
@@ -782,22 +797,61 @@ const CashBook = () => {
                       )}>
                         {txn.transaction_type === 'inflow' ? '+' : '-'}{formatCurrency(txn.amount)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{txn.account_name}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{txn.account_name || txn.paid_from_account}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">{txn.category_name}</td>
                       <td className="px-4 py-3 text-sm">
-                        {txn.project_pid ? (
-                          <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">
-                            {txn.project_pid}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
+                        <div>
+                          <p className="text-slate-700">{txn.requested_by_name || txn.created_by_name}</p>
+                          {txn.approved_by_name && (
+                            <p className="text-xs text-green-600">✓ {txn.approved_by_name}</p>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{txn.paid_to || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600 max-w-[200px] truncate">{txn.remarks}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600 max-w-[200px] truncate" title={txn.remarks}>
+                        {txn.remarks}
+                        {txn.paid_to && <span className="block text-xs text-slate-400">→ {txn.paid_to}</span>}
+                      </td>
                       <td className="px-4 py-3 text-center">
-                        {txn.is_verified ? (
-                          <CheckCircle className="w-4 h-4 text-green-600 mx-auto" />
+                        <div className="flex flex-col items-center gap-1">
+                          {txn.is_verified && (
+                            <Badge className="bg-green-100 text-green-700 text-xs">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Verified
+                            </Badge>
+                          )}
+                          {txn.needs_review && (
+                            <Badge className="bg-amber-100 text-amber-700 text-xs">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Needs Review
+                            </Badge>
+                          )}
+                          {txn.approval_status === 'pending_approval' && (
+                            <Badge className="bg-red-100 text-red-700 text-xs">
+                              No Approver
+                            </Badge>
+                          )}
+                          {txn.expense_request_id && (
+                            <Badge className="bg-blue-100 text-blue-700 text-xs">
+                              <FileCheck className="w-3 h-3 mr-1" />
+                              ER Linked
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      {isAdminOrCEO && (
+                        <td className="px-4 py-3 text-center">
+                          {txn.needs_review && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMarkReviewed(txn.transaction_id)}
+                              className="text-xs"
+                            >
+                              Mark Reviewed
+                            </Button>
+                          )}
+                        </td>
+                      )}
                         ) : (
                           <span className="text-slate-400">-</span>
                         )}
