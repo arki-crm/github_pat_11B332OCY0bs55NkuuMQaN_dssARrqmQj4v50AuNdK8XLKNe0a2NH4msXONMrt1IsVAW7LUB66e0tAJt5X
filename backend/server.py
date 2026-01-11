@@ -22639,9 +22639,14 @@ async def get_entity_audit_history(entity_type: str, entity_id: str, request: Re
 import subprocess
 import gzip
 import shutil
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 BACKUP_DIR = ROOT_DIR / "backups"
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+# Initialize scheduler (will be started on app startup)
+backup_scheduler = AsyncIOScheduler()
 
 # Collections to backup
 BACKUP_COLLECTIONS = [
@@ -22664,6 +22669,90 @@ BACKUP_COLLECTIONS = [
     "recurring_templates",
     "payment_reminders"
 ]
+
+
+async def run_scheduled_backup():
+    """Run automated daily backup - called by scheduler at midnight"""
+    try:
+        backup_id = f"backup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_auto"
+        backup_path = BACKUP_DIR / backup_id
+        backup_path.mkdir(parents=True, exist_ok=True)
+        
+        backup_data = {
+            "backup_id": backup_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_by": "system",
+            "created_by_name": "Scheduled Backup",
+            "collections": {},
+            "status": "in_progress",
+            "backup_type": "scheduled"
+        }
+        
+        # Export each collection to JSON
+        for collection_name in BACKUP_COLLECTIONS:
+            try:
+                collection = db[collection_name]
+                docs = await collection.find({}, {"_id": 0}).to_list(100000)
+                
+                # Save to file
+                file_path = backup_path / f"{collection_name}.json"
+                async with aiofiles.open(file_path, 'w') as f:
+                    await f.write(json.dumps(docs, default=str, indent=2))
+                
+                backup_data["collections"][collection_name] = {
+                    "count": len(docs),
+                    "file": f"{collection_name}.json"
+                }
+            except Exception as e:
+                backup_data["collections"][collection_name] = {
+                    "error": str(e)
+                }
+        
+        backup_data["status"] = "completed"
+        backup_data["completed_at"] = datetime.now(timezone.utc).isoformat()
+        
+        # Save backup metadata
+        meta_path = backup_path / "backup_meta.json"
+        async with aiofiles.open(meta_path, 'w') as f:
+            await f.write(json.dumps(backup_data, indent=2))
+        
+        # Create audit log for scheduled backup
+        await create_audit_log(
+            entity_type="system",
+            entity_id=backup_id,
+            action="backup_created",
+            user_id="system",
+            user_name="Scheduled Backup",
+            details=f"Automated daily backup with {len(backup_data['collections'])} collections"
+        )
+        
+        logger.info(f"Scheduled backup completed: {backup_id} ({len(backup_data['collections'])} collections)")
+        
+    except Exception as e:
+        logger.error(f"Scheduled backup failed: {str(e)}")
+
+
+@app.on_event("startup")
+async def start_backup_scheduler():
+    """Start the backup scheduler on application startup"""
+    # Schedule daily backup at midnight (00:00 server time)
+    backup_scheduler.add_job(
+        run_scheduled_backup,
+        CronTrigger(hour=0, minute=0),
+        id="daily_backup",
+        name="Daily Database Backup",
+        replace_existing=True
+    )
+    backup_scheduler.start()
+    logger.info("Backup scheduler started - daily backups at midnight")
+
+
+@app.on_event("shutdown")
+async def stop_backup_scheduler():
+    """Stop the backup scheduler on application shutdown"""
+    if backup_scheduler.running:
+        backup_scheduler.shutdown(wait=False)
+        logger.info("Backup scheduler stopped")
 
 
 @api_router.post("/admin/backup/create")
