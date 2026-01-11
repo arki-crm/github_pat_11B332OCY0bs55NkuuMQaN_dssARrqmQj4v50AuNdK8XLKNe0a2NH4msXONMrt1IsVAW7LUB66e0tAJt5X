@@ -122,6 +122,7 @@ const ProjectFinanceDetail = () => {
   const [isLockOverrideOpen, setIsLockOverrideOpen] = useState(false);
   const [lockOverrideForm, setLockOverrideForm] = useState({ lock_percentage: '', reason: '' });
   const [projectProfit, setProjectProfit] = useState(null);
+  const [viewTransaction, setViewTransaction] = useState(null); // For viewing transaction details
   
   const [newMapping, setNewMapping] = useState({
     vendor_name: '',
