@@ -358,22 +358,25 @@ TEST_Missing Phone,Website
     def test_import_execute_tags_records_as_imported(self):
         """POST /api/admin/import/execute - Execute import and verify records are tagged with imported=true"""
         # First create a preview
-        csv_content = """Customer Name,Customer Phone,Source
+        csv_content = b"""Customer Name,Customer Phone,Source
 TEST_Execute Lead,9999888877,Import Test
 """
         
         files = {
-            'file': ('test_execute.csv', csv_content, 'text/csv')
+            'file': ('test_execute.csv', BytesIO(csv_content), 'text/csv')
         }
         
-        headers = dict(self.session.headers)
-        if 'Content-Type' in headers:
-            del headers['Content-Type']
+        # Use a fresh session for file upload
+        upload_session = requests.Session()
+        login_resp = upload_session.post(
+            f"{BASE_URL}/api/auth/local-login",
+            json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
+        )
+        assert login_resp.status_code == 200, "Login failed"
         
-        preview_response = self.session.post(
+        preview_response = upload_session.post(
             f"{BASE_URL}/api/admin/import/preview?data_type=leads&duplicate_strategy=skip",
-            files=files,
-            headers=headers
+            files=files
         )
         
         assert preview_response.status_code == 200, f"Preview failed: {preview_response.text}"
