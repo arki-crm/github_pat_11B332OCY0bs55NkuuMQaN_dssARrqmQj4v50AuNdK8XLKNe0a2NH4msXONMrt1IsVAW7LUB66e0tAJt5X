@@ -16,7 +16,7 @@ import requests
 import os
 from datetime import datetime, timedelta
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://budget-master-627.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://money-monitor-220.preview.emergentagent.com')
 
 class TestFinanceModule:
     """Finance Module API Tests"""

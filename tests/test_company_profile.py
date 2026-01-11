@@ -12,7 +12,7 @@ import requests
 import os
 import json
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://budget-master-627.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://money-monitor-220.preview.emergentagent.com')
 
 # Test data for company profile
 TEST_COMPANY_DATA = {
