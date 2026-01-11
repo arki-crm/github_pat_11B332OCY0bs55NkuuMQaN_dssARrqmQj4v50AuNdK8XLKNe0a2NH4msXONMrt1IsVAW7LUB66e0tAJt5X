@@ -18634,8 +18634,13 @@ async def override_project_lock(project_id: str, override: ProjectLockOverride, 
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
+    # Get full user doc for permission check
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="User not found")
+    
     # Permission check - only Admin/Founder/CEO can override
-    if not has_permission(user, "finance.lock_override") and user.get("role") not in ["Admin", "Founder", "CEO"]:
+    if not has_permission(user_doc, "finance.lock_override") and user_doc.get("role") not in ["Admin", "Founder", "CEO"]:
         raise HTTPException(status_code=403, detail="Only Admin/Founder can override lock percentage")
     
     # Validate lock percentage
@@ -18665,8 +18670,8 @@ async def override_project_lock(project_id: str, override: ProjectLockOverride, 
         "previous_percentage": previous_pct,
         "new_percentage": override.lock_percentage,
         "reason": override.reason,
-        "changed_by": user.get("user_id"),
-        "changed_by_name": user.get("name"),
+        "changed_by": user_doc.get("user_id"),
+        "changed_by_name": user_doc.get("name"),
         "changed_at": now.isoformat()
     }
     await db.project_lock_history.insert_one(history_record)
