@@ -23587,42 +23587,6 @@ async def cancel_recurring_payable(payable_id: str, request: Request):
     return {"success": True, "message": "Payable cancelled"}
 
 
-# ============ ATTACHMENT HANDLING ============
-                    },
-                    "$inc": {"total_entries_created": 1}
-                }
-            )
-            
-            # Audit log
-            await create_audit_log(
-                entity_type="cashbook",
-                entity_id=transaction_id,
-                action="create",
-                user_id="system",
-                user_name="Recurring System",
-                new_value={"amount": template["amount"], "template": template["name"]},
-                details=f"Auto-created from recurring template: {template['name']}"
-            )
-            
-            created_entries.append({
-                "template_name": template["name"],
-                "transaction_id": transaction_id,
-                "amount": template["amount"]
-            })
-        except Exception as e:
-            errors.append({
-                "template_name": template["name"],
-                "error": str(e)
-            })
-    
-    return {
-        "success": True,
-        "created_count": len(created_entries),
-        "created_entries": created_entries,
-        "errors": errors
-    }
-
-
 # ============ DOCUMENT ATTACHMENT (PROOF) LAYER ============
 
 # Finance attachments directory
