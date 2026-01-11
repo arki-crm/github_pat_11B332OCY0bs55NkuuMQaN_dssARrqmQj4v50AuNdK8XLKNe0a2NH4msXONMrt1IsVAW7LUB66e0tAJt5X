@@ -113,7 +113,8 @@ const Budgets = () => {
       ]);
       
       setBudgets(budgetsRes.data);
-      setCurrentBudget(currentRes.data.budget ? currentRes.data : null);
+      // API returns budget directly with budget_id, or {budget: null, message: "..."} if no active budget
+      setCurrentBudget(currentRes.data.budget_id ? currentRes.data : (currentRes.data.budget || null));
       setBudgetCategories(categoriesRes.data);
       setAlerts(alertsRes.data.alerts || []);
       
