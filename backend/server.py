@@ -1780,6 +1780,30 @@ SALES_MANAGER_ROLES = ["Admin", "SalesManager"]  # Can manage sales dashboard
 MANAGER_ROLES = ["Admin", "SalesManager", "DesignManager", "ProductionOpsManager"]
 EXECUTION_ROLES = ["Admin", "ProductionOpsManager"]
 
+# Finance role categories
+FINANCE_ROLES = ["JuniorAccountant", "SeniorAccountant", "FinanceManager", "CharteredAccountant", "Accountant", "Founder"]
+FINANCE_MANAGER_ROLES = ["Admin", "FinanceManager", "Founder"]  # Can approve write-offs, overrides
+FINANCE_READONLY_ROLES = ["CharteredAccountant"]  # Read-only access for auditors
+
+# All available roles for user creation (Admin UI dropdown)
+AVAILABLE_ROLES = [
+    # CRM Roles
+    {"id": "Admin", "name": "Admin", "category": "Administration", "description": "Full system access"},
+    {"id": "PreSales", "name": "Pre-Sales", "category": "Sales", "description": "Handle pre-sales inquiries"},
+    {"id": "SalesManager", "name": "Sales Manager", "category": "Sales", "description": "Manage sales team and leads"},
+    {"id": "Designer", "name": "Designer", "category": "Design", "description": "Handle design work on projects"},
+    {"id": "DesignManager", "name": "Design Manager", "category": "Design", "description": "Manage design team"},
+    {"id": "ProductionOpsManager", "name": "Production & Ops Manager", "category": "Operations", "description": "Manage production and delivery"},
+    {"id": "OperationLead", "name": "Operation Lead", "category": "Operations", "description": "Ground-level execution"},
+    {"id": "Technician", "name": "Technician", "category": "Service", "description": "Handle service requests"},
+    # Finance Roles
+    {"id": "JuniorAccountant", "name": "Junior Accountant", "category": "Finance", "description": "Basic data entry, view cashbook"},
+    {"id": "SeniorAccountant", "name": "Senior Accountant", "category": "Finance", "description": "Full cashbook, invoices, daily closing"},
+    {"id": "FinanceManager", "name": "Finance Manager", "category": "Finance", "description": "Full finance control, approvals, overrides"},
+    {"id": "CharteredAccountant", "name": "Chartered Accountant (CA)", "category": "Finance", "description": "Read-only audit access"},
+    {"id": "Founder", "name": "Founder / CEO", "category": "Leadership", "description": "Full visibility, final overrides"}
+]
+
 # ============ SIMPLIFIED STAGE FLOW (V1) ============
 
 # PID (Project ID) Generation - Sequential counter
