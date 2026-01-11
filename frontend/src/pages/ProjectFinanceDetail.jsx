@@ -114,6 +114,9 @@ const ProjectFinanceDetail = () => {
   const [isScheduleEditing, setIsScheduleEditing] = useState(false);
   const [editedSchedule, setEditedSchedule] = useState([]);
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+  const [lockStatus, setLockStatus] = useState(null);
+  const [isLockOverrideOpen, setIsLockOverrideOpen] = useState(false);
+  const [lockOverrideForm, setLockOverrideForm] = useState({ lock_percentage: '', reason: '' });
   
   const [newMapping, setNewMapping] = useState({
     vendor_name: '',
