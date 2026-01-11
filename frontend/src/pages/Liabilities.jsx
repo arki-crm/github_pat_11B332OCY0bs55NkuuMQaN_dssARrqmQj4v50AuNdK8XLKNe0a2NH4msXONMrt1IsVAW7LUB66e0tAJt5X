@@ -633,6 +633,112 @@ export default function Liabilities() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* View Liability Dialog */}
+      <Dialog open={!!viewLiability} onOpenChange={() => setViewLiability(null)}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Liability Details</DialogTitle>
+            <DialogDescription>
+              {viewLiability && (
+                <>View details for {viewLiability.vendor_name} - {formatCurrency(viewLiability.amount)}</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {viewLiability && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Vendor</Label>
+                  <p className="text-sm text-slate-900 mt-1">{viewLiability.vendor_name}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Category</Label>
+                  <p className="text-sm text-slate-900 mt-1 capitalize">{viewLiability.category.replace('_', ' ')}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Total Amount</Label>
+                  <p className="text-sm font-mono text-slate-900 mt-1">{formatCurrency(viewLiability.amount)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Settled</Label>
+                  <p className="text-sm font-mono text-green-600 mt-1">{formatCurrency(viewLiability.amount_settled)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Remaining</Label>
+                  <p className="text-sm font-mono text-red-600 mt-1">{formatCurrency(viewLiability.amount_remaining)}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Status</Label>
+                  <div className="mt-1">{getStatusBadge(viewLiability.status)}</div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Due Date</Label>
+                  <p className="text-sm text-slate-900 mt-1">
+                    {viewLiability.due_date ? formatDate(viewLiability.due_date) : '-'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Project</Label>
+                  <p className="text-sm text-slate-900 mt-1">{viewLiability.project_name || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Source</Label>
+                  <p className="text-sm text-slate-900 mt-1 capitalize">{viewLiability.source.replace('_', ' ')}</p>
+                </div>
+              </div>
+              
+              {viewLiability.description && (
+                <div>
+                  <Label className="text-sm font-medium text-slate-600">Description</Label>
+                  <p className="text-sm text-slate-900 mt-1 bg-slate-50 p-2 rounded border">{viewLiability.description}</p>
+                </div>
+              )}
+              
+              <div>
+                <Label className="text-sm font-medium text-slate-600">Attachments</Label>
+                <div className="mt-2 p-3 border rounded-lg bg-slate-50">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <Paperclip className="w-4 h-4" />
+                    <span className="text-sm">No attachments available</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Attachment support will be added in future updates
+                  </p>
+                </div>
+              </div>
+              
+              <div className="text-xs text-slate-400 pt-2 border-t">
+                Created: {viewLiability.created_at ? new Date(viewLiability.created_at).toLocaleString('en-IN') : '-'}
+                {viewLiability.updated_at && (
+                  <> • Updated: {new Date(viewLiability.updated_at).toLocaleString('en-IN')}</>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewLiability(null)}>Close</Button>
+            {viewLiability?.status !== 'closed' && (
+              <Button onClick={() => {
+                setViewLiability(null);
+                openSettleDialog(viewLiability);
+              }}>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Settle Liability
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
