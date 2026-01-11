@@ -1391,7 +1391,25 @@ AVAILABLE_PERMISSIONS = {
             {"id": "finance.expenses.create", "name": "Create Expense Request", "description": "Submit expenses for approval"},
             {"id": "finance.expenses.approve", "name": "Approve Expenses", "description": "Approve or reject expense requests"},
             {"id": "finance.expenses.record", "name": "Record Expenses", "description": "Record approved expenses in cashbook"},
-            {"id": "finance.expenses.track_refunds", "name": "Track Refunds", "description": "Track pending expense refunds"}
+            {"id": "finance.expenses.track_refunds", "name": "Track Refunds", "description": "Track pending expense refunds"},
+            # Threshold-based approval permissions
+            {"id": "finance.expenses.approve_petty", "name": "Approve Petty Cash (≤₹1K)", "description": "Auto-approve expenses up to ₹1,000"},
+            {"id": "finance.expenses.approve_standard", "name": "Approve Standard (₹1K-5K)", "description": "Approve expenses ₹1,001 to ₹5,000"},
+            {"id": "finance.expenses.approve_high", "name": "Approve High Value (>₹5K)", "description": "Approve expenses above ₹5,000 - Founder only"},
+            {"id": "finance.expenses.mark_exception", "name": "Mark Exception", "description": "Flag expenses as emergency/exception"}
+        ]
+    },
+    
+    # Budgeting & Forecasting
+    "finance_budget": {
+        "name": "Budgeting & Forecasting",
+        "permissions": [
+            {"id": "finance.budget.view", "name": "View Budgets", "description": "View budget plans and tracking"},
+            {"id": "finance.budget.create", "name": "Create Budget", "description": "Create new budget periods"},
+            {"id": "finance.budget.edit", "name": "Edit Budget", "description": "Modify budget allocations"},
+            {"id": "finance.budget.close", "name": "Close Budget Period", "description": "Lock and close budget periods"},
+            {"id": "finance.forecast.view", "name": "View Forecast", "description": "View financial forecasting & runway"},
+            {"id": "finance.forecast.edit_assumptions", "name": "Edit Forecast Assumptions", "description": "Modify forecast parameters"}
         ]
     },
     
