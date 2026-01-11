@@ -18825,6 +18825,645 @@ async def get_safe_use_summary(request: Request):
 
 
 # ============================================================================
+# ============ LIABILITY REGISTER SYSTEM =====================================
+# ============================================================================
+# Explicit liability tracking - liabilities are created from:
+# 1. Approved expense requests (auto-created)
+# 2. Manual commitment entry (Admin only - for vendor credit, advances, etc.)
+# Liabilities are NEVER created from cashbook outflows - those SETTLE liabilities
+
+# Liability categories
+LIABILITY_CATEGORIES = [
+    "raw_material",
+    "production",
+    "installation",
+    "transport",
+    "office",
+    "salary",
+    "marketing",
+    "other"
+]
+
+# Liability sources
+LIABILITY_SOURCES = ["expense_request", "vendor_credit", "manual"]
+
+# Liability statuses
+LIABILITY_STATUSES = ["open", "partially_settled", "closed"]
+
+
+class LiabilityCreate(BaseModel):
+    project_id: Optional[str] = None  # Nullable for office expenses
+    vendor_name: str
+    category: str  # raw_material, production, installation, office, other
+    amount: float
+    due_date: Optional[str] = None  # ISO date string
+    description: Optional[str] = None
+    source: str = "manual"  # expense_request, vendor_credit, manual
+    source_reference_id: Optional[str] = None  # expense_request_id if auto-created
+
+
+class LiabilitySettlement(BaseModel):
+    amount: float
+    transaction_id: Optional[str] = None  # Link to cashbook transaction
+    remarks: Optional[str] = None
+
+
+async def get_or_create_vendor(vendor_name: str) -> dict:
+    """Get existing vendor or create new one (hybrid vendor management)"""
+    # Normalize vendor name
+    normalized_name = vendor_name.strip()
+    
+    # Check if vendor exists
+    existing = await db.finance_vendors.find_one(
+        {"name": {"$regex": f"^{re.escape(normalized_name)}$", "$options": "i"}},
+        {"_id": 0}
+    )
+    
+    if existing:
+        return existing
+    
+    # Create new vendor silently
+    vendor = {
+        "vendor_id": f"vnd_{uuid.uuid4().hex[:8]}",
+        "name": normalized_name,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "auto_created": True
+    }
+    await db.finance_vendors.insert_one(vendor)
+    
+    return {k: v for k, v in vendor.items() if k != "_id"}
+
+
+async def create_liability_from_expense_request(expense_request: dict, user_doc: dict):
+    """Auto-create liability when expense request is approved"""
+    vendor = await get_or_create_vendor(expense_request.get("vendor_name", expense_request.get("title", "Unknown")))
+    
+    now = datetime.now(timezone.utc)
+    
+    liability = {
+        "liability_id": f"lia_{uuid.uuid4().hex[:8]}",
+        "project_id": expense_request.get("project_id"),
+        "vendor_id": vendor.get("vendor_id"),
+        "vendor_name": vendor.get("name"),
+        "category": expense_request.get("category", "other"),
+        "amount": expense_request.get("amount", 0),
+        "amount_settled": 0,
+        "amount_remaining": expense_request.get("amount", 0),
+        "due_date": expense_request.get("due_date"),
+        "description": expense_request.get("title"),
+        "source": "expense_request",
+        "source_reference_id": expense_request.get("request_id"),
+        "status": "open",
+        "settlements": [],
+        "created_by": user_doc.get("user_id"),
+        "created_by_name": user_doc.get("name"),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.finance_liabilities.insert_one(liability)
+    
+    return {k: v for k, v in liability.items() if k != "_id"}
+
+
+@api_router.get("/finance/liabilities")
+async def get_liabilities(
+    request: Request,
+    project_id: Optional[str] = None,
+    vendor_id: Optional[str] = None,
+    status: Optional[str] = None,
+    category: Optional[str] = None
+):
+    """Get all liabilities with optional filters"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    query = {}
+    
+    if project_id:
+        query["project_id"] = project_id
+    if vendor_id:
+        query["vendor_id"] = vendor_id
+    if status:
+        query["status"] = status
+    if category:
+        query["category"] = category
+    
+    liabilities = await db.finance_liabilities.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    # Enrich with project names
+    project_ids = list(set([l.get("project_id") for l in liabilities if l.get("project_id")]))
+    projects = await db.projects.find(
+        {"project_id": {"$in": project_ids}},
+        {"_id": 0, "project_id": 1, "name": 1, "project_name": 1}
+    ).to_list(len(project_ids))
+    project_map = {p["project_id"]: p.get("name") or p.get("project_name") for p in projects}
+    
+    for l in liabilities:
+        l["project_name"] = project_map.get(l.get("project_id"))
+    
+    return liabilities
+
+
+@api_router.get("/finance/liabilities/summary")
+async def get_liabilities_summary(request: Request):
+    """Get liability summary for dashboard"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Get all open/partially settled liabilities
+    open_liabilities = await db.finance_liabilities.find(
+        {"status": {"$in": ["open", "partially_settled"]}},
+        {"_id": 0}
+    ).to_list(10000)
+    
+    total_outstanding = sum(l.get("amount_remaining", 0) for l in open_liabilities)
+    
+    # Due this month
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if now.month == 12:
+        month_end = now.replace(year=now.year + 1, month=1, day=1) - timedelta(seconds=1)
+    else:
+        month_end = now.replace(month=now.month + 1, day=1) - timedelta(seconds=1)
+    
+    due_this_month = sum(
+        l.get("amount_remaining", 0) for l in open_liabilities
+        if l.get("due_date") and month_start.isoformat()[:10] <= l.get("due_date")[:10] <= month_end.isoformat()[:10]
+    )
+    
+    # Overdue
+    today = now.isoformat()[:10]
+    overdue = sum(
+        l.get("amount_remaining", 0) for l in open_liabilities
+        if l.get("due_date") and l.get("due_date")[:10] < today
+    )
+    overdue_count = len([
+        l for l in open_liabilities
+        if l.get("due_date") and l.get("due_date")[:10] < today
+    ])
+    
+    # By category
+    by_category = {}
+    for l in open_liabilities:
+        cat = l.get("category", "other")
+        by_category[cat] = by_category.get(cat, 0) + l.get("amount_remaining", 0)
+    
+    # Top vendors by outstanding
+    by_vendor = {}
+    for l in open_liabilities:
+        vendor = l.get("vendor_name", "Unknown")
+        by_vendor[vendor] = by_vendor.get(vendor, 0) + l.get("amount_remaining", 0)
+    
+    top_vendors = sorted(by_vendor.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    return {
+        "total_outstanding": total_outstanding,
+        "due_this_month": due_this_month,
+        "overdue": overdue,
+        "overdue_count": overdue_count,
+        "open_count": len(open_liabilities),
+        "by_category": by_category,
+        "top_vendors": [{"vendor": v[0], "amount": v[1]} for v in top_vendors]
+    }
+
+
+@api_router.post("/finance/liabilities")
+async def create_liability(liability: LiabilityCreate, request: Request):
+    """Create a manual liability entry - Admin only"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    # Only Admin/Founder can create manual liabilities
+    if user_doc.get("role") not in ["Admin", "Founder", "CEO"] and not has_permission(user_doc, "finance.liabilities.create"):
+        raise HTTPException(status_code=403, detail="Only Admin/Founder can create manual liabilities")
+    
+    # Validate category
+    if liability.category not in LIABILITY_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {LIABILITY_CATEGORIES}")
+    
+    # Validate source
+    if liability.source not in LIABILITY_SOURCES:
+        raise HTTPException(status_code=400, detail=f"Invalid source. Must be one of: {LIABILITY_SOURCES}")
+    
+    # Get or create vendor
+    vendor = await get_or_create_vendor(liability.vendor_name)
+    
+    # Validate project if provided
+    if liability.project_id:
+        project = await db.projects.find_one({"project_id": liability.project_id}, {"_id": 0, "name": 1})
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    liability_doc = {
+        "liability_id": f"lia_{uuid.uuid4().hex[:8]}",
+        "project_id": liability.project_id,
+        "vendor_id": vendor.get("vendor_id"),
+        "vendor_name": vendor.get("name"),
+        "category": liability.category,
+        "amount": liability.amount,
+        "amount_settled": 0,
+        "amount_remaining": liability.amount,
+        "due_date": liability.due_date,
+        "description": liability.description,
+        "source": liability.source,
+        "source_reference_id": liability.source_reference_id,
+        "status": "open",
+        "settlements": [],
+        "created_by": user_doc.get("user_id"),
+        "created_by_name": user_doc.get("name"),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.finance_liabilities.insert_one(liability_doc)
+    
+    return {k: v for k, v in liability_doc.items() if k != "_id"}
+
+
+@api_router.get("/finance/liabilities/{liability_id}")
+async def get_liability(liability_id: str, request: Request):
+    """Get a specific liability by ID"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    liability = await db.finance_liabilities.find_one({"liability_id": liability_id}, {"_id": 0})
+    if not liability:
+        raise HTTPException(status_code=404, detail="Liability not found")
+    
+    # Get project name if linked
+    if liability.get("project_id"):
+        project = await db.projects.find_one(
+            {"project_id": liability["project_id"]},
+            {"_id": 0, "name": 1, "project_name": 1}
+        )
+        liability["project_name"] = project.get("name") or project.get("project_name") if project else None
+    
+    return liability
+
+
+@api_router.post("/finance/liabilities/{liability_id}/settle")
+async def settle_liability(liability_id: str, settlement: LiabilitySettlement, request: Request):
+    """Settle (partially or fully) a liability"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    
+    liability = await db.finance_liabilities.find_one({"liability_id": liability_id}, {"_id": 0})
+    if not liability:
+        raise HTTPException(status_code=404, detail="Liability not found")
+    
+    if liability.get("status") == "closed":
+        raise HTTPException(status_code=400, detail="Liability is already closed")
+    
+    if settlement.amount <= 0:
+        raise HTTPException(status_code=400, detail="Settlement amount must be positive")
+    
+    if settlement.amount > liability.get("amount_remaining", 0):
+        raise HTTPException(status_code=400, detail=f"Settlement amount exceeds remaining amount ({liability.get('amount_remaining')})")
+    
+    now = datetime.now(timezone.utc)
+    
+    new_settled = liability.get("amount_settled", 0) + settlement.amount
+    new_remaining = liability.get("amount", 0) - new_settled
+    new_status = "closed" if new_remaining <= 0 else "partially_settled"
+    
+    settlement_entry = {
+        "settlement_id": f"stl_{uuid.uuid4().hex[:8]}",
+        "amount": settlement.amount,
+        "transaction_id": settlement.transaction_id,
+        "remarks": settlement.remarks,
+        "settled_by": user_doc.get("user_id"),
+        "settled_by_name": user_doc.get("name"),
+        "settled_at": now.isoformat()
+    }
+    
+    await db.finance_liabilities.update_one(
+        {"liability_id": liability_id},
+        {
+            "$set": {
+                "amount_settled": new_settled,
+                "amount_remaining": new_remaining,
+                "status": new_status,
+                "updated_at": now.isoformat()
+            },
+            "$push": {"settlements": settlement_entry}
+        }
+    )
+    
+    updated = await db.finance_liabilities.find_one({"liability_id": liability_id}, {"_id": 0})
+    return updated
+
+
+@api_router.get("/finance/vendors")
+async def get_vendors(request: Request):
+    """Get all vendors (auto-created from liabilities)"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    vendors = await db.finance_vendors.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    return vendors
+
+
+# ============================================================================
+# ============ P&L SNAPSHOT SYSTEM ===========================================
+# ============================================================================
+# Simple P&L snapshot - derived from existing data, not full accounting
+# Shows Cash Profit vs Accounting Profit difference
+
+@api_router.get("/finance/pnl-snapshot")
+async def get_pnl_snapshot(
+    request: Request,
+    period: str = "month",  # month, quarter, custom
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """Get P&L snapshot for a period"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Determine date range
+    if period == "month":
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if now.month == 12:
+            end = now.replace(year=now.year + 1, month=1, day=1) - timedelta(seconds=1)
+        else:
+            end = now.replace(month=now.month + 1, day=1) - timedelta(seconds=1)
+        period_label = now.strftime("%B %Y")
+    elif period == "quarter":
+        quarter = (now.month - 1) // 3
+        start = now.replace(month=quarter * 3 + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_month = (quarter + 1) * 3 + 1
+        if end_month > 12:
+            end = now.replace(year=now.year + 1, month=1, day=1) - timedelta(seconds=1)
+        else:
+            end = now.replace(month=end_month, day=1) - timedelta(seconds=1)
+        period_label = f"Q{quarter + 1} {now.year}"
+    elif period == "custom" and start_date and end_date:
+        start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        period_label = f"{start_date[:10]} to {end_date[:10]}"
+    else:
+        # Default to current month
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if now.month == 12:
+            end = now.replace(year=now.year + 1, month=1, day=1) - timedelta(seconds=1)
+        else:
+            end = now.replace(month=now.month + 1, day=1) - timedelta(seconds=1)
+        period_label = now.strftime("%B %Y")
+    
+    start_iso = start.isoformat()
+    end_iso = end.isoformat()
+    
+    # ===== REVENUE =====
+    # Cash received from projects (inflows linked to projects)
+    project_inflows = await db.accounting_transactions.find({
+        "transaction_type": "inflow",
+        "project_id": {"$ne": None},
+        "created_at": {"$gte": start_iso, "$lte": end_iso}
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    
+    # Also check finance_receipts
+    receipts = await db.finance_receipts.find({
+        "created_at": {"$gte": start_iso, "$lte": end_iso}
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    
+    revenue_from_projects = sum(t.get("amount", 0) for t in project_inflows) + sum(r.get("amount", 0) for r in receipts)
+    
+    # Other income (inflows not linked to projects)
+    other_inflows = await db.accounting_transactions.find({
+        "transaction_type": "inflow",
+        "project_id": None,
+        "created_at": {"$gte": start_iso, "$lte": end_iso}
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    other_income = sum(t.get("amount", 0) for t in other_inflows)
+    
+    total_revenue = revenue_from_projects + other_income
+    
+    # ===== EXECUTION COSTS (PAID) =====
+    # Cashbook outflows linked to projects
+    project_outflows = await db.accounting_transactions.find({
+        "transaction_type": "outflow",
+        "project_id": {"$ne": None},
+        "created_at": {"$gte": start_iso, "$lte": end_iso}
+    }, {"_id": 0, "amount": 1, "category_id": 1}).to_list(10000)
+    execution_costs_paid = sum(t.get("amount", 0) for t in project_outflows)
+    
+    # ===== EXECUTION COSTS (COMMITTED) =====
+    # Open liabilities linked to projects created in this period
+    open_project_liabilities = await db.finance_liabilities.find({
+        "project_id": {"$ne": None},
+        "status": {"$in": ["open", "partially_settled"]},
+        "created_at": {"$gte": start_iso, "$lte": end_iso}
+    }, {"_id": 0, "amount_remaining": 1}).to_list(10000)
+    execution_costs_committed = sum(l.get("amount_remaining", 0) for l in open_project_liabilities)
+    
+    total_execution_exposure = execution_costs_paid + execution_costs_committed
+    
+    # ===== OPERATING EXPENSES =====
+    # Non-project outflows by category
+    non_project_outflows = await db.accounting_transactions.find({
+        "transaction_type": "outflow",
+        "project_id": None,
+        "created_at": {"$gte": start_iso, "$lte": end_iso}
+    }, {"_id": 0, "amount": 1, "category_id": 1}).to_list(10000)
+    
+    # Get salary payments
+    salary_payments = await db.finance_salary_payments.find({
+        "created_at": {"$gte": start_iso, "$lte": end_iso},
+        "status": "completed"
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    salaries = sum(p.get("amount", 0) for p in salary_payments)
+    
+    # Categorize operating expenses
+    operating_expenses = {
+        "salaries": salaries,
+        "office": 0,
+        "marketing": 0,
+        "travel": 0,
+        "misc": 0
+    }
+    
+    for t in non_project_outflows:
+        cat = t.get("category_id", "").lower()
+        amount = t.get("amount", 0)
+        if "office" in cat:
+            operating_expenses["office"] += amount
+        elif "market" in cat or "sales" in cat:
+            operating_expenses["marketing"] += amount
+        elif "travel" in cat:
+            operating_expenses["travel"] += amount
+        else:
+            operating_expenses["misc"] += amount
+    
+    total_operating = sum(operating_expenses.values())
+    
+    # ===== CALCULATIONS =====
+    gross_profit = total_revenue - execution_costs_paid
+    net_operating_profit = gross_profit - total_operating
+    
+    # Cash profit vs Accounting profit
+    # Cash profit = actual cash in - actual cash out
+    all_inflows = await db.accounting_transactions.find({
+        "transaction_type": "inflow",
+        "created_at": {"$gte": start_iso, "$lte": end_iso}
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    all_outflows = await db.accounting_transactions.find({
+        "transaction_type": "outflow",
+        "created_at": {"$gte": start_iso, "$lte": end_iso}
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    
+    cash_profit = sum(t.get("amount", 0) for t in all_inflows) - sum(t.get("amount", 0) for t in all_outflows)
+    
+    # Accounting profit = Revenue - All Costs (including committed)
+    accounting_profit = total_revenue - total_execution_exposure - total_operating
+    
+    # Get lock info for explanation
+    lock_config = await db.finance_lock_config.find_one({"config_id": "global"}, {"_id": 0})
+    lock_pct = lock_config.get("default_lock_percentage", 85) if lock_config else 85
+    
+    # Total open liabilities
+    all_open_liabilities = await db.finance_liabilities.find(
+        {"status": {"$in": ["open", "partially_settled"]}},
+        {"_id": 0, "amount_remaining": 1}
+    ).to_list(10000)
+    total_open_liabilities = sum(l.get("amount_remaining", 0) for l in all_open_liabilities)
+    
+    return {
+        "period": period,
+        "period_label": period_label,
+        "start_date": start_iso[:10],
+        "end_date": end_iso[:10],
+        
+        # Revenue
+        "revenue": {
+            "from_projects": revenue_from_projects,
+            "other_income": other_income,
+            "total": total_revenue
+        },
+        
+        # Execution Costs
+        "execution_costs": {
+            "paid": execution_costs_paid,
+            "committed": execution_costs_committed,
+            "total_exposure": total_execution_exposure
+        },
+        
+        # Operating Expenses
+        "operating_expenses": operating_expenses,
+        "total_operating": total_operating,
+        
+        # Profits
+        "gross_profit": gross_profit,
+        "net_operating_profit": net_operating_profit,
+        
+        # Cash vs Accounting Difference
+        "cash_profit": cash_profit,
+        "accounting_profit": accounting_profit,
+        "profit_difference": cash_profit - accounting_profit,
+        
+        # Explanation factors
+        "difference_factors": {
+            "advances_locked_pct": lock_pct,
+            "open_liabilities": total_open_liabilities,
+            "committed_not_paid": execution_costs_committed,
+            "explanation": f"Cash profit differs from accounting profit due to: {lock_pct}% of advances locked, ₹{total_open_liabilities:,.0f} in open liabilities, ₹{execution_costs_committed:,.0f} in committed but unpaid costs."
+        }
+    }
+
+
+# ============================================================================
+# ============ PROJECT PROFIT VISIBILITY =====================================
+# ============================================================================
+# Enhanced project finance metrics - projected vs realised profit
+
+@api_router.get("/finance/project-profit/{project_id}")
+async def get_project_profit(project_id: str, request: Request):
+    """Get profit metrics for a project"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Get project
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    contract_value = project.get("total_value", 0)
+    
+    # Get planned cost from vendor mappings
+    vendor_mappings = await db.vendor_mappings.find(
+        {"project_id": project_id},
+        {"_id": 0, "planned_cost": 1}
+    ).to_list(1000)
+    planned_cost = sum(vm.get("planned_cost", 0) for vm in vendor_mappings)
+    
+    # Get actual cost (cashbook outflows linked to project)
+    actual_outflows = await db.accounting_transactions.find({
+        "project_id": project_id,
+        "transaction_type": "outflow"
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    actual_cost = sum(t.get("amount", 0) for t in actual_outflows)
+    
+    # Get total received
+    receipts = await db.finance_receipts.find(
+        {"project_id": project_id},
+        {"_id": 0, "amount": 1}
+    ).to_list(1000)
+    receipts_total = sum(r.get("amount", 0) for r in receipts)
+    
+    inflows = await db.accounting_transactions.find({
+        "project_id": project_id,
+        "transaction_type": "inflow"
+    }, {"_id": 0, "amount": 1}).to_list(10000)
+    inflows_total = sum(t.get("amount", 0) for t in inflows)
+    
+    total_received = receipts_total + inflows_total
+    
+    # Calculate profits
+    projected_profit = contract_value - planned_cost
+    projected_profit_pct = (projected_profit / contract_value * 100) if contract_value > 0 else 0
+    
+    realised_profit = total_received - actual_cost
+    realised_profit_pct = (realised_profit / total_received * 100) if total_received > 0 else 0
+    
+    execution_margin_remaining = projected_profit - realised_profit
+    
+    return {
+        "project_id": project_id,
+        "project_name": project.get("name") or project.get("project_name"),
+        "contract_value": contract_value,
+        "planned_cost": planned_cost,
+        "actual_cost": actual_cost,
+        "total_received": total_received,
+        
+        "projected_profit": projected_profit,
+        "projected_profit_pct": round(projected_profit_pct, 1),
+        
+        "realised_profit": realised_profit,
+        "realised_profit_pct": round(realised_profit_pct, 1),
+        
+        "execution_margin_remaining": execution_margin_remaining
+    }
+
+
+# ============================================================================
 # ============ PAYMENT & RECEIPT SYSTEM (PHASE 4) ============================
 # ============================================================================
 # Flexible payment schedules, receipts, invoices, refunds, cancellations
