@@ -384,7 +384,7 @@ class TestReportsAndCAMode:
     
     def test_ca_role_permissions(self):
         """Verify CharteredAccountant has correct read-only permissions"""
-        response = self.session.get(f"{BASE_URL}/api/admin/roles/CharteredAccountant")
+        response = self.session.get(f"{BASE_URL}/api/roles/CharteredAccountant/default-permissions")
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         
         data = response.json()
