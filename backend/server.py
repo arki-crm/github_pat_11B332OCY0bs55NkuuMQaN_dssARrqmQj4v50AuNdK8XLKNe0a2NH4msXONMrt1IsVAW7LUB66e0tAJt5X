@@ -13482,6 +13482,13 @@ class TransactionCreate(BaseModel):
     paid_to: Optional[str] = None  # Vendor/Person name
     remarks: str
     attachment_url: Optional[str] = None
+    # New accountability fields
+    requested_by: Optional[str] = None  # Who initiated the spend
+    requested_by_name: Optional[str] = None
+    approved_by: Optional[str] = None  # Who approved (required for > ₹5000)
+    approved_by_name: Optional[str] = None
+    expense_request_id: Optional[str] = None  # Link to approved expense request
+
 
 class TransactionUpdate(BaseModel):
     transaction_type: Optional[str] = None
@@ -13493,6 +13500,18 @@ class TransactionUpdate(BaseModel):
     paid_to: Optional[str] = None
     remarks: Optional[str] = None
     attachment_url: Optional[str] = None
+    requested_by: Optional[str] = None
+    requested_by_name: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_by_name: Optional[str] = None
+
+
+# Cashbook amount thresholds for guardrails
+CASHBOOK_THRESHOLDS = {
+    "petty_cash_max": 1000,      # ₹0-1000: Direct entry, no approval needed
+    "review_threshold": 5000,    # ₹1001-5000: Needs review flag
+    "approval_required": 5001    # ₹5001+: Must have approver or expense request link
+}
 
 
 # ============ ACCOUNTING: ACCOUNTS MASTER ============
