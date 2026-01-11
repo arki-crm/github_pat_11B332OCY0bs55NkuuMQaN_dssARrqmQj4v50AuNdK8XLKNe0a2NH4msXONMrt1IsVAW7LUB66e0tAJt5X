@@ -14312,6 +14312,17 @@ async def verify_transaction(transaction_id: str, request: Request):
         }}
     )
     
+    # Audit log for verification
+    await create_audit_log(
+        entity_type="cashbook",
+        entity_id=transaction_id,
+        action="verify",
+        user_id=user.user_id,
+        user_name=user.name,
+        new_value={"is_verified": True},
+        details=f"Verified transaction of ₹{existing.get('amount', 0):,.0f}"
+    )
+    
     updated = await db.accounting_transactions.find_one({"transaction_id": transaction_id}, {"_id": 0})
     return updated
 
