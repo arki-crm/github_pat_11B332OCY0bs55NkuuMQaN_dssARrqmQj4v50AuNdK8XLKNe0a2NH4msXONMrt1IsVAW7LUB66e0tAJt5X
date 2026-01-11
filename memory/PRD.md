@@ -61,7 +61,7 @@ The core CRM pipeline has been stabilized and is ready for manual end-to-end tes
 ## Test Credentials
 
 **Local Admin Login:**
-- **URL**: https://budget-control-57.preview.emergentagent.com/login
+- **URL**: https://budget-master-627.preview.emergentagent.com/login
 - **Email**: thaha.pakayil@gmail.com
 - **Password**: password123
 - **Access**: Full Admin permissions

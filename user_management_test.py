@@ -8,7 +8,7 @@ import uuid
 import subprocess
 
 class UserManagementTester:
-    def __init__(self, base_url="https://budget-control-57.preview.emergentagent.com"):
+    def __init__(self, base_url="https://budget-master-627.preview.emergentagent.com"):
         self.base_url = base_url
         self.admin_token = None
         self.admin_user_id = None

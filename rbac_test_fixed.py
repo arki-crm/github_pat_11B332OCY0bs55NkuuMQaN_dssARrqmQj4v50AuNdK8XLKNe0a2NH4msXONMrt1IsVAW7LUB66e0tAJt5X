@@ -6,7 +6,7 @@ import uuid
 import subprocess
 
 class RBACTesterFixed:
-    def __init__(self, base_url="https://budget-control-57.preview.emergentagent.com"):
+    def __init__(self, base_url="https://budget-master-627.preview.emergentagent.com"):
         self.base_url = base_url
         self.tokens = {}  # Store tokens for each role
         self.user_ids = {}  # Store user IDs for each role
