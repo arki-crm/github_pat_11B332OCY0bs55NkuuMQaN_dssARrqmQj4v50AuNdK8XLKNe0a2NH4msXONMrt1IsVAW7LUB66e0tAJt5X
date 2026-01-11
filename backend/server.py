@@ -16699,7 +16699,7 @@ DEFAULT_BUDGET_CATEGORIES = [
 SPEND_APPROVAL_THRESHOLDS = {
     "petty_cash": {"min": 0, "max": 1000, "permission": "finance.expenses.approve_petty", "auto_approve": True},
     "standard": {"min": 1001, "max": 5000, "permission": "finance.expenses.approve_standard", "auto_approve": False},
-    "high_value": {"min": 5001, "max": float('inf'), "permission": "finance.expenses.approve_high", "auto_approve": False}
+    "high_value": {"min": 5001, "max": 999999999, "permission": "finance.expenses.approve_high", "auto_approve": False}
 }
 
 
