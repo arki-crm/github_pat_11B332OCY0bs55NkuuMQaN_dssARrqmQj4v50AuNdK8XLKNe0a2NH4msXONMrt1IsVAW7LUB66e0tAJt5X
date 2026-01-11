@@ -19420,14 +19420,20 @@ async def get_project_profit(project_id: str, request: Request):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    contract_value = project.get("total_value", 0)
+    # Contract value can be stored in different fields
+    contract_value = project.get("total_value") or project.get("project_value") or project.get("contract_value", 0)
     
-    # Get planned cost from vendor mappings
+    # Get planned cost from vendor mappings (check both collection names)
     vendor_mappings = await db.vendor_mappings.find(
         {"project_id": project_id},
-        {"_id": 0, "planned_cost": 1}
+        {"_id": 0, "planned_cost": 1, "planned_amount": 1}
     ).to_list(1000)
-    planned_cost = sum(vm.get("planned_cost", 0) for vm in vendor_mappings)
+    if not vendor_mappings:
+        vendor_mappings = await db.finance_vendor_mappings.find(
+            {"project_id": project_id},
+            {"_id": 0, "planned_cost": 1, "planned_amount": 1}
+        ).to_list(1000)
+    planned_cost = sum(vm.get("planned_cost") or vm.get("planned_amount", 0) for vm in vendor_mappings)
     
     # Get actual cost (cashbook outflows linked to project)
     actual_outflows = await db.accounting_transactions.find({
