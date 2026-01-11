@@ -1325,49 +1325,152 @@ AVAILABLE_PERMISSIONS = {
             {"id": "admin.system_settings", "name": "System Settings", "description": "Modify system configuration"}
         ]
     },
-    # Finance/Accounting Permissions (Phase 1)
-    "finance": {
-        "name": "Finance & Accounting",
+    # ============ FINANCE & ACCOUNTING PERMISSIONS (Granular) ============
+    # Organized into logical groups for clarity while maintaining flat permission IDs
+    
+    # Cashbook & Transactions
+    "finance_cashbook": {
+        "name": "Cashbook & Transactions",
         "permissions": [
-            {"id": "finance.view_dashboard", "name": "View Finance Dashboard", "description": "View finance overview and summaries"},
-            {"id": "finance.view_cashbook", "name": "View Cash Book", "description": "View daily cash book entries"},
-            {"id": "finance.view_bankbook", "name": "View Bank Book", "description": "View bank account transactions"},
-            {"id": "finance.add_transaction", "name": "Add Transaction", "description": "Create new financial entries"},
-            {"id": "finance.edit_transaction", "name": "Edit Transaction", "description": "Modify existing entries (unlocked days only)"},
-            {"id": "finance.delete_transaction", "name": "Delete Transaction", "description": "Remove entries (unlocked days only)"},
-            {"id": "finance.verify_transaction", "name": "Verify Transaction", "description": "Mark transactions as verified"},
-            {"id": "finance.close_day", "name": "Close Day", "description": "Lock daily entries permanently"},
-            {"id": "finance.view_reports", "name": "View Finance Reports", "description": "Access financial reports and summaries"},
-            {"id": "finance.manage_accounts", "name": "Manage Accounts", "description": "Add/edit bank and cash accounts"},
-            {"id": "finance.manage_categories", "name": "Manage Categories", "description": "Add/edit expense categories"},
-            {"id": "finance.set_opening_balance", "name": "Set Opening Balance", "description": "Set initial account balances"},
-            {"id": "finance.import_data", "name": "Import Data", "description": "Import financial data from files"},
-            {"id": "finance.export_data", "name": "Export Data", "description": "Export financial data to files"},
-            # Phase 3 - Project Finance Control
-            {"id": "finance.view_project_finance", "name": "View Project Finance", "description": "View project financial summaries and vendor mappings"},
-            {"id": "finance.edit_vendor_mapping", "name": "Edit Vendor Mapping", "description": "Add/edit vendor mappings for projects"},
-            # Phase 3 - Finance Controls & Guardrails
-            {"id": "finance.daily_closing", "name": "Daily Closing", "description": "View and close daily financial entries"},
+            {"id": "finance.cashbook.view", "name": "View Cashbook", "description": "View daily cash book entries"},
+            {"id": "finance.cashbook.create", "name": "Create Entries", "description": "Create new financial entries"},
+            {"id": "finance.cashbook.edit", "name": "Edit Entries", "description": "Modify existing entries (unlocked days only)"},
+            {"id": "finance.cashbook.delete", "name": "Delete Entries", "description": "Remove entries (unlocked days only) - USE WITH CAUTION"},
+            {"id": "finance.cashbook.verify", "name": "Verify Entries", "description": "Mark transactions as verified"},
+            {"id": "finance.daily_closing.view", "name": "View Daily Closing", "description": "View daily closing summaries"},
+            {"id": "finance.daily_closing.create", "name": "Create Daily Closing", "description": "Perform daily closing calculations"},
+            {"id": "finance.daily_closing.lock", "name": "Lock Daily Closing", "description": "Permanently lock daily entries"},
+            {"id": "finance.transaction.reverse", "name": "Reverse Transaction", "description": "Create reversal entries for corrections"}
+        ]
+    },
+    
+    # Bank & Cash Accounts
+    "finance_accounts": {
+        "name": "Bank & Cash Accounts",
+        "permissions": [
+            {"id": "finance.accounts.view", "name": "View Accounts", "description": "View bank and cash account list"},
+            {"id": "finance.accounts.create", "name": "Create Accounts", "description": "Add new bank/cash accounts"},
+            {"id": "finance.accounts.edit", "name": "Edit Accounts", "description": "Modify account details"},
+            {"id": "finance.accounts.opening_balance", "name": "Set Opening Balance", "description": "Set or modify account opening balances"}
+        ]
+    },
+    
+    # Receipts & Invoices
+    "finance_documents": {
+        "name": "Receipts & Invoices",
+        "permissions": [
+            {"id": "finance.receipts.view", "name": "View Receipts", "description": "View payment receipts"},
+            {"id": "finance.receipts.create", "name": "Create Receipts", "description": "Record incoming payments and generate receipts"},
+            {"id": "finance.receipts.download", "name": "Download Receipts", "description": "Download receipt PDFs"},
+            {"id": "finance.invoices.view", "name": "View Invoices", "description": "View GST invoices"},
+            {"id": "finance.invoices.create", "name": "Create Invoices", "description": "Generate GST invoices"},
+            {"id": "finance.invoices.cancel", "name": "Cancel Invoices", "description": "Cancel issued invoices"},
+            {"id": "finance.refunds.view", "name": "View Refunds", "description": "View refund records"},
+            {"id": "finance.refunds.create", "name": "Create Refunds", "description": "Process refunds and cancellations"},
+            {"id": "finance.refunds.approve", "name": "Approve Refunds", "description": "Approve refund requests"}
+        ]
+    },
+    
+    # Project Finance
+    "finance_project": {
+        "name": "Project Finance",
+        "permissions": [
+            {"id": "finance.project.view", "name": "View Project Finance", "description": "View project financial summaries"},
+            {"id": "finance.project.allocate_funds", "name": "Allocate Funds", "description": "Allocate budget to projects"},
+            {"id": "finance.project.vendor_mapping", "name": "Vendor Mapping", "description": "Add/edit vendor cost mappings"},
+            {"id": "finance.project.cost_edit", "name": "Edit Costs", "description": "Modify project cost entries"},
+            {"id": "finance.project.override_budget", "name": "Override Budget", "description": "Approve expenses exceeding budget"}
+        ]
+    },
+    
+    # Expense Requests (Spend Control)
+    "finance_expenses": {
+        "name": "Expense Requests",
+        "permissions": [
+            {"id": "finance.expenses.view", "name": "View Expense Requests", "description": "View expense request list"},
+            {"id": "finance.expenses.create", "name": "Create Expense Request", "description": "Submit expenses for approval"},
+            {"id": "finance.expenses.approve", "name": "Approve Expenses", "description": "Approve or reject expense requests"},
+            {"id": "finance.expenses.record", "name": "Record Expenses", "description": "Record approved expenses in cashbook"},
+            {"id": "finance.expenses.track_refunds", "name": "Track Refunds", "description": "Track pending expense refunds"}
+        ]
+    },
+    
+    # Reports & Visibility
+    "finance_reports": {
+        "name": "Reports & Visibility",
+        "permissions": [
+            {"id": "finance.reports.view", "name": "View Reports", "description": "Access standard financial reports"},
+            {"id": "finance.reports.export", "name": "Export Reports", "description": "Export financial data to files"},
+            {"id": "finance.reports.profit", "name": "View Profit Reports", "description": "View profit analysis - RESTRICTED"},
+            {"id": "finance.reports.margin", "name": "View Margin Reports", "description": "View margin analysis - RESTRICTED"},
             {"id": "finance.monthly_snapshot", "name": "Monthly Snapshot", "description": "View and close monthly snapshots"},
-            {"id": "finance.founder_dashboard", "name": "Founder Dashboard", "description": "View founder financial overview"},
-            # Payment & Receipt System (Admin checkbox-controlled)
-            {"id": "finance.add_receipt", "name": "Add Receipt", "description": "Record incoming payments and generate receipts"},
-            {"id": "finance.view_receipts", "name": "View Receipts", "description": "View payment receipts"},
-            {"id": "finance.edit_payment_schedule", "name": "Edit Payment Schedule", "description": "Modify project payment schedules"},
-            {"id": "finance.create_invoice", "name": "Create Invoice", "description": "Generate GST invoices"},
-            {"id": "finance.issue_refund", "name": "Issue Refund", "description": "Process refunds and cancellations"},
-            {"id": "finance.mark_cancellation", "name": "Mark Cancellation", "description": "Cancel projects and handle forfeitures"},
-            # Account Master permissions
-            {"id": "finance.view_vendors", "name": "View Vendors", "description": "View vendor master list"},
-            {"id": "finance.manage_vendors", "name": "Manage Vendors", "description": "Add/edit/deactivate vendors"},
-            {"id": "finance.view_audit_log", "name": "View Audit Log", "description": "View financial audit trail"},
-            # Leak-Proof Spend Control Permissions
-            {"id": "finance.create_expense_request", "name": "Create Expense Request", "description": "Request expenses for approval"},
-            {"id": "finance.approve_expense", "name": "Approve Expense", "description": "Approve or reject expense requests"},
-            {"id": "finance.record_expense", "name": "Record Expense", "description": "Record approved expenses in cashbook"},
-            {"id": "finance.allow_over_budget", "name": "Allow Over Budget", "description": "Approve expenses that exceed project budget"},
-            {"id": "finance.view_expense_requests", "name": "View Expense Requests", "description": "View expense request list"},
-            {"id": "finance.track_refunds", "name": "Track Refunds", "description": "Track pending refunds and returns"}
+            {"id": "finance.founder_dashboard", "name": "Founder Dashboard", "description": "View founder financial overview"}
+        ]
+    },
+    
+    # Masters & Configuration
+    "finance_masters": {
+        "name": "Masters & Configuration",
+        "permissions": [
+            {"id": "finance.categories.view", "name": "View Categories", "description": "View expense categories"},
+            {"id": "finance.categories.manage", "name": "Manage Categories", "description": "Add/edit expense categories"},
+            {"id": "finance.vendors.view", "name": "View Vendors", "description": "View vendor master list"},
+            {"id": "finance.vendors.manage", "name": "Manage Vendors", "description": "Add/edit/deactivate vendors"},
+            {"id": "finance.payment_schedule.view", "name": "View Payment Schedule", "description": "View project payment schedules"},
+            {"id": "finance.payment_schedule.edit", "name": "Edit Payment Schedule", "description": "Modify payment schedules"},
+            {"id": "finance.payment_schedule.override", "name": "Override Payment Schedule", "description": "Override scheduled payments"}
+        ]
+    },
+    
+    # Controls & Overrides (High-level permissions)
+    "finance_controls": {
+        "name": "Controls & Overrides",
+        "permissions": [
+            {"id": "finance.writeoff.approve", "name": "Approve Write-offs", "description": "Approve financial write-offs"},
+            {"id": "finance.exception.mark", "name": "Mark Exceptions", "description": "Mark transactions as exceptional cases"},
+            {"id": "finance.audit_log.view", "name": "View Audit Log", "description": "View financial audit trail"},
+            {"id": "finance.import_data", "name": "Import Data", "description": "Import financial data from files"},
+            {"id": "finance.cancellation.mark", "name": "Mark Cancellation", "description": "Cancel projects and handle forfeitures"}
+        ]
+    },
+    
+    # Legacy Finance Permissions (backward compatibility mapping)
+    "finance": {
+        "name": "Finance (Legacy)",
+        "permissions": [
+            # These map to new granular permissions but kept for backward compatibility
+            {"id": "finance.view_dashboard", "name": "View Finance Dashboard", "description": "View finance overview (legacy)"},
+            {"id": "finance.view_cashbook", "name": "View Cash Book", "description": "View daily cash book (legacy)"},
+            {"id": "finance.view_bankbook", "name": "View Bank Book", "description": "View bank transactions (legacy)"},
+            {"id": "finance.add_transaction", "name": "Add Transaction", "description": "Create entries (legacy)"},
+            {"id": "finance.edit_transaction", "name": "Edit Transaction", "description": "Edit entries (legacy)"},
+            {"id": "finance.delete_transaction", "name": "Delete Transaction", "description": "Delete entries (legacy)"},
+            {"id": "finance.verify_transaction", "name": "Verify Transaction", "description": "Verify entries (legacy)"},
+            {"id": "finance.close_day", "name": "Close Day", "description": "Lock daily entries (legacy)"},
+            {"id": "finance.view_reports", "name": "View Finance Reports", "description": "View reports (legacy)"},
+            {"id": "finance.manage_accounts", "name": "Manage Accounts", "description": "Manage accounts (legacy)"},
+            {"id": "finance.manage_categories", "name": "Manage Categories", "description": "Manage categories (legacy)"},
+            {"id": "finance.set_opening_balance", "name": "Set Opening Balance", "description": "Set balances (legacy)"},
+            {"id": "finance.import_data", "name": "Import Data", "description": "Import data (legacy)"},
+            {"id": "finance.export_data", "name": "Export Data", "description": "Export data (legacy)"},
+            {"id": "finance.view_project_finance", "name": "View Project Finance", "description": "View project finance (legacy)"},
+            {"id": "finance.edit_vendor_mapping", "name": "Edit Vendor Mapping", "description": "Edit vendor mapping (legacy)"},
+            {"id": "finance.daily_closing", "name": "Daily Closing", "description": "Daily closing (legacy)"},
+            {"id": "finance.add_receipt", "name": "Add Receipt", "description": "Add receipt (legacy)"},
+            {"id": "finance.view_receipts", "name": "View Receipts", "description": "View receipts (legacy)"},
+            {"id": "finance.edit_payment_schedule", "name": "Edit Payment Schedule", "description": "Edit schedule (legacy)"},
+            {"id": "finance.create_invoice", "name": "Create Invoice", "description": "Create invoice (legacy)"},
+            {"id": "finance.issue_refund", "name": "Issue Refund", "description": "Issue refund (legacy)"},
+            {"id": "finance.mark_cancellation", "name": "Mark Cancellation", "description": "Mark cancellation (legacy)"},
+            {"id": "finance.view_vendors", "name": "View Vendors", "description": "View vendors (legacy)"},
+            {"id": "finance.manage_vendors", "name": "Manage Vendors", "description": "Manage vendors (legacy)"},
+            {"id": "finance.view_audit_log", "name": "View Audit Log", "description": "View audit log (legacy)"},
+            {"id": "finance.create_expense_request", "name": "Create Expense Request", "description": "Create expense (legacy)"},
+            {"id": "finance.approve_expense", "name": "Approve Expense", "description": "Approve expense (legacy)"},
+            {"id": "finance.record_expense", "name": "Record Expense", "description": "Record expense (legacy)"},
+            {"id": "finance.allow_over_budget", "name": "Allow Over Budget", "description": "Allow over budget (legacy)"},
+            {"id": "finance.view_expense_requests", "name": "View Expense Requests", "description": "View expenses (legacy)"},
+            {"id": "finance.track_refunds", "name": "Track Refunds", "description": "Track refunds (legacy)"}
         ]
     }
 }
