@@ -59,6 +59,7 @@ const FounderDashboard = () => {
   const [expenseStats, setExpenseStats] = useState(null);
   const [revenueReality, setRevenueReality] = useState(null);
   const [safeUseSummary, setSafeUseSummary] = useState(null);
+  const [liabilitiesSummary, setLiabilitiesSummary] = useState(null);
   const [revenuePeriod, setRevenuePeriod] = useState('month');
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -66,12 +67,13 @@ const FounderDashboard = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [dashRes, safeSpendRes, alertsRes, expenseStatsRes, safeUseRes] = await Promise.all([
+      const [dashRes, safeSpendRes, alertsRes, expenseStatsRes, safeUseRes, liabilitiesRes] = await Promise.all([
         axios.get(`${API}/finance/founder-dashboard`, { withCredentials: true }),
         axios.get(`${API}/finance/safe-spend`, { withCredentials: true }),
         axios.get(`${API}/finance/alerts`, { withCredentials: true }),
         axios.get(`${API}/finance/expense-requests/stats/summary`, { withCredentials: true }).catch(() => ({ data: null })),
-        axios.get(`${API}/finance/safe-use-summary`, { withCredentials: true }).catch(() => ({ data: null }))
+        axios.get(`${API}/finance/safe-use-summary`, { withCredentials: true }).catch(() => ({ data: null })),
+        axios.get(`${API}/finance/liabilities/summary`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
       setData(dashRes.data);
       setSafeSpend(safeSpendRes.data);
