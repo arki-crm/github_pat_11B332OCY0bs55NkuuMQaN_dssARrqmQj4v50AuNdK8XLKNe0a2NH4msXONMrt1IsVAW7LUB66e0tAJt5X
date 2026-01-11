@@ -19,18 +19,21 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://money-monitor-220.pr
 def session():
     """Create authenticated session"""
     s = requests.Session()
-    s.headers.update({"Content-Type": "application/json"})
     
     # Setup local admin
     setup_resp = s.post(f"{BASE_URL}/api/auth/setup-local-admin")
     assert setup_resp.status_code == 200
     
-    # Login
+    # Login - this sets the session cookie
     login_resp = s.post(f"{BASE_URL}/api/auth/local-login", json={
         "email": "thaha.pakayil@gmail.com",
         "password": "password123"
     })
     assert login_resp.status_code == 200
+    
+    # Verify session is working
+    me_resp = s.get(f"{BASE_URL}/api/auth/me")
+    assert me_resp.status_code == 200
     
     return s
 
