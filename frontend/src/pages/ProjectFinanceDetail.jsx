@@ -1077,6 +1077,26 @@ const ProjectFinanceDetail = () => {
         </Card>
       )}
 
+      {/* Project Documents Section */}
+      <Card className="border-slate-200" data-testid="project-documents-section">
+        <CardHeader className="border-b border-slate-200">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <FileText className="w-5 h-5 text-purple-600" />
+            Project Documents
+          </CardTitle>
+          <p className="text-sm text-slate-500 mt-1">
+            Agreements, quotations, vendor invoices, and supporting documents
+          </p>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <AttachmentUploader
+            entityType="project"
+            entityId={projectId}
+            maxFiles={50}
+          />
+        </CardContent>
+      </Card>
+
       {/* Payment Schedule Section */}
       {paymentSchedule && (
         <Card className="border-slate-200" data-testid="payment-schedule-section">
