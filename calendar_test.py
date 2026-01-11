@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 class CalendarSystemTester:
-    def __init__(self, base_url="https://money-monitor-220.preview.emergentagent.com"):
+    def __init__(self, base_url="https://moneymanager-146.preview.emergentagent.com"):
         self.base_url = base_url
         self.admin_token = None
         self.designer_token = None
