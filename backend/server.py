@@ -19816,7 +19816,7 @@ async def create_salary_payment(data: SalaryPaymentCreate, request: Request):
         raise HTTPException(status_code=400, detail="Employee is marked as exit. Only final settlement payments allowed.")
     
     # Verify account exists
-    account = await db.accounts.find_one({"account_id": data.account_id})
+    account = await db.accounting_accounts.find_one({"account_id": data.account_id})
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     
@@ -20245,7 +20245,7 @@ async def get_salary_summary(request: Request):
     )
     
     # Get cash available
-    accounts = await db.accounts.find({"is_active": True}, {"_id": 0}).to_list(100)
+    accounts = await db.accounting_accounts.find({"is_active": True}, {"_id": 0}).to_list(100)
     total_cash = sum(a.get("current_balance", a.get("opening_balance", 0)) for a in accounts)
     
     # Calculate risk status
