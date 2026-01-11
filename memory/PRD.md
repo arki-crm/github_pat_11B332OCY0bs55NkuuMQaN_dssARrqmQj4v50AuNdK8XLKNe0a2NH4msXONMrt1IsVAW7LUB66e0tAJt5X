@@ -538,6 +538,17 @@ A comprehensive, admin-controlled permission system for finance operations with 
 - **CRM untouched** - Finance permissions are completely separate
 - **Backward compatibility** - Legacy finance permissions kept
 
+### Permission Editor UI (Visual Admin Tool):
+| Feature | Description |
+|---------|-------------|
+| **Role Dropdown** | Shows all 13 roles grouped by category (Administration, Sales, Design, Operations, Service, Finance, Leadership) |
+| **Permission Counts** | Displays CRM/Finance/Total breakdown |
+| **Filter Buttons** | All Permissions, CRM Only, Finance Only |
+| **Checkboxes** | Toggle individual permissions on/off |
+| **Reset to Defaults** | Restore role template permissions |
+| **Save Button** | Persist custom permission changes |
+| **Visual Styling** | Finance groups have emerald green styling to distinguish from CRM |
+
 ---
 
 ### P3 - Future Features (Accounting Phase 2)
