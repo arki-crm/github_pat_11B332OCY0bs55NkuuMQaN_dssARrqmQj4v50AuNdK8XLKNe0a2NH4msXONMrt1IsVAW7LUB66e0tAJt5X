@@ -23911,7 +23911,7 @@ ALLOWED_ATTACHMENT_TYPES = {
 MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024  # 15MB
 
 # Valid entity types for attachments
-VALID_ATTACHMENT_ENTITIES = ["cashbook", "expense", "project", "liability"]
+VALID_ATTACHMENT_ENTITIES = ["cashbook", "expense", "project", "liability", "execution"]
 
 
 class AttachmentMetadata(BaseModel):
