@@ -23587,6 +23587,314 @@ async def cancel_recurring_payable(payable_id: str, request: Request):
     return {"success": True, "message": "Payable cancelled"}
 
 
+# ============ EXECUTION LEDGER MODULE ============
+# Purely observational - does NOT affect accounting logic
+
+EXECUTION_CATEGORIES = [
+    "Modular Material",
+    "Hardware & Accessories", 
+    "Factory / Job Work",
+    "Installation",
+    "Transportation / Logistics",
+    "Non-Modular Furniture",
+    "Site Expense"
+]
+
+
+class ExecutionEntryCreate(BaseModel):
+    project_id: str
+    category: str
+    material_name: str
+    specification: Optional[str] = None
+    brand: Optional[str] = None
+    size_unit: Optional[str] = None  # Thickness / Size / Unit
+    quantity: float
+    rate_per_unit: float
+    vendor: Optional[str] = None
+    execution_date: str
+    linked_cashbook_id: Optional[str] = None  # Reference only, not controlling
+    remarks: Optional[str] = None
+
+
+class ExecutionEntryUpdate(BaseModel):
+    category: Optional[str] = None
+    material_name: Optional[str] = None
+    specification: Optional[str] = None
+    brand: Optional[str] = None
+    size_unit: Optional[str] = None
+    quantity: Optional[float] = None
+    rate_per_unit: Optional[float] = None
+    vendor: Optional[str] = None
+    execution_date: Optional[str] = None
+    linked_cashbook_id: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+@api_router.get("/finance/execution-ledger/categories")
+async def get_execution_categories():
+    """Get available execution entry categories"""
+    return {"categories": EXECUTION_CATEGORIES}
+
+
+@api_router.post("/finance/execution-ledger")
+async def create_execution_entry(entry: ExecutionEntryCreate, request: Request):
+    """Create a new execution ledger entry"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    # Permission: Admin, ProjectManager can add
+    if user_doc.get("role") not in ["Admin", "Founder", "ProjectManager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Validate project exists
+    project = await db.projects.find_one({"project_id": entry.project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Validate category
+    if entry.category not in EXECUTION_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {EXECUTION_CATEGORIES}")
+    
+    entry_id = f"exec_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    total_value = entry.quantity * entry.rate_per_unit
+    
+    new_entry = {
+        "execution_id": entry_id,
+        "project_id": entry.project_id,
+        "project_name": project.get("project_name", ""),
+        "category": entry.category,
+        "material_name": entry.material_name,
+        "specification": entry.specification,
+        "brand": entry.brand,
+        "size_unit": entry.size_unit,
+        "quantity": entry.quantity,
+        "rate_per_unit": entry.rate_per_unit,
+        "total_value": total_value,
+        "vendor": entry.vendor,
+        "execution_date": entry.execution_date,
+        "linked_cashbook_id": entry.linked_cashbook_id,  # Reference only
+        "remarks": entry.remarks,
+        "created_by": user.user_id,
+        "created_by_name": user.name,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.execution_ledger.insert_one(new_entry)
+    
+    new_entry.pop("_id", None)
+    return {"success": True, "entry": new_entry}
+
+
+@api_router.get("/finance/execution-ledger/project/{project_id}")
+async def get_project_execution_entries(project_id: str, request: Request, category: Optional[str] = None):
+    """Get all execution entries for a project"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    # Permission: Admin, Founder, Finance roles, ProjectManager can view
+    allowed_roles = ["Admin", "Founder", "SeniorAccountant", "JuniorAccountant", "ProjectManager", "CharteredAccountant"]
+    if user_doc.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {"project_id": project_id}
+    if category:
+        query["category"] = category
+    
+    entries = await db.execution_ledger.find(
+        query,
+        {"_id": 0}
+    ).sort("execution_date", -1).to_list(1000)
+    
+    # Calculate summary by category
+    summary = {}
+    total_value = 0
+    for entry in entries:
+        cat = entry.get("category", "Other")
+        if cat not in summary:
+            summary[cat] = {"count": 0, "total_value": 0}
+        summary[cat]["count"] += 1
+        summary[cat]["total_value"] += entry.get("total_value", 0)
+        total_value += entry.get("total_value", 0)
+    
+    return {
+        "entries": entries,
+        "count": len(entries),
+        "total_value": total_value,
+        "summary_by_category": summary
+    }
+
+
+@api_router.get("/finance/execution-ledger/{execution_id}")
+async def get_execution_entry(execution_id: str, request: Request):
+    """Get a single execution entry"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    allowed_roles = ["Admin", "Founder", "SeniorAccountant", "JuniorAccountant", "ProjectManager", "CharteredAccountant"]
+    if user_doc.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    entry = await db.execution_ledger.find_one({"execution_id": execution_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Execution entry not found")
+    
+    return entry
+
+
+@api_router.put("/finance/execution-ledger/{execution_id}")
+async def update_execution_entry(execution_id: str, update: ExecutionEntryUpdate, request: Request):
+    """Update an execution entry"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    if user_doc.get("role") not in ["Admin", "Founder", "ProjectManager"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    entry = await db.execution_ledger.find_one({"execution_id": execution_id})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Execution entry not found")
+    
+    update_dict = {k: v for k, v in update.dict().items() if v is not None}
+    
+    if update.category and update.category not in EXECUTION_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category")
+    
+    # Recalculate total if quantity or rate changed
+    new_qty = update_dict.get("quantity", entry.get("quantity", 0))
+    new_rate = update_dict.get("rate_per_unit", entry.get("rate_per_unit", 0))
+    update_dict["total_value"] = new_qty * new_rate
+    update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.execution_ledger.update_one(
+        {"execution_id": execution_id},
+        {"$set": update_dict}
+    )
+    
+    updated = await db.execution_ledger.find_one({"execution_id": execution_id}, {"_id": 0})
+    return {"success": True, "entry": updated}
+
+
+@api_router.delete("/finance/execution-ledger/{execution_id}")
+async def delete_execution_entry(execution_id: str, request: Request):
+    """Delete an execution entry (Admin only)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    # Only Admin can delete
+    if user_doc.get("role") != "Admin":
+        raise HTTPException(status_code=403, detail="Only Admin can delete execution entries")
+    
+    entry = await db.execution_ledger.find_one({"execution_id": execution_id})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Execution entry not found")
+    
+    await db.execution_ledger.delete_one({"execution_id": execution_id})
+    
+    return {"success": True, "message": "Execution entry deleted"}
+
+
+@api_router.get("/finance/execution-ledger/export/{project_id}")
+async def export_execution_ledger(project_id: str, request: Request, format: str = "csv"):
+    """Export execution ledger for a project (CSV or Excel)"""
+    user = await get_current_user(request)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    
+    allowed_roles = ["Admin", "Founder", "SeniorAccountant", "ProjectManager"]
+    if user_doc.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    project = await db.projects.find_one({"project_id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    entries = await db.execution_ledger.find(
+        {"project_id": project_id},
+        {"_id": 0}
+    ).sort("execution_date", -1).to_list(5000)
+    
+    if not entries:
+        raise HTTPException(status_code=404, detail="No execution entries found for this project")
+    
+    # Prepare export data
+    export_rows = []
+    for entry in entries:
+        export_rows.append({
+            "Execution ID": entry.get("execution_id", ""),
+            "Date": entry.get("execution_date", ""),
+            "Category": entry.get("category", ""),
+            "Material/Service": entry.get("material_name", ""),
+            "Specification": entry.get("specification", ""),
+            "Brand": entry.get("brand", ""),
+            "Size/Unit": entry.get("size_unit", ""),
+            "Quantity": entry.get("quantity", 0),
+            "Rate": entry.get("rate_per_unit", 0),
+            "Total Value": entry.get("total_value", 0),
+            "Vendor": entry.get("vendor", ""),
+            "Remarks": entry.get("remarks", ""),
+            "Created By": entry.get("created_by_name", ""),
+            "Created At": entry.get("created_at", "")
+        })
+    
+    project_name = project.get("project_name", "Project").replace(" ", "_")
+    
+    if format.lower() == "excel":
+        from openpyxl import Workbook
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Execution Ledger"
+        
+        # Header
+        headers = list(export_rows[0].keys()) if export_rows else []
+        ws.append(headers)
+        
+        # Data
+        for row in export_rows:
+            ws.append(list(row.values()))
+        
+        # Auto-width columns
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[column].width = min(max_length + 2, 50)
+        
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=Execution_Ledger_{project_name}.xlsx"}
+        )
+    else:
+        # CSV format
+        from io import StringIO
+        import csv
+        
+        output = StringIO()
+        if export_rows:
+            writer = csv.DictWriter(output, fieldnames=export_rows[0].keys())
+            writer.writeheader()
+            writer.writerows(export_rows)
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=Execution_Ledger_{project_name}.csv"}
+        )
+
+
 # ============ DOCUMENT ATTACHMENT (PROOF) LAYER ============
 
 # Finance attachments directory
