@@ -1239,6 +1239,66 @@ finance.audit_log.view
 
 ---
 
+## ✅ Execution Ledger Module - COMPLETED Jan 16, 2026
+
+Purely observational module for tracking material purchases and service execution at granular level for analysis & leakage control.
+
+**Location:** Project Finance → Project Detail (not a separate sidebar item)
+
+**Entry Types:**
+- Modular Material
+- Hardware & Accessories
+- Factory / Job Work
+- Installation
+- Transportation / Logistics
+- Non-Modular Furniture
+- Site Expense
+
+**Fields per Entry:**
+- Execution ID (auto), Project ID, Category
+- Material/Service Name, Specification, Brand
+- Size/Unit, Quantity, Rate per Unit
+- Total Value (auto = qty × rate)
+- Vendor, Execution Date
+- Linked Cashbook Entry (optional, reference only)
+- Bill Uploads (PDF/JPG/PNG, max 15MB)
+- Remarks, Created By, Created At
+
+**CRITICAL: Does NOT affect accounting**
+- Does NOT create cashbook entries
+- Does NOT change liabilities
+- Does NOT affect surplus/lock logic
+- Purely observational & analytical
+
+**Permissions:**
+- View: Admin, Founder, Finance, ProjectManager, CA
+- Add/Edit: Admin, ProjectManager
+- Delete: Admin only
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/finance/execution-ledger/categories` | GET | Get available categories |
+| `/api/finance/execution-ledger` | POST | Create entry |
+| `/api/finance/execution-ledger/project/{id}` | GET | Get entries for project with summary |
+| `/api/finance/execution-ledger/{id}` | GET | Get single entry |
+| `/api/finance/execution-ledger/{id}` | PUT | Update entry |
+| `/api/finance/execution-ledger/{id}` | DELETE | Delete entry (Admin only) |
+| `/api/finance/execution-ledger/export/{id}` | GET | Export CSV/Excel |
+
+**Export:** Project-wise CSV & Excel for internal analysis
+
+**Testing:** 15 backend + frontend tests passed (100%)
+
+**Future-Ready (NOT implemented yet):**
+- Material price benchmarking
+- Cutlist generator
+- Vendor analytics
+- BOQ comparison
+- Margin variance reports
+
+---
+
 ## 🔜 Upcoming Tasks
 
 ### P2: Backend Refactoring
