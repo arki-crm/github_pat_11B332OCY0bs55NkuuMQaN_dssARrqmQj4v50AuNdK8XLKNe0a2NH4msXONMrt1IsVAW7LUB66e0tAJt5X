@@ -558,14 +558,14 @@ export default function ExecutionLedger({ projectId, userRole, transactions = []
             <div className="col-span-2">
               <Label>Link to Cashbook Entry (optional)</Label>
               <Select 
-                value={form.linked_cashbook_id} 
-                onValueChange={(v) => setForm({ ...form, linked_cashbook_id: v })}
+                value={form.linked_cashbook_id || "none"} 
+                onValueChange={(v) => setForm({ ...form, linked_cashbook_id: v === "none" ? "" : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select transaction (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {transactions.filter(t => t.transaction_type === 'outflow').slice(0, 50).map(txn => (
                     <SelectItem key={txn.transaction_id} value={txn.transaction_id}>
                       {formatDate(txn.created_at)} - {formatCurrency(txn.amount)} - {txn.remarks?.substring(0, 30) || txn.category_name}
