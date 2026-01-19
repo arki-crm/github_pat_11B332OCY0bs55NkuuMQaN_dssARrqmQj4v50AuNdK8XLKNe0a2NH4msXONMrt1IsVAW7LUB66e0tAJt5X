@@ -12,7 +12,7 @@ import subprocess
 
 class WarrantyServiceTester:
     def __init__(self):
-        self.base_url = "https://moneymanager-146.preview.emergentagent.com"
+        self.base_url = "https://design-finance-2.preview.emergentagent.com"
         self.admin_token = None
         self.technician_token = None
         self.technician_user_id = None

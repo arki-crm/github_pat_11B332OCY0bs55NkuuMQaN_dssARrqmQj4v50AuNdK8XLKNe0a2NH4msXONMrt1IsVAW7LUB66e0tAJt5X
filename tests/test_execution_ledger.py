@@ -9,7 +9,7 @@ import os
 import json
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://moneymanager-146.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://design-finance-2.preview.emergentagent.com')
 
 # Test credentials
 TEST_EMAIL = "thaha.pakayil@gmail.com"
