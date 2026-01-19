@@ -411,7 +411,33 @@ If you see `{ ok: 1 }`, MongoDB is working! ✅
 
 ---
 
-### Step 6.4: Access Your Application
+### Step 6.4: Verify Login API Works
+
+Test the login endpoint to confirm database connectivity:
+
+```bash
+curl -X POST http://localhost:8001/api/auth/local-login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"YOUR_SEED_ADMIN_EMAIL","password":"YOUR_SEED_ADMIN_PASSWORD"}'
+```
+
+Replace with your actual credentials from `.env`. Example:
+```bash
+curl -X POST http://localhost:8001/api/auth/local-login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@yourcompany.com","password":"YourSecurePassword123!"}'
+```
+
+**Expected output:**
+```json
+{"success":true,"message":"Login successful","user":{...}}
+```
+
+If you see `"success": true`, the database and authentication are working! ✅
+
+---
+
+### Step 6.5: Access Your Application
 
 Open your web browser and go to:
 
