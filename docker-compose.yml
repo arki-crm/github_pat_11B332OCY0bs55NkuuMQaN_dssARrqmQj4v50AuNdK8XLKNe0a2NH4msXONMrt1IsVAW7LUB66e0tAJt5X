@@ -9,18 +9,15 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MongoDB root password required}
-      MONGO_INITDB_DATABASE: arkiflo
     volumes:
       - mongo_data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    ports:
-      - "27017:27017"
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/01-create-app-user.js:ro
     networks:
       - arkiflo_network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "mongosh", "-u", "${MONGO_ROOT_USER:-admin}", "-p", "${MONGO_ROOT_PASSWORD}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
 
@@ -32,9 +29,13 @@ services:
     container_name: arkiflo_backend
     restart: unless-stopped
     environment:
-      - MONGO_URL=mongodb://${MONGO_APP_USER:-arkiflo_app}:${MONGO_APP_PASSWORD:?MongoDB app password required}@mongo:27017/arkiflo?authSource=arkiflo
+      # CRITICAL: authSource=admin because user is created in admin database
+      - MONGO_URL=mongodb://${MONGO_APP_USER:-arkiflo_app}:${MONGO_APP_PASSWORD:?MongoDB app password required}@mongo:27017/arkiflo?authSource=admin
       - DB_NAME=arkiflo
       - ENVIRONMENT=production
+      # Pass credentials for seeding
+      - SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-admin@arkiflo.com}
+      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-Admin123!}
     volumes:
       - uploads_data:/app/uploads
       - backups_data:/app/backups
@@ -50,7 +51,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 15s
+      start_period: 20s
 
   # ============ FRONTEND ============
   frontend:
@@ -63,17 +64,11 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - arkiflo_network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 networks:
   arkiflo_network:
