@@ -1587,3 +1587,67 @@ docker compose up -d
 - [ ] Python linting cleanup
 - [ ] 27 potential enhancements (AI insights, bank reconciliation, multi-currency, etc.)
 
+
+---
+
+## ✅ Docker Deployment Authentication Fix - COMPLETED Jan 19, 2026
+
+**Critical bug fix** for the admin user seeding function that prevented login after fresh Docker deployment.
+
+### Issues Fixed
+
+1. **Field Name Mismatch**: `seed_initial_admin()` was creating users with `password_hash` field, but `local_login()` endpoint looks for `local_password` field
+2. **Hashing Method Mismatch**: Seeder used direct `hashlib.sha256()`, but login verification uses `hash_password()` with a salt
+3. **Missing Status Field**: Seeder didn't set `status: "Active"` which is required by the login endpoint
+
+### Changes Made
+
+**File:** `/app/backend/server.py` - `seed_initial_admin()` function
+
+| Before | After |
+|--------|-------|
+| `"password_hash": hashlib.sha256(...)` | `"local_password": hash_password(...)` |
+| `"is_active": True` | `"status": "Active"` |
+| Missing `updated_at` | Added `"updated_at": datetime...` |
+
+### Validation Steps for Contabo Deployment
+
+```bash
+# 1. Clean slate (WARNING: deletes all data)
+docker compose down -v
+
+# 2. Build and start
+docker compose up -d --build
+
+# 3. Wait for services
+sleep 60
+
+# 4. Check all services healthy
+docker compose ps
+
+# 5. Test health endpoint
+curl http://localhost:8001/api/health
+
+# 6. Test login with seed credentials from .env
+curl -X POST http://localhost:8001/api/auth/local-login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"YOUR_SEED_ADMIN_EMAIL","password":"YOUR_SEED_ADMIN_PASSWORD"}'
+```
+
+### Expected Login Response
+
+```json
+{"success":true,"message":"Login successful","user":{...}}
+```
+
+### Deployment File Checklist
+
+- [x] `/app/docker-compose.yml` - Service orchestration
+- [x] `/app/mongo-init.js` - MongoDB user initialization (authSource=admin)
+- [x] `/app/.env.example` - Root environment template
+- [x] `/app/backend/Dockerfile` - Backend container
+- [x] `/app/frontend/Dockerfile` - Frontend container  
+- [x] `/app/frontend/nginx.conf` - Nginx with API proxy
+- [x] `/app/README_DEPLOYMENT.md` - Complete deployment guide
+- [x] `/app/validate-deployment.sh` - Post-deployment verification
+- [x] `/app/backend/server.py` - Fixed seed_initial_admin() function
