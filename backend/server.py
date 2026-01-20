@@ -1225,6 +1225,9 @@ async def google_callback(request: Request, response: Response, code: str = None
             user_count = await db.users.count_documents({})
             role = "Admin" if user_count == 0 else "Designer"
             
+            # Get default permissions for the role
+            default_perms = DEFAULT_ROLE_PERMISSIONS.get(role, [])
+            
             # Create new user
             user_id = f"user_{uuid.uuid4().hex[:12]}"
             initials = "".join([n[0].upper() for n in name.split()[:2]]) if name else "U"
@@ -1239,12 +1242,13 @@ async def google_callback(request: Request, response: Response, code: str = None
                 "initials": initials,
                 "google_sub": google_sub,
                 "auth_provider": "google",
+                "permissions": default_perms,  # Set permissions from role defaults
                 "created_at": now.isoformat(),
                 "updated_at": now.isoformat(),
                 "last_login": now.isoformat()
             }
             await db.users.insert_one(new_user)
-            logger.info(f"New user created via Google OAuth: {email} (role: {role})")
+            logger.info(f"New user created via Google OAuth: {email} (role: {role}, permissions: {len(default_perms)})")
         
         # Create session token
         session_token = secrets.token_urlsafe(32)
