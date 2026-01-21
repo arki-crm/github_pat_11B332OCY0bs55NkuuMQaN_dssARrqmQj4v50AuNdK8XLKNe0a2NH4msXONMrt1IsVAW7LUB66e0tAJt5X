@@ -3,7 +3,7 @@
 # ============================================
 
 # -------- Stage 1: Build React App --------
-# We name this stage "builder" so the next stage can find it
+# We name this stage "builder" so Stage 2 can find it
 FROM node:20-alpine AS builder
 
 # Alpine uses 'apk' instead of 'apt-get'
@@ -20,10 +20,12 @@ ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# If your Dockerfile is INSIDE the frontend folder:
+# 1. Copy package files 
+# (This assumes the Dockerfile is inside the /frontend folder)
 COPY package.json package-lock.json* ./
 RUN npm install
 
+# 2. Copy source and build
 COPY . ./
 RUN npm run build
 
@@ -32,11 +34,11 @@ FROM nginx:alpine
 
 RUN apk add --no-cache curl
 
-# Ensure your nginx.conf exists in the same folder as this Dockerfile
+# Ensure nginx.conf exists in your frontend folder
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# We copy from "builder" (the name we gave Stage 1)
-# React build output is usually in 'build' (CRA) or 'dist' (Vite)
+# 3. Copy from "builder" stage
+# React (CRA) builds to /app/build. Vite builds to /app/dist.
 COPY --from=builder /app/build /usr/share/nginx/html
 
 EXPOSE 80
