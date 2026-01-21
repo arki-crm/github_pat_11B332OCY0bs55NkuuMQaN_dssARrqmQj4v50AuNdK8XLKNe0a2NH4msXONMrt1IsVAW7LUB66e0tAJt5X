@@ -28,7 +28,7 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 COPY frontend/package.json ./
 RUN npm install
 
-COPY frontend/ ./
+COPY . .
 RUN npm run build
 # Install dependencies with yarn (matching packageManager in package.json)
 # --network-timeout: Prevent timeout on slow VPS connections
