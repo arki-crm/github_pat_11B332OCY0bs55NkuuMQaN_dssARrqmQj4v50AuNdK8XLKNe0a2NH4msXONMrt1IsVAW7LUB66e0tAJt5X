@@ -14,8 +14,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # IMPORTANT: work inside frontend directory
-WORKDIR /app/frontend
-
+WORKDIR /app
 # Build argument
 ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
@@ -24,15 +23,17 @@ ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Copy ONLY frontend package.json
-COPY frontend/package.json ./
-
+COPY frontend/package.json ./frontend/  # Fix path if needed
+RUN cd frontend && npm install
+COPY frontend/ ./frontend/
+RUN cd frontend && npm run build
 # Install deps (safe for missing lock file)
-RUN npm install --legacy-peer-deps
+#RUN npm install --legacy-peer-deps
 
 # Copy frontend source only
-COPY . .
+#COPY . .
 # Build React app
-RUN npm run build
+#RUN npm run build
 
 
 # -------- Stage 2: Serve with Nginx --------
