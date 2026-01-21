@@ -3,48 +3,41 @@
 # ============================================
 
 # -------- Stage 1: Build React App --------
-FROM node:20-alpine AS build
+# We name this stage "builder" so the next stage can find it
+FROM node:20-alpine AS builder
 
-# Install build tools
-RUN apt-get update && apt-get install -y \
+# Alpine uses 'apk' instead of 'apt-get'
+RUN apk add --no-cache \
     python3 \
     make \
     g++ \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+    git
 
-# IMPORTANT: work inside frontend directory
 WORKDIR /app
-# Build argument
+
+# Build arguments
 ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
-
-# Increase memory (important for VPS)
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Copy ONLY frontend package.json
+# If your Dockerfile is INSIDE the frontend folder:
 COPY package.json package-lock.json* ./
 RUN npm install
+
 COPY . ./
 RUN npm run build
-# Install deps (safe for missing lock file)
-#RUN npm install --legacy-peer-deps
-
-# Copy frontend source only
-#COPY . .
-# Build React app
-#RUN npm run build
-
 
 # -------- Stage 2: Serve with Nginx --------
 FROM nginx:alpine
 
 RUN apk add --no-cache curl
 
+# Ensure your nginx.conf exists in the same folder as this Dockerfile
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# React build output
-COPY --from=builder /app/frontend/build /usr/share/nginx/html
+# We copy from "builder" (the name we gave Stage 1)
+# React build output is usually in 'build' (CRA) or 'dist' (Vite)
+COPY --from=builder /app/build /usr/share/nginx/html
 
 EXPOSE 80
 
