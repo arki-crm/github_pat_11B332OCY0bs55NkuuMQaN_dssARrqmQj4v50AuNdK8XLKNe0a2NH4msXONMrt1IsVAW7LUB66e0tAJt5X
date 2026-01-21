@@ -25,7 +25,7 @@ ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Copy package files first (better layer caching)
-COPY package.json yarn.lock ./
+OPY package.json package-lock.json ./
 
 # Install dependencies with yarn (matching packageManager in package.json)
 # --network-timeout: Prevent timeout on slow VPS connections
@@ -36,6 +36,8 @@ COPY . .
 
 # Build production bundle
 RUN npm ci
+
+RUN npm run build
 
 # -------- Stage 2: Serve with Nginx --------
 FROM nginx:alpine
