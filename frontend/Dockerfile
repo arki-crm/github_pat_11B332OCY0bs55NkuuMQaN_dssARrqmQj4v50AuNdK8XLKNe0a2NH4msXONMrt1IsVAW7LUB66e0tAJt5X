@@ -23,9 +23,9 @@ ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Copy ONLY frontend package.json
-COPY frontend/package.json frontend/package-lock.json* ./
+COPY package.json package-lock.json* ./
 RUN npm install
-COPY frontend/ ./
+COPY . ./
 RUN npm run build
 # Install deps (safe for missing lock file)
 #RUN npm install --legacy-peer-deps
